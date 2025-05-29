@@ -1,18 +1,121 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Minimalistisch</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Modern Minimalist Homepage</title>
   <style>
-    body { margin:0; font-family:sans-serif; text-align:center; padding:2rem; }
-    h1 { font-size:2.5rem; margin-bottom:1rem; }
-    button { padding:0.75rem 1.5rem; border:none; background:#333; color:#fff; cursor:pointer; }
+    /* Reset */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      color: #333;
+      background: #f5f5dc; /* Beige Hintergrund */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      text-align: center;
+    }
+    /* Navigation */
+    nav {
+      width: 100%;
+      background: transparent;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    .nav-links {
+      list-style: none;
+      display: flex;
+      gap: 1.5rem;
+    }
+    .nav-links li a {
+      text-decoration: none;
+      color: #333;
+      font-weight: bold;
+      transition: color 0.3s;
+    }
+    .nav-links li a:hover {
+      color: #666;
+    }
+    .menu-icon {
+      display: none;
+      cursor: pointer;
+    }
+    /* Hero */
+    .hero {
+      margin-top: 4rem; /* Platz für Navigation */
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      max-width: 600px;
+      padding: 0 1rem;
+    }
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+    }
+    p {
+      font-size: 1rem;
+      margin-bottom: 2rem;
+      line-height: 1.5;
+    }
+    .btn {
+      display: inline-block;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      text-decoration: none;
+      color: #333;
+      border: 2px solid #333;
+      border-radius: 4px;
+      transition: background 0.3s, color 0.3s;
+    }
+    .btn:hover {
+      background: #333;
+      color: #fafafa;
+    }
+    /* Responsive */
+    @media (max-width: 600px) {
+      .nav-links {
+        display: none;
+      }
+      .menu-icon {
+        display: block;
+      }
+    }
   </style>
 </head>
 <body>
-  <h1>Modernes Minimalistisches Design</h1>
-  <p>Dein Text hier kurz und prägnant.</p>
-  <button>Mehr Erfahren</button>
+  <!-- Navigation -->
+  <nav>
+    <div class="logo"><a href="#"><strong>Logo</strong></a></div>
+    <ul class="nav-links">
+      <li><a href="#">Home</a></li>
+      <li><a href="#">About</a></li>
+      <li><a href="#">Services</a></li>
+      <li><a href="#">Contact</a></li>
+    </ul>
+    <div class="menu-icon">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect y="4" width="24" height="2" fill="#333"/>
+        <rect y="11" width="24" height="2" fill="#333"/>
+        <rect y="18" width="24" height="2" fill="#333"/>
+      </svg>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <h1>Modern Minimalist Homepage</h1>
+    <p>Experience simplicity and clarity with this clean, minimal design. Perfect for landing pages, portfolios, and personal blogs.</p>
+    <a href="#" class="btn">Learn More</a>
+  </section>
+
 </body>
 </html>
