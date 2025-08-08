@@ -1,1 +1,120 @@
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My personal website</title>
+  <style>
+    /* Reset */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      color: #333;
+      background: #f7f8f9; /* Hintergrundfarbe */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      text-align: left;
+    }
+    /* Navigation */
+    nav {
+      width: 100%;
+      background: transparent;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    .nav-links {
+      list-style: none;
+      display: flex;
+      gap: 1.5rem;
+    }
+    .nav-links li a {
+      text-decoration: none;
+      color: #333;
+      font-weight: bold;
+      transition: color 0.3s;
+    }
+    .nav-links li a:hover {
+      color: #666;
+    }
+    .menu-icon {
+      display: none;
+      cursor: pointer;
+    }
+    /* Hero */
+    .hero {
+      margin-top: 4rem; /* Platz für Navigation */
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      max-width: 600px;
+      padding: 0 1rem;
+    }
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+    }
+    p {
+      font-size: 1rem;
+      margin-bottom: 2rem;
+      line-height: 1.5;
+    }
+    .btn {
+      display: inline-block;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      text-decoration: none;
+      color: #333;
+      border: 2px solid #333;
+      border-radius: 4px;
+      transition: background 0.3s, color 0.3s;
+    }
+    .btn:hover {
+      background: #333;
+      color: #fafafa;
+    }
+    /* Responsive */
+    @media (max-width: 600px) {
+      .nav-links {
+        display: none;
+      }
+      .menu-icon {
+        display: block;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Navigation -->
+    <nav>
+        <div class="logo"><a href="#"><strong>Logo</strong></a></div>
+        <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="about.html">About</a></li>
+        <li><a href="#">Triathlon</a></li>
+        <li><a href="#">Publications</a></li>
+        <li><a href="#">Notes</a></li>
+        <li><a href="#">Contact</a></li>
+        </ul>
+        <div class="menu-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect y="4" width="24" height="2" fill="#333"/>
+            <rect y="11" width="24" height="2" fill="#333"/>
+            <rect y="18" width="24" height="2" fill="#333"/>
+        </svg>
+        </div>
+    </nav>
+    <section>
+        <h1>Computational Verification of the Classification of the Ideal Chomp Game on Low-Rank Algebras</h1>
+        <p>Please find the SageWS verification report below.</p>
+        <!--<a href="index.html">← Back to Home</a>-->
+    </section>
+</body>
+</html>
