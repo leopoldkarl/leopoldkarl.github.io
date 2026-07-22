@@ -113,7 +113,7 @@
     }
     .photo{
       width:120px; height:120px; border-radius:999px; background:#ddd; margin:0 auto 0.75rem auto;
-      display:block; object-fit:cover; overflow:hidden;
+      display:inline-block;
     }
     .muted{color:var(--muted); font-size:0.95rem}
 
@@ -126,14 +126,6 @@
 
     .card{background:white; padding:1rem; border-radius:10px; border:1px solid #eef2f5}
 
-    .tile-grid{
-      display:grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap:1rem;
-    }
-
-    .tile{background:white; padding:0.75rem; border-radius:8px; border:1px solid #eef2f5}
-
     footer{max-width:var(--container); margin:3rem auto 2rem auto; padding:1rem;text-align:center;color:var(--muted);font-size:0.95rem}
 
     /* Responsive */
@@ -141,7 +133,6 @@
       .hero, .grid{grid-template-columns:1fr}
       nav ul{display:none}
       .menu-toggle{display:inline-block}
-      .tile-grid{grid-template-columns:1fr}
     }
   </style>
 
@@ -160,8 +151,6 @@
           <li><a href="#home">Home</a></li>
           <li><a href="#forschung">Forschung</a></li>
           <li><a href="#publikationen">Publikationen</a></li>
-          <li><a href="#visits">Visits & Conferences</a></li>
-          <li><a href="#talks">Talks</a></li>
           <li><a href="#lehre">Lehre</a></li>
           <li><a href="#kontakt">Kontakt</a></li>
         </ul>
@@ -187,7 +176,7 @@
       </div>
 
       <aside class="profile-card" aria-label="Kurzprofil">
-        <img src="images/profile.jpg" alt="Leopold Karl" class="photo" loading="eager" />
+        <img src="images/profile.jpg?cb=ca23e71" alt="Leopold Karl" class="photo" loading="eager" width="120" height="120" />
         <div style="font-weight:700">Leopold Karl</div>
         <div class="muted" style="margin-top:0.25rem">Mathematiker</div>
         <p class="muted" style="margin-top:0.5rem; font-size:0.95rem">[Kurzinfo: Institution, E-Mail-Link]</p>
@@ -205,7 +194,7 @@
           <li>Mathematische Modellierung in Naturwissenschaften</li>
         </ul>
         <p>Beispiele für Formeln:</p>
-        <p>Die Poisson-Gleichung: \\( -\\Delta u = f \\) oder Variationsformen \\( E(u)=\\int |\\nabla u|^2 \\\,dx - \\\int fu\\,dx. \\)</p>
+        <p>Die Poisson-Gleichung: \\( -\\Delta u = f \\\\) oder Variationsformen \\( E(u)=\\int |\\nabla u|^2 \\,dx - \\int fu\\,dx. \\\\)</p>
       </div>
     </section>
 
@@ -218,8 +207,7 @@
               <li><strong>K. Beispiel</strong>, Titel der Arbeit, Journal, Jahr. DOI/Link</li>
               <li><strong>K. Beispiel</strong>, Titel 2, Konferenz, Jahr. Link</li>
             </ol>
-            <p>Wenn du viele Publikationen hast, kann ich helfen, sie aus einer BibTeX-Datei einzulesen und automatisch zu list
-en.</p>
+            <p>Wenn du viele Publikationen hast, kann ich helfen, sie aus einer BibTeX-Datei einzulesen und automatisch zu listen.</p>
           </div>
         </div>
 
@@ -233,55 +221,6 @@ en.</p>
             </ul>
           </div>
         </aside>
-      </div>
-    </section>
-
-    <section id="visits" style="margin-top:1.5rem">
-      <h2>Visits & Conferences</h2>
-      <div class="card" style="margin-top:0.75rem">
-        <div class="tile-grid">
-          <div class="tile">
-            <h3>Upcoming Visits</h3>
-            <ul>
-              <li><strong>Group Visit</strong> — Institution Name, City — Sept 2026 (planned)</li>
-              <li><strong>Research Visit</strong> — Institute XYZ, City — Jan 2027 (planned)</li>
-            </ul>
-            <p class="muted" style="margin-top:0.5rem">Schreibe mir gerne Termine, die ich ergänzen soll.</p>
-          </div>
-
-          <div class="tile">
-            <h3>Recent Conferences</h3>
-            <ul>
-              <li><strong>Conference on PDEs</strong> — City, Country — Jun 2026</li>
-              <li><strong>Numerical Methods Workshop</strong> — City, Country — Mar 2026</li>
-            </ul>
-            <p class="muted" style="margin-top:0.5rem">Links zu Abstracts oder Proceedings kannst du einfügen.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="talks" style="margin-top:1.5rem">
-      <h2>Talks</h2>
-      <div class="card" style="margin-top:0.75rem">
-        <div class="tile-grid">
-          <div class="tile">
-            <h3>Invited Talks</h3>
-            <ol>
-              <li><strong>Title of Talk</strong>, Institution/Conference — Date. <a href="#">Slides</a></li>
-              <li><strong>Title of Talk</strong>, Institution/Conference — Date. <a href="#">Video</a></li>
-            </ol>
-          </div>
-
-          <div class="tile">
-            <h3>Selected Seminars</h3>
-            <ol>
-              <li><strong>Seminar Title</strong>, Host — Date. Notes/Slides</li>
-              <li><strong>Seminar Title</strong>, Host — Date. Notes/Slides</li>
-            </ol>
-            <p class="muted" style="margin-top:0.5rem">Ich kann diese Liste automatisch aus einer YAML/JSON-Datei befüllen, wenn du möchtest.</p>
-          </div>
-        </div>
       </div>
     </section>
 
