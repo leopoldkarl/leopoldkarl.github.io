@@ -1,124 +1,274 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My personal website</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Leopold Karl — Mathematiker</title>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Merriweather:wght@300;700&display=swap" rel="stylesheet">
+
+  <!-- Basic SEO -->
+  <meta name="description" content="Leopold Karl — Mathematiker. Forschung in (hier eintragen). Publikationen, Lehre und Kontakt.">
+
+  <!-- JSON-LD (Person) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    "name": "Leopold Karl",
+    "jobTitle": "Mathematiker",
+    "url": "https://leopoldkarl.github.io",
+    "sameAs": [
+      "https://orcid.org/INSERT",
+      "https://scholar.google.com/citations?user=INSERT"
+    ]
+  }
+  </script>
+
   <style>
-    /* Reset */
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: Arial, sans-serif;
-      color: #333;
-      background: #fefeff; /* Hintergrundfarbe */
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-height: 100vh;
-      text-align: left;
+    :root{
+      --bg:#fbfbfd;
+      --text:#111827;
+      --muted:#6b7280;
+      --accent:#1f2937;
+      --accent-2:#0ea5a4;
+      --container:1100px;
     }
-    /* Navigation */
-    nav {
-      width: 100%;
-      background: transparent;
-      padding: 1rem 2rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      position: absolute;
-      top: 0;
-      left: 0;
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;
+      background:var(--bg);
+      color:var(--text);
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      line-height:1.6;
     }
-    .nav-links {
-      list-style: none;
-      display: flex;
-      gap: 1.5rem;
+
+    a{color:var(--accent); text-decoration:none}
+    a:hover{text-decoration:underline}
+
+    header{
+      width:100%;
+      position:sticky;
+      top:0;
+      background:rgba(255,255,255,0.85);
+      backdrop-filter:blur(6px);
+      border-bottom:1px solid #e6e9ed;
+      z-index:20;
     }
-    .nav-links li a {
-      text-decoration: none;
-      color: #333;
-      font-weight: bold;
-      transition: color 0.3s;
+    .nav-inner{
+      max-width:var(--container);
+      margin:0 auto;
+      padding:0.75rem 1rem;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:1rem;
     }
-    .nav-links li a:hover {
-      color: #666;
+    .brand{font-family:Merriweather,serif;font-weight:700; font-size:1.1rem}
+    nav ul{list-style:none; display:flex; gap:1rem; align-items:center; margin:0; padding:0}
+    nav a{font-weight:600; color:var(--muted); padding:0.35rem 0.5rem; border-radius:6px}
+    nav a:hover{color:var(--accent); background:rgba(31,41,55,0.03)}
+
+    .menu-toggle{
+      display:none;
+      background:transparent;
+      border:0;
+      padding:0.25rem;
+      cursor:pointer;
     }
-    .menu-icon {
-      display: none;
-      cursor: pointer;
+
+    main{max-width:var(--container); margin:2rem auto; padding:1rem}
+
+    .hero{
+      display:grid;
+      grid-template-columns: 1fr 320px;
+      gap:2rem;
+      align-items:center;
+      margin-top:0.5rem;
     }
-    /* Hero */
-    .hero {
-      margin-top: 4rem; /* Platz für Navigation */
-      flex: 1;
-      display: flex;
-      flex-direction: block;
-      justify-content: center;
-      max-width: 600px;
-      padding: 1rem;
+    .hero h1{
+      font-family:Merriweather,serif;
+      font-size:2.25rem;
+      margin:0 0 0.5rem 0;
     }
-    h1 {
-      margin-top: 3.5rem;
-      font-size: 2.5rem;
-      margin-bottom: 1rem;
+    .hero p.lead{color:var(--muted); margin:0 0 1rem 0; font-size:1.05rem}
+    .cta-group{display:flex; gap:0.75rem; margin-top:0.75rem}
+    .btn{
+      display:inline-flex; align-items:center; gap:0.5rem;
+      padding:0.6rem 0.9rem; border-radius:8px; border:1px solid rgba(0,0,0,0.08);
+      background:white; font-weight:600; color:var(--accent);
     }
-    p {
-      font-size: 1rem;
-      margin-bottom: 2rem;
-      line-height: 1.5;
+    .btn.primary{background:var(--accent); color:white; border-color:var(--accent)}
+    .profile-card{
+      background:linear-gradient(180deg,#ffffff,#fbfdff);
+      border:1px solid #e6eef0;
+      padding:1rem;
+      border-radius:10px;
+      text-align:center;
+      box-shadow:0 6px 18px rgba(16,24,40,0.04);
     }
-    .btn {
-      display: inline-block;
-      padding: 0.75rem 1.5rem;
-      font-size: 1rem;
-      text-decoration: none;
-      color: #333;
-      border: 2px solid #333;
-      border-radius: 4px;
-      transition: background 0.3s, color 0.3s;
+    .photo{
+      width:120px; height:120px; border-radius:999px; background:#ddd; margin:0 auto 0.75rem auto;
+      display:inline-block;
     }
-    .btn:hover {
-      background: #333;
-      color: #fafafa;
+    .muted{color:var(--muted); font-size:0.95rem}
+
+    section.grid{
+      display:grid;
+      grid-template-columns: 1fr 320px;
+      gap:2rem;
+      margin-top:2rem;
     }
+
+    .card{background:white; padding:1rem; border-radius:10px; border:1px solid #eef2f5}
+
+    footer{max-width:var(--container); margin:3rem auto 2rem auto; padding:1rem;text-align:center;color:var(--muted);font-size:0.95rem}
+
     /* Responsive */
-    @media (max-width: 600px) {
-      .nav-links {
-        display: none;
-      }
-      .menu-icon {
-        display: block;
-      }
+    @media (max-width:900px){
+      .hero, .grid{grid-template-columns:1fr}
+      nav ul{display:none}
+      .menu-toggle{display:inline-block}
     }
   </style>
+
+  <!-- MathJax for LaTeX rendering -->
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
-  <!-- Navigation -->
-  <nav>
-    <div class="logo"><a href="#"><strong>Logo</strong></a></div>
-    <ul class="nav-links">
-      <li><a href="index.html">Home</a></li>
-      <li><a href="about.html">About</a></li>
-      <li><a href="publications.html">Triathlon</a></li>
-      <li><a href="#">Publications</a></li>
-      <li><a href="#">Notes</a></li>
-      <li><a href="#">Contact</a></li>
-    </ul>
-    <div class="menu-icon">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect y="4" width="24" height="2" fill="#333"/>
-        <rect y="11" width="24" height="2" fill="#333"/>
-        <rect y="18" width="24" height="2" fill="#333"/>
-      </svg>
+
+  <header role="banner">
+    <div class="nav-inner">
+      <div class="brand"><a href="/" aria-label="Leopold Karl Startseite">Leopold Karl</a></div>
+
+      <nav role="navigation" aria-label="Hauptnavigation">
+        <button class="menu-toggle" aria-expanded="false" aria-controls="main-nav">☰</button>
+        <ul id="main-nav">
+          <li><a href="#home">Home</a></li>
+          <li><a href="#forschung">Forschung</a></li>
+          <li><a href="#publikationen">Publikationen</a></li>
+          <li><a href="#lehre">Lehre</a></li>
+          <li><a href="#kontakt">Kontakt</a></li>
+        </ul>
+      </nav>
     </div>
-  </nav>
+  </header>
 
-  <!-- Hero Section -->
-  <section>
-    <h1>Leopold Karl</h1>
-    <p>Welcome to my personal website!<p>
-    </p>You find information on both my journeys in mathematics and triathlon on this website.</p>
-  </section>
+  <main id="home" role="main">
+    <section class="hero" aria-labelledby="hero-title">
+      <div>
+        <h1 id="hero-title">Leopold Karl</h1>
+        <p class="lead">Mathematiker — Forschung in [Themen eintragen]. Ich interessiere mich für analytische Methoden, numerische Verfahren und mathematische Modellierung.</p>
 
+        <p>
+          <strong>Aktuell:</strong> Postdoc / Doktorand / Professor (hier Angaben ergänzen).
+        </p>
+
+        <div class="cta-group">
+          <a class="btn primary" href="/docs/LeopoldKarl_CV.pdf" target="_blank" rel="noopener">CV (PDF)</a>
+          <a class="btn" href="#publikationen">Publikationen</a>
+          <a class="btn" href="#kontakt">Kontakt</a>
+        </div>
+      </div>
+
+      <aside class="profile-card" aria-label="Kurzprofil">
+        <div class="photo" aria-hidden="true"></div>
+        <div style="font-weight:700">Leopold Karl</div>
+        <div class="muted" style="margin-top:0.25rem">Mathematiker</div>
+        <p class="muted" style="margin-top:0.5rem; font-size:0.95rem">[Kurzinfo: Institution, E-Mail-Link]</p>
+        <p style="margin-top:0.5rem"><a href="#kontakt">→ Kontakt</a></p>
+      </aside>
+    </section>
+
+    <section id="forschung" style="margin-top:1.5rem">
+      <h2>Forschung</h2>
+      <div class="card" style="margin-top:0.75rem">
+        <p>Hier beschreibst du deine Forschungsinteressen. Beispiel:</p>
+        <ul>
+          <li>Analysis und partielle Differentialgleichungen</li>
+          <li>Numerische Methoden und Simulationen</li>
+          <li>Mathematische Modellierung in Naturwissenschaften</li>
+        </ul>
+        <p>Beispiele für Formeln:</p>
+        <p>Die Poisson-Gleichung: \\( -\\Delta u = f \\\\) oder Variationsformen \\( E(u)=\\int |\\nabla u|^2 \\,dx - \\int fu\\,dx. \\\\)</p>
+      </div>
+    </section>
+
+    <section id="publikationen" style="margin-top:1.5rem">
+      <h2>Publikationen</h2>
+      <div class="grid" style="margin-top:0.75rem">
+        <div>
+          <div class="card">
+            <ol>
+              <li><strong>K. Beispiel</strong>, Titel der Arbeit, Journal, Jahr. DOI/Link</li>
+              <li><strong>K. Beispiel</strong>, Titel 2, Konferenz, Jahr. Link</li>
+            </ol>
+            <p>Wenn du viele Publikationen hast, kann ich helfen, sie aus einer BibTeX-Datei einzulesen und automatisch zu listen.</p>
+          </div>
+        </div>
+
+        <aside>
+          <div class="card">
+            <h3>Weitere Links</h3>
+            <ul style="padding-left:1rem">
+              <li><a href="https://orcid.org/INSERT" target="_blank" rel="noopener">ORCID</a></li>
+              <li><a href="https://scholar.google.com/citations?user=INSERT" target="_blank" rel="noopener">Google Scholar</a></li>
+              <li><a href="/docs/LeopoldKarl_CV.pdf" target="_blank" rel="noopener">CV (PDF)</a></li>
+            </ul>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="lehre" style="margin-top:1.5rem">
+      <h2>Lehre</h2>
+      <div class="card" style="margin-top:0.75rem">
+        <p>Vorlesungen, betreute Abschlussarbeiten, Lehrmaterialien und Übungsblätter kannst du hier verlinken.</p>
+        <ul>
+          <li>Analysis I (SS 20XX) — Übungsblätter & Lösungen</li>
+          <li>Numerische Mathematik — Folien</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="kontakt" style="margin-top:1.5rem">
+      <h2>Kontakt</h2>
+      <div class="card" style="margin-top:0.75rem">
+        <p>Am einfachsten per E-Mail: <a href="mailto:your.email@example.com">your.email@example.com</a></p>
+        <p>Alternativ: institutionelle Adresse, Telefonnummer, etc.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    © <span id="year"></span> Leopold Karl — erstellt mit GitHub Pages · <a href="https://github.com/leopoldkarl/leopoldkarl.github.io" target="_blank" rel="noopener">Quellcode</a>
+  </footer>
+
+  <script>
+    // Menü-Toggle für Mobil (einfach)
+    (function(){
+      const btn = document.querySelector('.menu-toggle');
+      const nav = document.getElementById('main-nav');
+      if(!btn || !nav) return;
+      btn.addEventListener('click', ()=> {
+        const expanded = btn.getAttribute('aria-expanded') === 'true';
+        btn.setAttribute('aria-expanded', String(!expanded));
+        if(nav.style.display === 'flex'){
+          nav.style.display = '';
+        } else {
+          nav.style.display = 'flex';
+          nav.style.flexDirection = 'column';
+          nav.style.gap = '0.25rem';
+        }
+      });
+    })();
+
+    // Jahr im Footer
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
 </body>
 </html>
