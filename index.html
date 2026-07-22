@@ -113,7 +113,7 @@
     }
     .photo{
       width:120px; height:120px; border-radius:999px; background:#ddd; margin:0 auto 0.75rem auto;
-      display:inline-block;
+      display:block; object-fit:cover; overflow:hidden;
     }
     .muted{color:var(--muted); font-size:0.95rem}
 
@@ -187,7 +187,7 @@
       </div>
 
       <aside class="profile-card" aria-label="Kurzprofil">
-        <div class="photo" aria-hidden="true"></div>
+        <img src="/images/profile.jpg" alt="Leopold Karl" class="photo" loading="eager" />
         <div style="font-weight:700">Leopold Karl</div>
         <div class="muted" style="margin-top:0.25rem">Mathematiker</div>
         <p class="muted" style="margin-top:0.5rem; font-size:0.95rem">[Kurzinfo: Institution, E-Mail-Link]</p>
@@ -205,7 +205,7 @@
           <li>Mathematische Modellierung in Naturwissenschaften</li>
         </ul>
         <p>Beispiele für Formeln:</p>
-        <p>Die Poisson-Gleichung: \\( -\\Delta u = f \\) oder Variationsformen \\( E(u)=\\int |\\nabla u|^2 \\\,dx - \\\int fu\\,dx. \\)</p>
+        <p>Die Poisson-Gleichung: \\( -\\Delta u = f \\) oder Variationsformen \\( E(u)=\\int |\\nabla u|^2 \,dx - \\int fu\\,dx. \\)</p>
       </div>
     </section>
 
