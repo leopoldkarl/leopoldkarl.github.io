@@ -126,13 +126,41 @@
 
     .card{background:white; padding:1rem; border-radius:10px; border:1px solid #eef2f5}
 
+    .tile-grid{
+      display:grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap:1rem;
+    }
+
+    .tile{background:white; padding:0.75rem; border-radius:8px; border:1px solid #eef2f5}
+
     footer{max-width:var(--container); margin:3rem auto 2rem auto; padding:1rem;text-align:center;color:var(--muted);font-size:0.95rem}
 
-    /* Responsive */
+    /* Version badge (fixed on the right) */
+    .site-version{
+      position:fixed;
+      right:1rem;
+      top:6.5rem;
+      width:220px;
+      background:rgba(255,255,255,0.95);
+      border:1px solid #e6eef0;
+      padding:0.6rem 0.75rem;
+      border-radius:8px;
+      box-shadow:0 8px 20px rgba(16,24,40,0.06);
+      font-size:0.85rem;
+      color:var(--text);
+      z-index:30;
+    }
+    .site-version a{color:var(--accent); font-weight:600}
+    .site-version .label{color:var(--muted); font-size:0.75rem}
+
+    /* Responsive adjustments */
     @media (max-width:900px){
       .hero, .grid{grid-template-columns:1fr}
       nav ul{display:none}
       .menu-toggle{display:inline-block}
+      .tile-grid{grid-template-columns:1fr}
+      .site-version{display:none} /* hide on small screens */
     }
   </style>
 
@@ -244,6 +272,12 @@
     </section>
   </main>
 
+  <div id="site-version" class="site-version" role="region" aria-live="polite" aria-atomic="true">
+    <div style="margin-bottom:6px"><strong>Aktuelle Version</strong></div>
+    <div id="version-content">Lade Version …</div>
+    <div class="label" style="margin-top:6px">Zuletzt geprüft: <span id="version-checked">—</span></div>
+  </div>
+
   <footer>
     © <span id="year"></span> Leopold Karl — erstellt mit GitHub Pages · <a href="https://github.com/leopoldkarl/leopoldkarl.github.io" target="_blank" rel="noopener">Quellcode</a>
   </footer>
@@ -269,6 +303,39 @@
 
     // Jahr im Footer
     document.getElementById('year').textContent = new Date().getFullYear();
+
+    // Live Version Widget: fetch latest commit on default branch (main)
+    (function(){
+      const owner = 'leopoldkarl';
+      const repo = 'leopoldkarl.github.io';
+      const el = document.getElementById('version-content');
+      const checked = document.getElementById('version-checked');
+      if(!el) return;
+
+      // Use GitHub commits API to get latest commit on the default branch.
+      // Note: unauthenticated requests are rate-limited; this is intended for light use.
+      const api = `https://api.github.com/repos/${owner}/${repo}/commits?per_page=1`;
+      fetch(api, {cache: 'no-store'})
+        .then(r => {
+          if(!r.ok) throw new Error('Fehler beim Abrufen der Commit‑Daten');
+          return r.json();
+        })
+        .then(data => {
+          if(!Array.isArray(data) || data.length === 0) throw new Error('Keine Commits gefunden');
+          const c = data[0];
+          const sha = (c.sha||'').slice(0,7);
+          const msg = (c.commit && c.commit.message) ? c.commit.message.split('\n')[0] : '';
+          const date = new Date(c.commit.author.date).toLocaleString();
+          const url = c.html_url || `https://github.com/${owner}/${repo}/commit/${c.sha}`;
+          el.innerHTML = `<a href="${url}" target="_blank" rel="noopener">${sha}</a><div style="color:var(--muted); margin-top:4px">${msg}</div>`;
+          checked.textContent = date;
+        })
+        .catch(err => {
+          console.error(err);
+          el.textContent = 'Nicht verfügbar';
+          checked.textContent = new Date().toLocaleString();
+        });
+    })();
   </script>
 </body>
 </html>
