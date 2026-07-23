@@ -108,6 +108,8 @@ section.grid{
 }
 
 .card{background:white; padding:1rem; border-radius:10px; border:1px solid #eef2f5}
+.card h3:first-child{margin-top:0}
+.card:has(> h3:first-child){padding-top:0.8rem}
 
 .tile-grid{
   display:grid;
