@@ -58,6 +58,8 @@ nav a[aria-current="page"]{color:var(--accent)}
 
 main{max-width:var(--container); margin:2rem auto; padding:1rem}
 
+main section[id]{scroll-margin-top:75px}
+
 .hero{
   display:grid;
   grid-template-columns: 1fr 320px;
