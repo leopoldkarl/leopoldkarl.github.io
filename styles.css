@@ -121,20 +121,21 @@ main section[id]{scroll-margin-top:75px}
 
 .photo-grid{
   display:grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap:1rem;
   margin-top:1.5rem;
+  max-width:480px;
 }
 .photo-grid img{
   width:100%;
-  height:280px;
+  height:110px;
   object-fit:cover;
   border-radius:10px;
   border:1px solid #eef2f5;
   display:block;
 }
 @media (max-width:600px){
-  .photo-grid{grid-template-columns:1fr}
+  .photo-grid{grid-template-columns:repeat(3, 1fr); max-width:100%}
   .photo-grid img{height:220px}
 }
 
