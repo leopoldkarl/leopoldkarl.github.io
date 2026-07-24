@@ -100,7 +100,7 @@ main section[id]{scroll-margin-top:75px}
   margin:0.5rem 0 1.5rem 0;
 }
 
-section.grid{
+.grid{
   display:grid;
   grid-template-columns: 1fr 320px;
   gap:2rem;
