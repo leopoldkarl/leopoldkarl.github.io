@@ -99,6 +99,8 @@ main section[id]{scroll-margin-top:75px}
   font-size:2rem;
   margin:0.5rem 0 1.5rem 0;
 }
+.page-title.has-lead{margin-bottom:0.5rem}
+.page-lead{color:var(--muted); font-size:1.05rem; margin:0 0 1rem 0}
 
 .grid{
   display:grid;
