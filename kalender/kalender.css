@@ -628,6 +628,21 @@ kbd {
 .jr-stat .v { font-family: var(--font-serif); font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .jr-stat .u { font-size: 0.7rem; color: var(--muted); }
 
+/* Freitext neben den Gesamtzeiten */
+.jr-note {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 0.5rem 0.9rem; flex: 1 1 18rem; min-width: 14rem;
+  display: flex; flex-direction: column; justify-content: center; gap: 0.25rem;
+}
+.jr-note .k { font-size: 0.72rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.jr-note input[type="text"] {
+  border: 0; border-bottom: 1px solid var(--line); border-radius: 0;
+  padding: 0.15rem 0; font-size: 0.95rem; background: transparent;
+}
+.jr-note input[type="text"]:focus-visible {
+  outline: none; border-bottom-color: var(--accent-2); border-bottom-width: 2px;
+}
+
 .jr-cols { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 0.9rem; align-items: start; }
 .jr-right { display: flex; flex-direction: column; gap: 0.9rem; }
 .jr-entry textarea { min-height: 14rem; }

@@ -193,7 +193,24 @@ export function renderJournal(ctx) {
     card.append(el('div', 'u', 'Stunden'));
     strip.insertBefore(card, strip.firstChild);
   }
-  if (computed.length || strip.children.length) root.append(strip);
+  // Freitextfelder, die in die Kopfzeile gehoeren (Tagesevent, Glücksmoment).
+  for (const f of schema.filter((x) => x.strip)) {
+    const card = el('div', 'jr-note');
+    const lbl = el('label', 'k', f.label);
+    lbl.setAttribute('for', `jrnote-${f.id}`);
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.id = `jrnote-${f.id}`;
+    input.autocomplete = 'off';
+    input.value = values[f.id] ?? '';
+    input.dataset.jfield = f.id;
+    input.dataset.jpart = 'plain';
+    input.placeholder = '…';
+    card.append(lbl, input);
+    strip.append(card);
+  }
+
+  if (strip.children.length) root.append(strip);
 
   /* Zwei Spalten: links die Felder, rechts Termine, erledigte Aufgaben, Text */
   const cols = el('div', 'jr-cols');
@@ -202,7 +219,7 @@ export function renderJournal(ctx) {
   left.append(el('h2', null, 'Daten'));
   const grid = el('div', 'jf-grid');
   for (const f of schema) {
-    if (f.type === 'computed') continue;   // stehen schon oben im Streifen
+    if (f.type === 'computed' || f.strip) continue;   // stehen schon oben im Streifen
     grid.append(renderField(f, values));
   }
   left.append(grid);

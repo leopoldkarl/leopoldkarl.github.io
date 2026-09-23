@@ -116,6 +116,9 @@ Feldtypen: `number` (Zahl mit Einheit), `scale5` (1–5, nochmaliges Tippen
 löscht), `bool` (dreistufig: leer → ja → nein → leer), `text`, `numtext`
 (Minutenzahl **und** eigenes Textfeld), `computed`.
 
+Ein Feld mit `strip: true` steht im Kopfstreifen neben den Gesamtzeiten
+statt in der Liste darunter — derzeit „Tagesevent" und „Glücksmoment".
+
 Zwei Felder sind berechnet und deshalb nicht eingebbar — ein Summenfeld von
 Hand zu pflegen führt zwangsläufig zum Auseinanderlaufen:
 
@@ -189,7 +192,7 @@ Zwei Entwurfsentscheidungen:
 Nicht Teil des Repos. Geprüft wurden 85 Einheitentests (Wiederholungsregeln,
 ics-Roundtrip inklusive Zeilenfaltung und Maskierung, RECURRENCE-ID-Auflösung,
 CSV-/vCard-Parser, Tastatureingabe von Datum und Uhrzeit, Schaltjahr-Rückfall)
-und 51 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
+und 55 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
 Geburtstags-Import, Kategorien-Editor, Tab-Reihenfolge, Scrollbalken,
 Seitenwechsel, Aufgaben-Reihenfolge und -Höhe, Tagebuch-Summen und
 -Speicherung, schmale Fenster).

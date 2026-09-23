@@ -54,6 +54,10 @@ export const DEFAULT_JOURNAL_SCHEMA = [
   { id: 'schlafzeit',      label: 'Schlafzeit',        type: 'number',   unit: 'h',   step: 0.25 },
   { id: 'mathezeit',       label: 'Mathezeit',         type: 'computed', unit: 'h',   formula: 'mathe' },
   { id: 'sportzeit',       label: 'Sportzeit',         type: 'computed', unit: 'h',   formula: 'sport' },
+  // `strip: true` setzt das Feld in die Kopfzeile neben die Gesamtzeiten
+  // statt in die lange Feldliste darunter.
+  { id: 'tagesevent',      label: 'Tagesevent',        type: 'text',     strip: true },
+  { id: 'gluecksmoment',   label: 'Glücksmoment',      type: 'text',     strip: true },
   { id: 'schlafqualitaet', label: 'Schlafqualität',    type: 'scale5' },
   { id: 'klimmzuege',      label: 'Klimmzüge',         type: 'number',   unit: '',    step: 1 },
   { id: 'mobilisation',    label: 'Mobilisation',      type: 'bool' },
