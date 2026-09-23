@@ -1,0 +1,505 @@
+/* kalender.css — eigenstaendiges Stylesheet.
+   Die Farb- und Schrift-Tokens sind dieselben wie in /styles.css, das
+   Layout aber nicht: die Hauptseite zentriert einen 1100px-Textblock, der
+   Kalender braucht die volle Viewport-Hoehe. Deshalb wird /styles.css
+   bewusst NICHT geladen. */
+
+:root {
+  --bg: #fbfbfd;
+  --surface: #ffffff;
+  --surface-2: #f4f6f8;
+  --text: #111827;
+  --muted: #6b7280;
+  --accent: #1f2937;
+  --accent-2: #0ea5a4;
+  --line: #e6e9ed;
+  --line-strong: #d3d9e0;
+  --today: #fff8e6;
+  --shadow: 0 6px 18px rgba(16, 24, 40, 0.06);
+  --radius: 10px;
+  --hour-h: 48px;
+  --gutter: 56px;
+  --font-sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: Merriweather, Georgia, serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1216;
+    --surface: #171b21;
+    --surface-2: #1e242c;
+    --text: #e8eaed;
+    --muted: #9aa4b2;
+    --accent: #e8eaed;
+    --accent-2: #2dd4bf;
+    --line: #262d36;
+    --line-strong: #333c47;
+    --today: #2a2413;
+    --shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1216;
+  --surface: #171b21;
+  --surface-2: #1e242c;
+  --text: #e8eaed;
+  --muted: #9aa4b2;
+  --accent: #e8eaed;
+  --accent-2: #2dd4bf;
+  --line: #262d36;
+  --line-strong: #333c47;
+  --today: #2a2413;
+  --shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+/* ---------------------------------------------------------------- */
+/* Kopfleiste                                                        */
+/* ---------------------------------------------------------------- */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+
+.topbar-group { display: flex; align-items: center; gap: 0.4rem; }
+
+.period {
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0 0 0 0.5rem;
+  white-space: nowrap;
+}
+.period .kw { font-family: var(--font-sans); font-weight: 400; font-size: 0.8rem; color: var(--muted); margin-left: 0.4rem; }
+
+button {
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 0.38rem 0.7rem;
+  cursor: pointer;
+  line-height: 1.3;
+}
+button:hover { background: var(--surface-2); }
+button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+button.primary { background: var(--accent-2); border-color: var(--accent-2); color: #06302f; }
+button.primary:hover { filter: brightness(1.06); }
+button.icon { padding: 0.38rem 0.6rem; }
+button.ghost { border-color: transparent; background: transparent; }
+button.ghost:hover { background: var(--surface-2); }
+button.danger { color: #b91c1c; border-color: #fca5a5; background: transparent; }
+:root[data-theme="dark"] button.danger,
+:root:not([data-theme="light"]) button.danger { color: #fca5a5; border-color: #7f1d1d; }
+
+.segmented { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
+.segmented button { border: 0; border-radius: 0; background: var(--surface); }
+.segmented button + button { border-left: 1px solid var(--line); }
+.segmented button[aria-pressed="true"] { background: var(--accent); color: var(--bg); }
+
+/* ---------------------------------------------------------------- */
+/* Hauptbereich                                                      */
+/* ---------------------------------------------------------------- */
+
+.main {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 302px;
+}
+
+.viewport { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--surface); }
+
+.sidebar {
+  border-left: 1px solid var(--line);
+  background: var(--bg);
+  overflow-y: auto;
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ---------------------------------------------------------------- */
+/* Monatsansicht                                                     */
+/* ---------------------------------------------------------------- */
+
+.mv { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.mv-head {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  border-bottom: 1px solid var(--line);
+}
+.mv-head div {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: center;
+}
+.mv-body { flex: 1; min-height: 0; display: grid; }
+.mv-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-bottom: 1px solid var(--line); min-height: 0; }
+.mv-week:last-child { border-bottom: 0; }
+
+.mv-cell {
+  border-right: 1px solid var(--line);
+  padding: 0.25rem 0.3rem 0.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  overflow: hidden;
+  cursor: pointer;
+}
+.mv-cell:last-child { border-right: 0; }
+.mv-cell.other { background: var(--surface-2); }
+.mv-cell.today { background: var(--today); }
+.mv-cell.selected { box-shadow: inset 0 0 0 2px var(--accent-2); }
+.mv-cell.drop-target { background: color-mix(in srgb, var(--accent-2) 16%, var(--surface)); }
+
+.mv-daynum {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  align-self: flex-start;
+  padding: 0 0.2rem;
+  border-radius: 999px;
+}
+.mv-cell.today .mv-daynum { background: var(--accent-2); color: #06302f; padding: 0 0.4rem; }
+.mv-taskdot { font-size: 0.68rem; color: var(--muted); margin-top: auto; }
+
+/* ---------------------------------------------------------------- */
+/* Termin-Chips (Monat) und -Bloecke (Woche/Tag)                     */
+/* ---------------------------------------------------------------- */
+
+.chip {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  font-size: 0.74rem;
+  line-height: 1.35;
+  padding: 1px 4px;
+  border-radius: 4px;
+  border-left: 3px solid var(--c, var(--accent-2));
+  background: color-mix(in srgb, var(--c, var(--accent-2)) 13%, var(--surface));
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.chip .t { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+.chip .s { overflow: hidden; text-overflow: ellipsis; }
+.chip.allday { background: var(--c, var(--accent-2)); color: #fff; border-left-color: transparent; }
+:root[data-theme="dark"] .chip.allday,
+:root:not([data-theme="light"]) .chip.allday { color: #0f1216; }
+.chip.more { border-left-color: transparent; background: transparent; color: var(--muted); font-weight: 600; }
+
+/* ---------------------------------------------------------------- */
+/* Zeitraster (Woche/Tag)                                            */
+/* ---------------------------------------------------------------- */
+
+/* [hidden] muss die display-Regeln der Hilfsklassen schlagen, sonst bleiben
+   ausgeblendete Formularzeilen sichtbar. */
+[hidden] { display: none !important; }
+
+.tg { flex: 1; min-height: 0; overflow-x: auto; overflow-y: hidden; }
+.tg-inner {
+  display: flex; flex-direction: column; height: 100%; min-height: 0;
+  min-width: calc(var(--gutter) + var(--cols) * var(--min-col, 0px));
+}
+
+.tg-head {
+  display: grid;
+  grid-template-columns: var(--gutter) repeat(var(--cols), minmax(0, 1fr));
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.tg-head .corner { border-right: 1px solid var(--line); }
+.tg-daycol {
+  text-align: center;
+  padding: 0.3rem 0.2rem 0.35rem;
+  border-right: 1px solid var(--line);
+  cursor: pointer;
+}
+.tg-daycol:last-child { border-right: 0; }
+.tg-daycol .dow { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; }
+.tg-daycol .num { font-size: 1.15rem; font-weight: 700; font-family: var(--font-serif); }
+.tg-daycol.today .num {
+  background: var(--accent-2); color: #06302f;
+  display: inline-block; min-width: 1.9rem; border-radius: 999px;
+}
+.tg-daycol.selected { background: var(--surface-2); }
+
+.tg-allday {
+  display: grid;
+  grid-template-columns: var(--gutter) repeat(var(--cols), minmax(0, 1fr));
+  border-bottom: 1px solid var(--line-strong);
+  background: var(--surface);
+  max-height: 5.5rem;
+  overflow-y: auto;
+}
+.tg-allday .label {
+  font-size: 0.66rem; color: var(--muted); text-align: right;
+  padding: 0.2rem 0.4rem; border-right: 1px solid var(--line);
+}
+.tg-allday .slot { border-right: 1px solid var(--line); padding: 2px; display: flex; flex-direction: column; gap: 2px; min-height: 1.4rem; }
+.tg-allday .slot:last-child { border-right: 0; }
+
+.tg-scroll { flex: 1; min-height: 0; overflow-y: auto; position: relative; }
+.tg-grid {
+  display: grid;
+  grid-template-columns: var(--gutter) repeat(var(--cols), minmax(0, 1fr));
+  height: calc(24 * var(--hour-h));
+  position: relative;
+}
+.tg-gutter { position: relative; border-right: 1px solid var(--line); }
+.tg-gutter .h {
+  position: absolute; right: 0.4rem; transform: translateY(-50%);
+  font-size: 0.68rem; color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.tg-col {
+  position: relative;
+  border-right: 1px solid var(--line);
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(var(--hour-h) - 1px),
+    var(--line) calc(var(--hour-h) - 1px),
+    var(--line) var(--hour-h)
+  );
+}
+.tg-col:last-child { border-right: 0; }
+.tg-col.today { background-color: var(--today); }
+/* In der Tagesansicht waere die Heute-Einfaerbung die ganze Flaeche und damit
+   keine Information mehr. */
+.tg.single .tg-col.today { background-color: transparent; }
+.tg-col.weekend { background-color: color-mix(in srgb, var(--surface-2) 60%, transparent); }
+
+.block {
+  position: absolute;
+  border-radius: 6px;
+  border-left: 3px solid var(--c, var(--accent-2));
+  background: color-mix(in srgb, var(--c, var(--accent-2)) 16%, var(--surface));
+  padding: 2px 5px;
+  font-size: 0.74rem;
+  line-height: 1.25;
+  overflow: hidden;
+  cursor: grab;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+.block:hover { filter: brightness(0.98); z-index: 5 !important; }
+.block.dragging { opacity: 0.75; cursor: grabbing; z-index: 50 !important; box-shadow: var(--shadow); }
+.block .bt { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.block .bm { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 0.68rem; }
+.block .grip {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 7px;
+  cursor: ns-resize;
+}
+.block.compact { display: flex; gap: 0.3rem; align-items: baseline; padding-top: 0; padding-bottom: 0; }
+.block.compact .bm { font-size: 0.66rem; }
+
+.nowline { position: absolute; left: 0; right: 0; height: 0; border-top: 2px solid #ef4444; z-index: 8; pointer-events: none; }
+.nowline::before {
+  content: ''; position: absolute; left: -4px; top: -5px;
+  width: 8px; height: 8px; border-radius: 999px; background: #ef4444;
+}
+
+/* ---------------------------------------------------------------- */
+/* Sidebar: Mini-Monat und Aufgaben                                  */
+/* ---------------------------------------------------------------- */
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.7rem; }
+.panel h2 { font-family: var(--font-serif); font-size: 0.95rem; margin: 0 0 0.5rem; }
+.panel h2 .sub { font-family: var(--font-sans); font-weight: 400; color: var(--muted); font-size: 0.78rem; display: block; }
+
+.mini-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem; }
+.mini-head .m { font-weight: 700; font-size: 0.85rem; }
+.mini-head button { padding: 0.1rem 0.4rem; font-size: 0.85rem; }
+.mini { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; }
+.mini .dh { font-size: 0.62rem; text-align: center; color: var(--muted); font-weight: 600; }
+.mini button.d {
+  border: 0; background: transparent; padding: 0.22rem 0; font-size: 0.74rem;
+  font-weight: 500; border-radius: 6px; position: relative;
+}
+.mini button.d.other { color: var(--muted); opacity: 0.55; }
+.mini button.d.today { font-weight: 800; color: var(--accent-2); }
+.mini button.d.sel { background: var(--accent); color: var(--bg); }
+.mini button.d.has::after {
+  content: ''; position: absolute; left: 50%; bottom: 1px; transform: translateX(-50%);
+  width: 3px; height: 3px; border-radius: 999px; background: var(--accent-2);
+}
+.mini button.d.sel.has::after { background: var(--bg); }
+
+.tasks { list-style: none; margin: 0.25rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.tasks li { display: flex; align-items: flex-start; gap: 0.45rem; padding: 0.2rem 0.15rem; border-radius: 6px; }
+.tasks li:hover { background: var(--surface-2); }
+.tasks input[type="checkbox"] { margin-top: 0.28rem; accent-color: var(--accent-2); flex: none; }
+.tasks .tt { flex: 1; font-size: 0.85rem; word-break: break-word; }
+.tasks li.done .tt { text-decoration: line-through; color: var(--muted); }
+.tasks .del { opacity: 0; border: 0; background: transparent; color: var(--muted); padding: 0 0.25rem; font-size: 1rem; line-height: 1; }
+.tasks li:hover .del, .tasks .del:focus { opacity: 1; }
+.task-add { display: flex; gap: 0.35rem; margin-top: 0.5rem; }
+.task-add input { flex: 1; min-width: 0; }
+.empty { color: var(--muted); font-size: 0.82rem; font-style: italic; padding: 0.3rem 0.15rem; }
+
+.agenda { list-style: none; margin: 0.25rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.agenda li { display: flex; gap: 0.5rem; font-size: 0.82rem; cursor: pointer; align-items: baseline; }
+.agenda .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--c); flex: none; align-self: center; }
+.agenda .tm { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+.agenda .tx { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------------------------------------------------------------- */
+/* Formulare und Dialoge                                             */
+/* ---------------------------------------------------------------- */
+
+input[type="text"], input[type="date"], input[type="time"], input[type="number"], select, textarea {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 0.38rem 0.5rem;
+  width: 100%;
+}
+textarea { resize: vertical; min-height: 4.5rem; }
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--accent-2); outline-offset: 1px; border-color: var(--accent-2);
+}
+
+dialog {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 0;
+  box-shadow: var(--shadow);
+  width: min(30rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 3rem);
+}
+dialog::backdrop { background: rgba(15, 18, 22, 0.45); }
+dialog form { display: flex; flex-direction: column; max-height: calc(100dvh - 3rem); }
+.dlg-head { padding: 0.85rem 1rem 0.5rem; }
+.dlg-head h2 { font-family: var(--font-serif); font-size: 1.05rem; margin: 0; }
+.dlg-body { padding: 0.25rem 1rem 0.85rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.6rem; }
+.dlg-foot {
+  padding: 0.7rem 1rem; border-top: 1px solid var(--line);
+  display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center; flex-wrap: wrap;
+}
+.dlg-foot .spacer { margin-right: auto; }
+
+.field { display: flex; flex-direction: column; gap: 0.2rem; }
+.field > label { font-size: 0.76rem; font-weight: 600; color: var(--muted); }
+.row { display: flex; gap: 0.5rem; align-items: flex-end; }
+.row > * { flex: 1; min-width: 0; }
+.row.tight { align-items: center; }
+.check { display: flex; align-items: center; gap: 0.45rem; font-size: 0.85rem; font-weight: 500; }
+.check input { width: auto; accent-color: var(--accent-2); }
+.hint { font-size: 0.74rem; color: var(--muted); }
+
+.dowpick { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+.dowpick label {
+  border: 1px solid var(--line-strong); border-radius: 999px;
+  padding: 0.18rem 0.55rem; font-size: 0.76rem; cursor: pointer; user-select: none;
+}
+.dowpick input { position: absolute; opacity: 0; width: 0; height: 0; }
+.dowpick label:has(input:checked) { background: var(--accent-2); border-color: var(--accent-2); color: #06302f; font-weight: 700; }
+.dowpick label:has(input:focus-visible) { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+
+.catpick { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.catpick label {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  border: 1px solid var(--line-strong); border-radius: 999px;
+  padding: 0.18rem 0.6rem; font-size: 0.78rem; cursor: pointer;
+}
+.catpick input { position: absolute; opacity: 0; width: 0; height: 0; }
+.catpick .sw { width: 9px; height: 9px; border-radius: 999px; background: var(--c); }
+.catpick label:has(input:checked) { border-color: var(--c); background: color-mix(in srgb, var(--c) 14%, var(--surface)); font-weight: 600; }
+
+.banner {
+  background: #fef3c7; color: #78350f; border: 1px solid #fcd34d;
+  padding: 0.45rem 0.8rem; font-size: 0.82rem; text-align: center;
+}
+:root[data-theme="dark"] .banner,
+:root:not([data-theme="light"]) .banner { background: #3a2c07; color: #fde68a; border-color: #78350f; }
+.banner[hidden] { display: none; }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+.toast {
+  position: fixed; left: 50%; bottom: 1.2rem; transform: translateX(-50%);
+  background: var(--accent); color: var(--bg);
+  padding: 0.5rem 0.9rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600;
+  box-shadow: var(--shadow); z-index: 100; opacity: 0; pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+.toast.show { opacity: 1; }
+
+kbd {
+  font: inherit; font-size: 0.72rem; font-weight: 600;
+  border: 1px solid var(--line-strong); border-bottom-width: 2px;
+  border-radius: 4px; padding: 0 0.28rem; background: var(--surface-2);
+}
+
+/* ---------------------------------------------------------------- */
+/* Schmale Fenster                                                   */
+/* ---------------------------------------------------------------- */
+
+@media (max-width: 860px) {
+  .main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  .sidebar {
+    border-left: 0; border-top: 1px solid var(--line);
+    max-height: 40dvh; flex-direction: column;
+  }
+  .topbar { padding: 0.5rem 0.65rem; gap: 0.5rem; }
+  .period { font-size: 1rem; margin-left: 0.2rem; }
+  /* Sieben Spalten passen nicht auf ein Telefon. Statt sie unleserlich zu
+     stauchen, bekommt jede Spalte eine Mindestbreite; die Woche wird dann
+     waagrecht gewischt. */
+  :root { --gutter: 42px; --hour-h: 44px; --min-col: 112px; }
+  .mv-cell { padding: 0.2rem; }
+  .chip { font-size: 0.68rem; }
+}
+
+@media (max-width: 520px) {
+  .topbar-group.views .segmented button { padding: 0.38rem 0.5rem; font-size: 0.82rem; }
+  .period .kw { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

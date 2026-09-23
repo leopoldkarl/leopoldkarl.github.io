@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Kalender</title>
+
+  <!-- Diese Seite ist von der Hauptseite nicht verlinkt. noindex verhindert
+       zusaetzlich die Aufnahme in Suchmaschinen. Kein Analytics-Skript:
+       sonst waere der Pfad in einem fremden Dashboard sichtbar. -->
+  <meta name="robots" content="noindex,nofollow,noarchive,nosnippet" />
+  <meta name="referrer" content="no-referrer" />
+  <meta name="color-scheme" content="light dark" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./kalender.css" />
+</head>
+<body>
+<div class="app">
+
+  <div id="storage-warning" class="banner" hidden>
+    Der Browser erlaubt keinen lokalen Speicher. Änderungen gehen beim Schließen des Tabs verloren — bitte ein Backup exportieren.
+  </div>
+
+  <header class="topbar">
+    <div class="topbar-group">
+      <button id="btn-today">Heute</button>
+      <button id="btn-prev" class="icon" aria-label="Zurück">‹</button>
+      <button id="btn-next" class="icon" aria-label="Vor">›</button>
+      <h1 id="period" class="period"></h1>
+    </div>
+    <div class="topbar-group views">
+      <div class="segmented" role="group" aria-label="Ansicht">
+        <button data-view="month" aria-pressed="false">Monat</button>
+        <button data-view="week" aria-pressed="false">Woche</button>
+        <button data-view="day" aria-pressed="false">Tag</button>
+      </div>
+      <button id="btn-new" class="primary">+ Termin</button>
+      <button id="btn-menu" class="icon" aria-label="Menü" title="Import, Export, Darstellung">⋯</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <main id="viewport" class="viewport" aria-label="Kalenderansicht"></main>
+
+    <aside class="sidebar" aria-label="Seitenleiste">
+      <section class="panel">
+        <div id="mini"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Termine<span id="sel-date" class="sub"></span></h2>
+        <div id="agenda"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Aufgaben<span id="task-count" class="sub"></span></h2>
+        <div id="tasklist"></div>
+        <form id="task-add-form" class="task-add">
+          <input id="task-input" type="text" placeholder="Neue Aufgabe…" aria-label="Neue Aufgabe" autocomplete="off" />
+          <button type="submit" class="primary" aria-label="Aufgabe hinzufügen">+</button>
+        </form>
+        <p class="hint" style="margin:0.5rem 0 0">
+          <button id="btn-carry" class="ghost" style="padding:0.2rem 0.3rem;font-size:0.78rem">↑ Offene Aufgaben früherer Tage übernehmen</button>
+        </p>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<!-- ------------------------------------------------------------------ -->
+<dialog id="event-dialog" aria-labelledby="dlg-title">
+  <form id="event-form" method="dialog">
+    <div class="dlg-head"><h2 id="dlg-title">Neuer Termin</h2></div>
+
+    <div class="dlg-body">
+      <!-- Bei einer Serie muss diese Wahl ganz oben stehen: sie entscheidet,
+           worauf sich jede darunter vorgenommene Änderung auswirkt. -->
+      <div class="field" id="scope-row" hidden
+           style="background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:0.5rem 0.6rem">
+        <label>Serientermin — Änderung und Löschen gelten für</label>
+        <label class="check"><input type="radio" name="scope" id="scope-one" value="one" checked /> nur diesen Termin</label>
+        <label class="check"><input type="radio" name="scope" id="scope-all" value="all" /> die ganze Serie</label>
+        <p class="hint" style="margin:0.25rem 0 0">„Nur diesen Termin“ löst die Instanz aus der Serie und legt sie als eigenständigen Termin an.</p>
+      </div>
+
+      <div class="field">
+        <label for="f-title">Titel</label>
+        <input id="f-title" type="text" autocomplete="off" />
+      </div>
+
+      <label class="check"><input id="f-allday" type="checkbox" /> Ganztägig</label>
+
+      <div class="row">
+        <div class="field">
+          <label for="f-date">Datum</label>
+          <input id="f-date" type="date" required />
+        </div>
+        <div class="field" id="enddate-row">
+          <label for="f-enddate">bis (Tag)</label>
+          <input id="f-enddate" type="date" />
+        </div>
+      </div>
+
+      <div class="row" id="time-row">
+        <div class="field">
+          <label for="f-from">Von</label>
+          <input id="f-from" type="time" step="300" />
+        </div>
+        <div class="field">
+          <label for="f-to">Bis</label>
+          <input id="f-to" type="time" step="300" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Kategorie</label>
+        <div id="catpick" class="catpick"></div>
+      </div>
+
+      <div class="field">
+        <label for="f-freq">Wiederholung</label>
+        <select id="f-freq">
+          <option value="NONE">keine</option>
+          <option value="DAILY">täglich</option>
+          <option value="WEEKLY">wöchentlich</option>
+          <option value="MONTHLY">monatlich</option>
+          <option value="YEARLY">jährlich</option>
+        </select>
+      </div>
+
+      <div id="rec-detail" class="field" hidden>
+        <div class="row tight">
+          <div class="field" style="flex:0 0 5.5rem">
+            <label for="f-interval">alle</label>
+            <input id="f-interval" type="number" min="1" max="99" value="1" />
+          </div>
+          <div class="field"><label>&nbsp;</label><div id="f-unit" style="padding:0.38rem 0">Wochen</div></div>
+        </div>
+
+        <div id="byday-row" class="field" style="margin-top:0.4rem">
+          <label>An diesen Tagen</label>
+          <div class="dowpick">
+            <label><input type="checkbox" name="byday" value="0" />Mo</label>
+            <label><input type="checkbox" name="byday" value="1" />Di</label>
+            <label><input type="checkbox" name="byday" value="2" />Mi</label>
+            <label><input type="checkbox" name="byday" value="3" />Do</label>
+            <label><input type="checkbox" name="byday" value="4" />Fr</label>
+            <label><input type="checkbox" name="byday" value="5" />Sa</label>
+            <label><input type="checkbox" name="byday" value="6" />So</label>
+          </div>
+          <p class="hint">Ohne Auswahl wiederholt sich der Termin am Wochentag des Startdatums.</p>
+        </div>
+
+        <div class="row tight" style="margin-top:0.4rem">
+          <div class="field">
+            <label for="f-endmode">Ende</label>
+            <select id="f-endmode">
+              <option value="never">nie</option>
+              <option value="count">nach N Terminen</option>
+              <option value="until">bis Datum</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>&nbsp;</label>
+            <input id="f-count" type="number" min="1" max="999" value="10" hidden />
+            <input id="f-until" type="date" hidden />
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="f-notes">Notizen</label>
+        <textarea id="f-notes"></textarea>
+      </div>
+
+    </div>
+
+    <div class="dlg-foot">
+      <button type="button" id="btn-delete" class="danger spacer" hidden>Löschen</button>
+      <button type="button" id="btn-cancel">Abbrechen</button>
+      <button type="submit" class="primary">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ------------------------------------------------------------------ -->
+<dialog id="menu-dialog" aria-labelledby="menu-title">
+  <form method="dialog">
+    <div class="dlg-head"><h2 id="menu-title">Daten &amp; Darstellung</h2></div>
+    <div class="dlg-body">
+      <div class="field">
+        <label>Export</label>
+        <div class="row">
+          <button type="button" id="btn-export-ics">.ics exportieren</button>
+          <button type="button" id="btn-export-json">Backup (.json)</button>
+        </div>
+        <p class="hint">
+          Die Daten liegen derzeit ausschließlich im Speicher dieses Browsers auf diesem Gerät.
+          Sie werden nicht synchronisiert und sind weg, wenn die Browserdaten gelöscht werden.
+          Regelmäßig ein Backup zu ziehen ist deshalb keine Vorsichtsmaßnahme, sondern notwendig.
+        </p>
+      </div>
+
+      <div class="field">
+        <label>Import (.ics oder .json)</label>
+        <label class="check"><input type="radio" name="impmode" value="merge" checked /> hinzufügen</label>
+        <label class="check"><input type="radio" name="impmode" value="replace" /> bestehende Daten ersetzen</label>
+        <button type="button" id="btn-import" style="margin-top:0.4rem">Datei wählen…</button>
+        <input id="file-input" type="file" accept=".ics,.json,text/calendar,application/json" class="sr-only" />
+        <p class="hint">
+          Zeitangaben werden als Ortszeit gelesen. Die implementierte RRULE-Teilmenge umfasst
+          FREQ, INTERVAL, BYDAY, COUNT, UNTIL und EXDATE; komplexere Regeln werden vereinfacht
+          oder übersprungen, die Anzahl wird gemeldet.
+        </p>
+      </div>
+
+      <div class="field">
+        <label>Darstellung</label>
+        <button type="button" id="btn-theme">Hell / Dunkel / System</button>
+      </div>
+
+      <div class="field">
+        <label>Tastatur</label>
+        <p class="hint" style="line-height:1.9">
+          <kbd>←</kbd> <kbd>→</kbd> blättern · <kbd>M</kbd> Monat · <kbd>W</kbd> Woche ·
+          <kbd>D</kbd> Tag · <kbd>T</kbd> heute · <kbd>N</kbd> neuer Termin ·
+          <kbd>Strg</kbd>+<kbd>Z</kbd> rückgängig
+        </p>
+      </div>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" id="btn-menu-close" class="primary">Schließen</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module" src="./js/app.js"></script>
+</body>
+</html>
