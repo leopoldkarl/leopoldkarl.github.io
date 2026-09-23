@@ -1,19 +1,26 @@
-# Kalender
+# Kalender, Aufgaben, Tagebuch
 
-Eigenständige Kalender-App unter `/kalender/`. Von der Hauptseite **nicht**
-verlinkt, `noindex` gesetzt, kein Analytics-Skript eingebunden (sonst stünde
-der Pfad in einem fremden Dashboard).
+Drei Seiten unter `/kalender/`, umschaltbar über die Reiter oben links oder
+die Tasten `1` `2` `3`. Die Seite steht im URL-Fragment (`#kalender`,
+`#aufgaben`, `#tagebuch`), ist also lesezeichenfähig und übersteht ein
+Neuladen.
+
+Von der Hauptseite **nicht** verlinkt, `noindex` gesetzt, kein
+Analytics-Skript eingebunden (sonst stünde der Pfad in einem fremden
+Dashboard).
 
 ## Stand der Dinge
 
 Die Daten liegen ausschließlich im `localStorage` des jeweiligen Browsers.
 Daraus folgt dreierlei, und zwar unabhängig voneinander:
 
-1. **Kein Sync.** Laptop und Handy sehen verschiedene Kalender.
+1. **Kein Sync.** Laptop und Handy sehen verschiedene Kalender, Aufgaben
+   und Tagebücher.
 2. **Kein Zugriffsschutz nötig — noch nicht.** Die ausgelieferten Dateien
-   enthalten keine Termine, sondern nur das Programm. Wer die URL kennt,
-   sieht einen leeren Kalender. Ein Passwort schützt derzeit also nichts,
-   was nicht ohnehin schon öffentlich wäre.
+   enthalten keine Daten, sondern nur das Programm. Wer die URL kennt,
+   sieht eine leere App. Ein Passwort schützt derzeit also nichts, was
+   nicht ohnehin schon öffentlich wäre. Mit dem Tagebuch steigt allerdings,
+   was auf dem Spiel steht, sobald eine Server-Persistenz dazukommt.
 3. **Kein Backup.** Gelöschte Browserdaten bedeuten gelöschte Termine.
    Der Export im Menü (⋯) ist die einzige Sicherung.
 
@@ -30,8 +37,10 @@ Voraussetzung, nicht zur Option.
     js/recurrence.js  Expansion der Wiederholungsregeln
     js/ics.js         iCalendar-Export/Import
     js/contacts.js    Geburtsdaten aus Google-CSV- und vCard-Exporten
-    js/views.js       reine Render-Funktionen
-    js/app.js         Controller: Navigation, Dialoge, Drag & Drop
+    js/views.js       reine Render-Funktionen der Kalenderansichten
+    js/tasks.js       Aufgabenseite: Ansichten und Zeigergesten
+    js/journal.js     Tagebuchseite: Feldtypen, Summen, Layout
+    js/app.js         Controller: Seitenwechsel, Navigation, Dialoge
 
 Keine Abhängigkeiten, keine Build-Kette. ES-Module, direkt aus dem Repo
 ausgeliefert (`.nojekyll` ist gesetzt).
@@ -74,6 +83,54 @@ Erkannt werden `23.09.2026`, `23.9.`, `23.9.26`, `2309`, `230926`, `23092026`,
 Uhrzeit: `9`, `915`, `1415`, `14:15`, `14.15`. Beim Verlassen des Feldes wird
 auf die kanonische Schreibweise normalisiert; was nicht lesbar ist, wird rot
 markiert und **nicht** geraten — der Dialog bleibt dann offen.
+
+## Aufgabenseite
+
+Aufgaben haben **keine Uhrzeit**. Es sind dieselben Aufgaben wie in der
+Seitenleiste der Kalenderseite — ein Datenbestand, zwei Zugänge. In der
+Kalenderansicht selbst erscheinen sie bewusst nicht.
+
+Zwei Zeigergesten, die nicht dasselbe tun:
+
+- **Block ziehen** ändert die *Reihenfolge* — innerhalb eines Tages und in
+  der Wochenansicht auch über Tagesgrenzen hinweg. Die Reihenfolge ist die
+  geplante Abarbeitungsfolge.
+- **Unteren Rand ziehen** ändert die *Höhe am Bildschirm*, gespeichert in
+  `task.height` (34–400 px, in 2-px-Schritten). Die Höhe ist das Gewicht,
+  das die Aufgabe bekommt; sie hat keine weitere Bedeutung für die Logik.
+
+Erledigte Aufgaben stehen immer unter den offenen. Das erzwingt die
+Sortierung beim Zeichnen (`(a.done - b.done) || (a.order - b.order)`), nicht
+die abgelegte Reihenfolge — abhaken und wieder freigeben lässt eine Aufgabe
+also an ihren alten Platz zurückkehren.
+
+## Tagebuchseite
+
+Pro Tag: automatisch die Termine des Tages und die erledigten Aufgaben, dazu
+die Datenfelder und ein Freitextfeld. Die Feldliste steht als
+`journalSchema` im Zustand, nicht im Code — sie wandert damit in die
+Sicherung, und ein neues Feld ist ein Eintrag in `DEFAULT_JOURNAL_SCHEMA`.
+Neue Standardfelder werden bestehenden Ständen beim Laden nachgetragen.
+
+Feldtypen: `number` (Zahl mit Einheit), `scale5` (1–5, nochmaliges Tippen
+löscht), `bool` (dreistufig: leer → ja → nein → leer), `text`, `numtext`
+(Minutenzahl **und** eigenes Textfeld), `computed`.
+
+Zwei Felder sind berechnet und deshalb nicht eingebbar — ein Summenfeld von
+Hand zu pflegen führt zwangsläufig zum Auseinanderlaufen:
+
+    Mathezeit = Paper + Forschung + Lehrbuchvortrag + Anki + Lektüre
+    Sportzeit = Sporteinheit 1..3 + 15 min (Kraft) + 5 min (Mobilisation)
+                                  + 10 min (Dehnen)
+
+**„Projekt" geht bewusst NICHT in die Mathezeit ein**, weil es in der
+genannten Formel nicht vorkam. Falls das ein Versehen war, ist es eine Zeile
+in `journal.js`.
+
+Eingaben werden entprellt geschrieben (400 ms für Felder, 500 ms für den
+Freitext) und beim Verlassen des Feldes sofort. Das Datum wird beim Tippen
+festgehalten, nicht beim Schreiben — sonst landete eine noch offene Eingabe
+im falschen Tag, wenn man inzwischen weiterblättert.
 
 ## Geburtstage aus Kontakten
 
@@ -132,6 +189,7 @@ Zwei Entwurfsentscheidungen:
 Nicht Teil des Repos. Geprüft wurden 85 Einheitentests (Wiederholungsregeln,
 ics-Roundtrip inklusive Zeilenfaltung und Maskierung, RECURRENCE-ID-Auflösung,
 CSV-/vCard-Parser, Tastatureingabe von Datum und Uhrzeit, Schaltjahr-Rückfall)
-und 28 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
+und 51 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
 Geburtstags-Import, Kategorien-Editor, Tab-Reihenfolge, Scrollbalken,
-schmale Fenster).
+Seitenwechsel, Aufgaben-Reihenfolge und -Höhe, Tagebuch-Summen und
+-Speicherung, schmale Fenster).

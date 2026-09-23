@@ -134,20 +134,15 @@ button.danger { color: #b91c1c; border-color: #fca5a5; background: transparent; 
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 302px;
+  grid-template-columns: minmax(0, 1fr) var(--sidebar-w, 302px);
 }
+/* Ausserhalb der Kalenderseite enthaelt die Leiste nur den Mini-Monat. */
+.app:has(.page[data-pageid="aufgaben"]:not([hidden])) .main,
+.app:has(.page[data-pageid="tagebuch"]:not([hidden])) .main { --sidebar-w: 236px; }
 
+.pagearea { min-width: 0; min-height: 0; display: flex; }
+.page { flex: 1; min-width: 0; min-height: 0; }
 .viewport { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--surface); }
-
-.sidebar {
-  border-left: 1px solid var(--line);
-  background: var(--bg);
-  overflow-y: auto;
-  padding: 0.85rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
 
 /* ---------------------------------------------------------------- */
 /* Monatsansicht                                                     */
@@ -516,6 +511,178 @@ kbd {
   border: 1px solid var(--line-strong); border-bottom-width: 2px;
   border-radius: 4px; padding: 0 0.28rem; background: var(--surface-2);
 }
+
+.pages button { font-weight: 700; }
+.pages button[aria-selected="true"] { background: var(--accent); color: var(--bg); }
+
+/* ---------------------------------------------------------------- */
+/* Aufgabenseite                                                     */
+/* ---------------------------------------------------------------- */
+
+.tk-page { display: flex; height: 100%; min-height: 0; overflow-x: auto; }
+.tk-page.day { justify-content: center; padding: 1rem; }
+.tk-page.day .tk-col { max-width: 46rem; width: 100%; }
+.tk-page.week .tk-col { flex: 1 1 0; min-width: 190px; border-right: 1px solid var(--line); }
+.tk-page.week .tk-col:last-child { border-right: 0; }
+
+.tk-col {
+  display: flex; flex-direction: column; min-height: 0; min-width: 0;
+  background: var(--surface);
+}
+.tk-col.today { background: color-mix(in srgb, var(--today) 55%, var(--surface)); }
+.tk-col.selected { box-shadow: inset 0 0 0 2px var(--accent-2); }
+
+.tk-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem;
+  padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; background: inherit; z-index: 2;
+}
+.tk-day-title { font-family: var(--font-serif); font-weight: 700; font-size: 1rem; }
+.tk-col-title { display: flex; align-items: baseline; gap: 0.4rem; cursor: pointer; }
+.tk-col-title .dow { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; }
+.tk-col-title .num { font-family: var(--font-serif); font-weight: 700; font-size: 1.05rem; }
+.tk-col.today .tk-col-title .num {
+  background: var(--accent-2); color: #06302f; border-radius: 999px;
+  min-width: 1.7rem; text-align: center; display: inline-block;
+}
+.tk-count { font-size: 0.74rem; color: var(--muted); white-space: nowrap; }
+
+.tk-list { flex: 1; min-height: 0; overflow-y: auto; padding: 0.45rem; display: flex; flex-direction: column; gap: 0.35rem; }
+
+.tk {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  align-items: start;
+  gap: 0.4rem;
+  position: relative;
+  padding: 0.35rem 0.4rem 0.5rem;
+  border: 1px solid var(--line-strong);
+  border-left: 3px solid var(--accent-2);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+}
+.tk.done { border-left-color: var(--muted); opacity: 0.62; }
+.tk.tk-dragging { box-shadow: var(--shadow); cursor: grabbing; opacity: 0.92; }
+.tk.tk-resizing { border-left-color: var(--accent-2); }
+.tk-handle { color: var(--muted); font-size: 0.85rem; line-height: 1.6; cursor: grab; user-select: none; }
+.tk input[type="checkbox"] { margin-top: 0.3rem; accent-color: var(--accent-2); }
+/* Hoehere Spezifitaet als die allgemeine Regel fuer input[type="text"] —
+   sonst haette der Aufgabentitel Rahmen und Polsterung eines Formularfeldes. */
+.tk input.tk-title {
+  border: 0;
+  background: transparent;
+  padding: 0.12rem 0.15rem;
+  font: inherit;
+  font-size: 0.9rem;
+  width: 100%;
+  min-width: 0;
+  align-self: start;
+  border-radius: 4px;
+}
+.tk input.tk-title:hover { background: var(--surface-2); }
+.tk input.tk-title:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 0; background: var(--surface); }
+.tk.done .tk-title { text-decoration: line-through; color: var(--muted); }
+.tk-del { border: 0; background: transparent; color: var(--muted); font-size: 1.05rem; line-height: 1; padding: 0 0.2rem; opacity: 0; }
+.tk:hover .tk-del, .tk-del:focus-visible { opacity: 1; }
+.tk-del:hover { color: #b91c1c; }
+.tk-grip {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 8px;
+  cursor: ns-resize;
+}
+.tk-grip::after {
+  content: ''; position: absolute; left: 50%; bottom: 3px; transform: translateX(-50%);
+  width: 26px; height: 2px; border-radius: 2px; background: var(--line-strong);
+}
+.tk:hover .tk-grip::after { background: var(--accent-2); }
+
+.tk-placeholder {
+  border: 2px dashed var(--accent-2); border-radius: 8px;
+  background: color-mix(in srgb, var(--accent-2) 8%, transparent);
+}
+
+.tk-sep {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--muted); margin: 0.4rem 0 0.1rem;
+}
+.tk-sep::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+
+.tk-add { display: flex; gap: 0.35rem; padding: 0.45rem; border-top: 1px solid var(--line); }
+.tk-add input { flex: 1; min-width: 0; font-size: 0.85rem; }
+
+/* ---------------------------------------------------------------- */
+/* Tagebuchseite                                                     */
+/* ---------------------------------------------------------------- */
+
+.jr { height: 100%; min-height: 0; overflow-y: auto; padding: 0.9rem; display: flex; flex-direction: column; gap: 0.9rem; background: var(--bg); }
+.jr-strip { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+.jr-stat {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 0.5rem 0.9rem; min-width: 8rem;
+}
+.jr-stat .k { font-size: 0.72rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.jr-stat .v { font-family: var(--font-serif); font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.jr-stat .u { font-size: 0.7rem; color: var(--muted); }
+
+.jr-cols { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 0.9rem; align-items: start; }
+.jr-right { display: flex; flex-direction: column; gap: 0.9rem; }
+.jr-entry textarea { min-height: 14rem; }
+.jr-done { list-style: none; margin: 0.3rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.85rem; }
+.jr-done li::before { content: '✓ '; color: var(--accent-2); font-weight: 700; }
+
+.jf-grid { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.4rem; }
+.jf {
+  display: grid; grid-template-columns: 11rem minmax(0, 1fr);
+  gap: 0.6rem; align-items: center;
+  padding: 0.18rem 0.2rem; border-radius: 6px;
+}
+.jf:hover { background: var(--surface-2); }
+.jf-label { font-size: 0.85rem; font-weight: 500; }
+.jf-num { display: flex; align-items: center; gap: 0.35rem; }
+.jf-num input { width: 6rem; flex: none; font-variant-numeric: tabular-nums; text-align: right; }
+.jf-unit { font-size: 0.78rem; color: var(--muted); }
+.jf-pair { display: flex; gap: 0.5rem; align-items: center; min-width: 0; }
+.jf-pair .jf-num { flex: none; }
+.jf-pair input[type="text"] { flex: 1; min-width: 0; }
+.jf-computed {
+  font-family: var(--font-serif); font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.jf-scale { display: flex; gap: 0.25rem; justify-self: start; }
+.jf-dot {
+  width: 2rem; height: 2rem; padding: 0; border-radius: 999px;
+  font-size: 0.8rem; font-weight: 600;
+}
+.jf-dot.on { background: var(--accent-2); border-color: var(--accent-2); color: #06302f; }
+
+.jf-bool { min-width: 4.5rem; justify-self: start; }
+.jf-bool.yes { background: var(--accent-2); border-color: var(--accent-2); color: #06302f; }
+.jf-bool.no { color: var(--muted); }
+
+@media (max-width: 1100px) {
+  .jr-cols { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 700px) {
+  .jf { grid-template-columns: minmax(0, 1fr); gap: 0.15rem; }
+  .jf-label { font-size: 0.78rem; color: var(--muted); }
+}
+
+
+.sidebar {
+  border-left: 1px solid var(--line);
+  background: var(--bg);
+  overflow-y: auto;
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
 
 /* ---------------------------------------------------------------- */
 /* Schmale Fenster                                                   */

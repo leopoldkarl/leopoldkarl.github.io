@@ -25,17 +25,28 @@
   </div>
 
   <header class="topbar">
+    <nav class="segmented pages" role="tablist" aria-label="Seite">
+      <button data-page="kalender" role="tab" aria-selected="true">Kalender</button>
+      <button data-page="aufgaben" role="tab" aria-selected="false">Aufgaben</button>
+      <button data-page="tagebuch" role="tab" aria-selected="false">Tagebuch</button>
+    </nav>
+
     <div class="topbar-group">
       <button id="btn-today">Heute</button>
       <button id="btn-prev" class="icon" aria-label="Zurück">‹</button>
       <button id="btn-next" class="icon" aria-label="Vor">›</button>
       <h1 id="period" class="period"></h1>
     </div>
+
     <div class="topbar-group views">
-      <div class="segmented" role="group" aria-label="Ansicht">
+      <div class="segmented" id="cal-views" role="group" aria-label="Kalenderansicht">
         <button data-view="month" aria-pressed="false">Monat</button>
         <button data-view="week" aria-pressed="false">Woche</button>
         <button data-view="day" aria-pressed="false">Tag</button>
+      </div>
+      <div class="segmented" id="task-views" role="group" aria-label="Aufgabenansicht" hidden>
+        <button data-taskview="day" aria-pressed="false">Tag</button>
+        <button data-taskview="week" aria-pressed="false">Woche</button>
       </div>
       <button id="btn-new" class="primary">+ Termin</button>
       <button id="btn-menu" class="icon" aria-label="Menü" title="Import, Export, Darstellung">⋯</button>
@@ -43,19 +54,23 @@
   </header>
 
   <div class="main">
-    <main id="viewport" class="viewport" aria-label="Kalenderansicht"></main>
+    <div class="pagearea">
+      <main id="viewport" class="viewport page" data-pageid="kalender" aria-label="Kalenderansicht"></main>
+      <main id="tk-root" class="viewport page" data-pageid="aufgaben" aria-label="Aufgabenansicht" hidden></main>
+      <main id="jr-root" class="viewport page" data-pageid="tagebuch" aria-label="Tagebuch" hidden></main>
+    </div>
 
     <aside class="sidebar" aria-label="Seitenleiste">
       <section class="panel">
         <div id="mini"></div>
       </section>
 
-      <section class="panel">
+      <section class="panel" id="panel-agenda">
         <h2>Termine<span id="sel-date" class="sub"></span></h2>
         <div id="agenda"></div>
       </section>
 
-      <section class="panel">
+      <section class="panel" id="panel-tasks">
         <h2>Aufgaben<span id="task-count" class="sub"></span></h2>
         <div id="tasklist"></div>
         <form id="task-add-form" class="task-add">
@@ -254,7 +269,7 @@
         <p class="hint" style="line-height:1.9">
           <kbd>←</kbd> <kbd>→</kbd> blättern · <kbd>M</kbd> Monat · <kbd>W</kbd> Woche ·
           <kbd>D</kbd> Tag · <kbd>T</kbd> heute · <kbd>N</kbd> neuer Termin ·
-          <kbd>Strg</kbd>+<kbd>Z</kbd> rückgängig
+          <kbd>Strg</kbd>+<kbd>Z</kbd> rückgängig · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> Seite wechseln
         </p>
       </div>
     </div>

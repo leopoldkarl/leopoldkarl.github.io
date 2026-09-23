@@ -6,7 +6,7 @@ import {
   fmtDateLong, pad, sameDay, diffDays, startOfDay,
   parseDateInput, formatDateInput, parseTimeInput,
 } from './dates.js';
-import { Store, LocalStorageAdapter, uid } from './store.js';
+import { Store, LocalStorageAdapter, uid, clampHeight } from './store.js';
 import { occurrencesInRange, describeRule } from './recurrence.js';
 import { toICS, parseICS } from './ics.js';
 import { decodeBuffer, parseContactsFile, toBirthdayEvent } from './contacts.js';
@@ -14,12 +14,18 @@ import {
   renderMonth, renderTimeGrid, renderMiniMonth, renderTasks, renderAgenda,
   collapseOverflow, el,
 } from './views.js';
+import { renderTaskDay, renderTaskWeek, attachTaskInteractions } from './tasks.js';
+import { renderJournal, computeField, formatHours } from './journal.js';
 
 const adapter = new LocalStorageAdapter('kalender.v1');
 const store = new Store(adapter);
 
+const PAGES = ['kalender', 'aufgaben', 'tagebuch'];
+
 const ui = {
+  page: 'kalender',
   view: localStorage_get('kalender.view', 'week'),
+  taskView: localStorage_get('kalender.taskview', 'day'),
   cursor: new Date(),
   selected: ymd(new Date()),
   miniCursor: startOfMonth(new Date()),
@@ -66,6 +72,8 @@ function undo() {
     s.tasks = restored.tasks;
     s.categories = restored.categories;
     s.settings = restored.settings;
+    s.journal = restored.journal;
+    s.journalSchema = restored.journalSchema;
   });
   toast(`Rückgängig: ${last.label}`);
 }
@@ -98,10 +106,18 @@ function visibleDays() {
   return Array.from({ length: weeks * 7 }, (_, i) => addDays(first, i));
 }
 
+/** Welche Zeitspanne die Pfeiltasten bewegen, haengt von Seite und Ansicht ab. */
+function activeSpan() {
+  if (ui.page === 'kalender') return ui.view;          // month | week | day
+  if (ui.page === 'aufgaben') return ui.taskView;      // day | week
+  return 'day';                                        // Tagebuch
+}
+
 function periodLabel() {
   const c = ui.cursor;
-  if (ui.view === 'day') return fmtDateLong(c);
-  if (ui.view === 'week') {
+  const span = activeSpan();
+  if (span === 'day') return fmtDateLong(c);
+  if (span === 'week') {
     const s = startOfWeek(c);
     const e = addDays(s, 6);
     const sameMonth = s.getMonth() === e.getMonth();
@@ -112,10 +128,123 @@ function periodLabel() {
 }
 
 /* ------------------------------------------------------------------ */
+/* Seitenwechsel                                                       */
+/* ------------------------------------------------------------------ */
+
+function setPage(page, { updateHash = true } = {}) {
+  flushJournalPending();
+  if (!PAGES.includes(page)) page = 'kalender';
+  ui.page = page;
+  // Auf Aufgaben- und Tagebuchseite ist der gewaehlte Tag das, was zaehlt.
+  if (page !== 'kalender') ui.cursor = parseYmd(ui.selected);
+  if (updateHash && location.hash.slice(1) !== page) location.hash = page;
+
+  for (const node of document.querySelectorAll('.page')) {
+    node.hidden = node.dataset.pageid !== page;
+  }
+  for (const b of document.querySelectorAll('[data-page]')) {
+    b.setAttribute('aria-selected', String(b.dataset.page === page));
+  }
+  $('#cal-views').hidden = page !== 'kalender';
+  $('#task-views').hidden = page !== 'aufgaben';
+  $('#btn-new').hidden = page !== 'kalender';
+  $('#panel-agenda').hidden = page !== 'kalender';
+  $('#panel-tasks').hidden = page !== 'kalender';
+  render();
+}
+
+/* ------------------------------------------------------------------ */
 /* Rendern                                                             */
 /* ------------------------------------------------------------------ */
 
 function render() {
+  if (ui.page === 'aufgaben') return renderTaskPage();
+  if (ui.page === 'tagebuch') return renderJournalPage();
+  return renderCalendarPage();
+}
+
+function renderCommonChrome() {
+  const span = activeSpan();
+  const kw = span === 'month' ? '' : ` <span class="kw">KW ${isoWeek(ui.cursor)}</span>`;
+  $('#period').innerHTML = escapeHtml(periodLabel()) + kw;
+  for (const b of document.querySelectorAll('[data-view]')) {
+    b.setAttribute('aria-pressed', String(b.dataset.view === ui.view));
+  }
+  for (const b of document.querySelectorAll('[data-taskview]')) {
+    b.setAttribute('aria-pressed', String(b.dataset.taskview === ui.taskView));
+  }
+  $('#storage-warning').hidden = !adapter.degraded;
+  renderSidebar();
+}
+
+function renderSidebar() {
+  const miniFrom = startOfWeek(startOfMonth(ui.miniCursor));
+  const miniTo = addDays(miniFrom, 42);
+  const daysWithEvents = new Set();
+  for (const o of occurrencesInRange(store.state.events, miniFrom, miniTo)) {
+    for (let d = new Date(o.start); d <= o.end; d = addDays(d, 1)) daysWithEvents.add(ymd(d));
+  }
+  $('#mini').replaceChildren(renderMiniMonth({
+    selected: ui.selected, daysWithEvents, today: new Date(),
+  }, ui.miniCursor));
+
+  if (ui.page !== 'kalender') return;
+
+  const selDate = parseYmd(ui.selected);
+  $('#sel-date').textContent = fmtDateLong(selDate);
+  const dayOccs = occurrencesInRange(store.state.events, startOfDay(selDate), addDays(startOfDay(selDate), 1))
+    .filter((o) => ymd(o.start) <= ui.selected && ui.selected <= ymd(o.end))
+    .sort((a, b) => (b.allDay - a.allDay) || (a.start - b.start));
+  $('#agenda').replaceChildren(renderAgenda(dayOccs, colorOf));
+
+  const tasks = store.tasksFor(ui.selected);
+  $('#tasklist').replaceChildren(renderTasks(tasks, ui.selected));
+  const open = tasks.filter((t) => !t.done).length;
+  $('#task-count').textContent = tasks.length ? `${open} offen von ${tasks.length}` : '';
+}
+
+/* ---- Aufgabenseite ---- */
+
+function renderTaskPage() {
+  const root = $('#tk-root');
+  const ctx = {
+    dateYmd: ui.selected,
+    selected: ui.selected,
+    today: new Date(),
+    tasksFor: (d) => store.tasksFor(d),
+    days: Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(ui.cursor), i)),
+  };
+  root.replaceChildren(ui.taskView === 'week' ? renderTaskWeek(ctx) : renderTaskDay(ctx));
+  renderCommonChrome();
+}
+
+/* ---- Tagebuchseite ---- */
+
+function renderJournalPage() {
+  const root = $('#jr-root');
+  const date = ui.selected;
+  const d = parseYmd(date);
+  const entry = store.journalFor(date);
+  const occs = occurrencesInRange(store.state.events, startOfDay(d), addDays(startOfDay(d), 1))
+    .filter((o) => ymd(o.start) <= date && date <= ymd(o.end))
+    .sort((a, b) => (b.allDay - a.allDay) || (a.start - b.start));
+  const tasks = store.tasksFor(date);
+  root.replaceChildren(renderJournal({
+    dateYmd: date,
+    schema: store.state.journalSchema,
+    values: entry.values,
+    entry: entry.entry,
+    occurrences: occs,
+    doneTasks: tasks.filter((t) => t.done),
+    openTasks: tasks.filter((t) => !t.done),
+    colorOf,
+  }));
+  renderCommonChrome();
+}
+
+/* ---- Kalenderseite ---- */
+
+function renderCalendarPage() {
   const days = visibleDays();
   const from = startOfDay(days[0]);
   const to = addDays(startOfDay(days[days.length - 1]), 1);
@@ -127,21 +256,12 @@ function render() {
     tasksByDate.get(t.date).push(t);
   }
 
-  // Punkte im Mini-Monat: eigener Bereich, unabhaengig von der Hauptansicht.
-  const miniFrom = startOfWeek(startOfMonth(ui.miniCursor));
-  const miniTo = addDays(miniFrom, 42);
-  const daysWithEvents = new Set();
-  for (const o of occurrencesInRange(store.state.events, miniFrom, miniTo)) {
-    for (let d = new Date(o.start); d <= o.end; d = addDays(d, 1)) daysWithEvents.add(ymd(d));
-  }
-
   const ctx = {
     cursor: ui.cursor,
     selected: ui.selected,
     occurrences,
     colorOf,
     tasksByDate,
-    daysWithEvents,
     today: new Date(),
   };
 
@@ -165,30 +285,7 @@ function render() {
     }
   }
 
-  /* Kopfleiste */
-  const kw = ui.view === 'month' ? '' : ` <span class="kw">KW ${isoWeek(ui.cursor)}</span>`;
-  $('#period').innerHTML = escapeHtml(periodLabel()) + kw;
-  for (const b of document.querySelectorAll('[data-view]')) {
-    b.setAttribute('aria-pressed', String(b.dataset.view === ui.view));
-  }
-
-  /* Sidebar */
-  $('#mini').replaceChildren(renderMiniMonth(ctx, ui.miniCursor));
-
-  const selDate = parseYmd(ui.selected);
-  $('#sel-date').textContent = fmtDateLong(selDate);
-
-  const dayOccs = occurrencesInRange(store.state.events, startOfDay(selDate), addDays(startOfDay(selDate), 1))
-    .filter((o) => ymd(o.start) <= ui.selected && ui.selected <= ymd(o.allDay ? o.end : o.end))
-    .sort((a, b) => (b.allDay - a.allDay) || (a.start - b.start));
-  $('#agenda').replaceChildren(renderAgenda(dayOccs, colorOf));
-
-  const tasks = store.tasksFor(ui.selected);
-  $('#tasklist').replaceChildren(renderTasks(tasks, ui.selected));
-  const open = tasks.filter((t) => !t.done).length;
-  $('#task-count').textContent = tasks.length ? `${open} offen von ${tasks.length}` : '';
-
-  $('#storage-warning').hidden = !adapter.degraded;
+  renderCommonChrome();
 }
 
 function escapeHtml(s) {
@@ -209,15 +306,24 @@ function setView(v) {
 }
 
 function step(dir) {
-  if (ui.view === 'month') ui.cursor = addMonths(ui.cursor, dir);
-  else if (ui.view === 'week') ui.cursor = addDays(ui.cursor, 7 * dir);
+  flushJournalPending();
+  const span = activeSpan();
+  if (span === 'month') ui.cursor = addMonths(ui.cursor, dir);
+  else if (span === 'week') ui.cursor = addDays(ui.cursor, 7 * dir);
   else ui.cursor = addDays(ui.cursor, dir);
   ui.miniCursor = startOfMonth(ui.cursor);
-  if (ui.view === 'day') ui.selected = ymd(ui.cursor);
+  if (span === 'day') ui.selected = ymd(ui.cursor);
+  else if (ui.page !== 'kalender') {
+    // In der Wochenansicht der Aufgabenseite mitwandern, damit der
+    // gewaehlte Tag in der sichtbaren Woche bleibt.
+    const s = startOfWeek(ui.cursor);
+    if (parseYmd(ui.selected) < s || parseYmd(ui.selected) > addDays(s, 6)) ui.selected = ymd(s);
+  }
   render();
 }
 
 function goToday() {
+  flushJournalPending();
   ui.cursor = new Date();
   ui.selected = ymd(ui.cursor);
   ui.miniCursor = startOfMonth(ui.cursor);
@@ -226,6 +332,7 @@ function goToday() {
 }
 
 function selectDate(key, { focusView = false } = {}) {
+  flushJournalPending();
   ui.selected = key;
   const d = parseYmd(key);
   if (focusView || ui.view === 'day') ui.cursor = d;
@@ -660,6 +767,96 @@ async function handleImportFile(file, mode) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Tagebuch: entprelltes Schreiben                                     */
+/* ------------------------------------------------------------------ */
+//
+// Waehrend des Tippens darf nicht neu gezeichnet werden, sonst verliert das
+// Feld den Fokus. Deshalb: Wert entprellt in den Zustand schreiben, und nur
+// bei einem Feld, das in eine Summe eingeht, danach die Summen auffrischen.
+
+let jTimer = null;
+let jPending = null;
+
+function readFieldValue(input) {
+  const id = input.dataset.jfield;
+  const part = input.dataset.jpart;
+  const field = store.state.journalSchema.find((f) => f.id === id);
+  if (!field) return null;
+
+  if (field.type === 'numtext') {
+    const row = input.closest('[data-jrow]');
+    const n = row.querySelector('[data-jpart="n"]').value.trim();
+    const text = row.querySelector('[data-jpart="text"]').value.trim();
+    if (!n && !text) return { id, value: null };
+    return { id, value: { n: n === '' ? null : Number(n), text } };
+  }
+  if (field.type === 'number') {
+    const v = input.value.trim();
+    return { id, value: v === '' ? null : Number(v) };
+  }
+  void part;
+  return { id, value: input.value.trim() };
+}
+
+function scheduleJournalWrite(input) {
+  // Das Datum wird beim Tippen festgehalten, nicht beim Schreiben: sonst
+  // landete eine noch offene Eingabe im falschen Tag, wenn man inzwischen
+  // weiterblaettert.
+  const date = ui.selected;
+  jPending = { input, date };
+  clearTimeout(jTimer);
+  jTimer = setTimeout(() => flushJournalWrite(input, false, date), 400);
+}
+
+/** `refresh` zeichnet die abgeleiteten Summen neu (beim Verlassen des Feldes). */
+function flushJournalWrite(input, refresh, date = ui.selected) {
+  clearTimeout(jTimer);
+  jPending = null;
+  const r = readFieldValue(input);
+  if (!r) return;
+  store.setJournalValue(date, r.id, r.value);
+  if (refresh && date === ui.selected) refreshComputed();
+}
+
+/** Offene Eingaben festschreiben, bevor der gewaehlte Tag wechselt. */
+function flushJournalPending() {
+  if (jPending) flushJournalWrite(jPending.input, false, jPending.date);
+  if (entryPending) {
+    clearTimeout(entryTimer);
+    store.setJournalEntry(entryPending.date, entryPending.ta.value);
+    entryPending = null;
+  }
+}
+
+/** Nur die Summenkacheln neu schreiben — ohne die Eingabefelder anzufassen. */
+function refreshComputed() {
+  const values = store.journalFor(ui.selected).values;
+  const strip = $('#jr-root').querySelector('.jr-strip');
+  if (!strip) return;
+  const schema = store.state.journalSchema;
+  const computed = schema.filter((f) => f.type === 'computed');
+  const cards = [...strip.querySelectorAll('.jr-stat')];
+  // Die Schlafzeit-Kachel steht ggf. davor; von hinten zuordnen.
+  const offset = cards.length - computed.length;
+  computed.forEach((f, i) => {
+    const card = cards[offset + i];
+    if (card) card.querySelector('.v').textContent = formatHours(computeField(f, values));
+  });
+}
+
+let entryTimer = null;
+let entryPending = null;
+function scheduleEntryWrite(ta) {
+  const date = ui.selected;
+  entryPending = { ta, date };
+  clearTimeout(entryTimer);
+  entryTimer = setTimeout(() => {
+    store.setJournalEntry(date, ta.value);
+    entryPending = null;
+  }, 500);
+}
+
+/* ------------------------------------------------------------------ */
 /* Kategorien                                                          */
 /* ------------------------------------------------------------------ */
 
@@ -815,6 +1012,123 @@ function confirmBirthdays() {
 /* ------------------------------------------------------------------ */
 
 function bind() {
+  /* Seitenreiter und Hash-Routing */
+  for (const b of document.querySelectorAll('[data-page]')) {
+    b.addEventListener('click', () => setPage(b.dataset.page));
+  }
+  window.addEventListener('hashchange', () => setPage(location.hash.slice(1), { updateHash: false }));
+
+  for (const b of document.querySelectorAll('[data-taskview]')) {
+    b.addEventListener('click', () => {
+      ui.taskView = b.dataset.taskview;
+      localStorage_set('kalender.taskview', ui.taskView);
+      render();
+    });
+  }
+
+  /* ---- Aufgabenseite ---- */
+  const tkRoot = $('#tk-root');
+
+  attachTaskInteractions(tkRoot, {
+    onReorder: (id, targetDate, index) => {
+      pushUndo('Aufgabe verschoben');
+      store.moveTask(id, targetDate, index);
+      render();
+    },
+    onResize: (id, height) => {
+      pushUndo('Aufgabenhöhe geändert');
+      store.updateTask(id, { height: clampHeight(height) });
+    },
+  });
+
+  tkRoot.addEventListener('change', (e) => {
+    const cb = e.target.closest('[data-tktoggle]');
+    if (cb) {
+      pushUndo('Aufgabe umgeschaltet');
+      store.updateTask(cb.dataset.tktoggle, { done: cb.checked });
+      render();
+      return;
+    }
+    const title = e.target.closest('[data-tktitle]');
+    if (title) {
+      const text = title.value.trim();
+      if (!text) { render(); return; }      // leerer Titel wird verworfen
+      pushUndo('Aufgabe umbenannt');
+      store.updateTask(title.dataset.tktitle, { title: text });
+    }
+  });
+
+  tkRoot.addEventListener('click', (e) => {
+    const del = e.target.closest('[data-tkdel]');
+    if (del) {
+      pushUndo('Aufgabe gelöscht');
+      store.deleteTask(del.dataset.tkdel);
+      render();
+      return;
+    }
+    const goto = e.target.closest('[data-gotoday]');
+    if (goto) {
+      ui.selected = goto.dataset.gotoday;
+      ui.cursor = parseYmd(ui.selected);
+      ui.taskView = 'day';
+      localStorage_set('kalender.taskview', 'day');
+      render();
+    }
+  });
+
+  tkRoot.addEventListener('submit', (e) => {
+    const form = e.target.closest('.tk-add');
+    if (!form) return;
+    e.preventDefault();
+    const input = form.querySelector('[data-tkadd]');
+    const text = input.value.trim();
+    if (!text) return;
+    pushUndo('Aufgabe angelegt');
+    store.addTask(form.dataset.date, text);
+    input.value = '';
+    render();
+    // Nach dem Neuzeichnen ist das Feld ein anderes: erneut suchen.
+    const again = tkRoot.querySelector(`[data-tkadd="${CSS.escape(form.dataset.date)}"]`);
+    if (again) again.focus();
+  });
+
+  /* ---- Tagebuchseite ---- */
+  const jrRoot = $('#jr-root');
+
+  jrRoot.addEventListener('click', (e) => {
+    const dot = e.target.closest('[data-jvalue]');
+    if (dot) {
+      const id = dot.dataset.jfield;
+      const val = Number(dot.dataset.jvalue);
+      const cur = store.journalFor(ui.selected).values[id];
+      pushUndo('Tagebuchwert geändert');
+      // Nochmal auf denselben Wert tippen loescht ihn wieder.
+      store.setJournalValue(ui.selected, id, cur === val ? null : val);
+      render();
+      return;
+    }
+    const bool = e.target.closest('[data-jtoggle]');
+    if (bool) {
+      const id = bool.dataset.jfield;
+      const cur = store.journalFor(ui.selected).values[id];
+      // Dreistufig: nicht gesetzt -> ja -> nein -> nicht gesetzt.
+      const next = cur === true ? false : (cur === false ? null : true);
+      pushUndo('Tagebuchwert geändert');
+      store.setJournalValue(ui.selected, id, next);
+      render();
+    }
+  });
+
+  jrRoot.addEventListener('input', (e) => {
+    const field = e.target.closest('[data-jfield]');
+    if (field && field.dataset.jpart) { scheduleJournalWrite(field); return; }
+    if (e.target.id === 'jr-entry-text') scheduleEntryWrite(e.target);
+  });
+  jrRoot.addEventListener('change', (e) => {
+    const field = e.target.closest('[data-jfield]');
+    if (field && field.dataset.jpart) flushJournalWrite(field, true);
+  });
+
   $('#btn-today').addEventListener('click', goToday);
   $('#btn-prev').addEventListener('click', () => step(-1));
   $('#btn-next').addEventListener('click', () => step(1));
@@ -1007,18 +1321,30 @@ function bind() {
     if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
     if (document.querySelector('dialog[open]')) return;
     switch (e.key) {
+      case '1': setPage('kalender'); break;
+      case '2': setPage('aufgaben'); break;
+      case '3': setPage('tagebuch'); break;
       case 'ArrowLeft': step(-1); break;
       case 'ArrowRight': step(1); break;
-      case 'm': case 'M': setView('month'); break;
-      case 'w': case 'W': setView('week'); break;
-      case 'd': case 'D': setView('day'); break;
+      case 'm': case 'M': if (ui.page === 'kalender') setView('month'); break;
+      case 'w': case 'W':
+        if (ui.page === 'kalender') setView('week');
+        else if (ui.page === 'aufgaben') { ui.taskView = 'week'; localStorage_set('kalender.taskview', 'week'); render(); }
+        break;
+      case 'd': case 'D':
+        if (ui.page === 'kalender') setView('day');
+        else if (ui.page === 'aufgaben') { ui.taskView = 'day'; localStorage_set('kalender.taskview', 'day'); render(); }
+        break;
       case 't': case 'T': case 'h': case 'H': goToday(); break;
-      case 'n': case 'N': e.preventDefault(); newEventAt(ui.selected, null); break;
+      case 'n': case 'N':
+        if (ui.page !== 'kalender') return;
+        e.preventDefault(); newEventAt(ui.selected, null);
+        break;
       default: return;
     }
   });
 
-  window.addEventListener('beforeunload', () => { store.flush(); });
+  window.addEventListener('beforeunload', () => { flushJournalPending(); store.flush(); });
   window.addEventListener('resize', () => {
     if (ui.view === 'month') for (const c of document.querySelectorAll('.mv-cell')) collapseOverflow(c);
   });
@@ -1034,7 +1360,7 @@ async function main() {
   buildCatPick();
 
   bind();
-  render();
+  setPage(location.hash.slice(1) || 'kalender', { updateHash: false });
 
   // Jetzt-Linie minuetlich nachfuehren.
   setInterval(() => { if (ui.view !== 'month') render(); }, 60000);
