@@ -98,24 +98,32 @@
       <div class="row">
         <div class="field">
           <label for="f-date">Datum</label>
-          <input id="f-date" type="date" required />
+          <input id="f-date" type="text" inputmode="numeric" autocomplete="off"
+                 spellcheck="false" placeholder="TT.MM.JJJJ" required />
         </div>
         <div class="field" id="enddate-row">
           <label for="f-enddate">bis (Tag)</label>
-          <input id="f-enddate" type="date" />
+          <input id="f-enddate" type="text" inputmode="numeric" autocomplete="off"
+                 spellcheck="false" placeholder="TT.MM.JJJJ" />
         </div>
       </div>
 
       <div class="row" id="time-row">
         <div class="field">
           <label for="f-from">Von</label>
-          <input id="f-from" type="time" step="300" />
+          <input id="f-from" type="text" inputmode="numeric" autocomplete="off"
+                 spellcheck="false" placeholder="HH:MM" />
         </div>
         <div class="field">
           <label for="f-to">Bis</label>
-          <input id="f-to" type="time" step="300" />
+          <input id="f-to" type="text" inputmode="numeric" autocomplete="off"
+                 spellcheck="false" placeholder="HH:MM" />
         </div>
       </div>
+      <p class="hint" id="datehint">
+        Tastatureingabe: <kbd>23.9.</kbd>, <kbd>2309</kbd>, <kbd>23.9.26</kbd>, <kbd>h</kbd> heute,
+        <kbd>m</kbd> morgen, <kbd>+7</kbd> in sieben Tagen · Uhrzeit <kbd>9</kbd>, <kbd>1415</kbd>, <kbd>14:15</kbd>
+      </p>
 
       <div class="field">
         <label>Kategorie</label>
@@ -168,7 +176,8 @@
           <div class="field">
             <label>&nbsp;</label>
             <input id="f-count" type="number" min="1" max="999" value="10" hidden />
-            <input id="f-until" type="date" hidden />
+            <input id="f-until" type="text" inputmode="numeric" autocomplete="off"
+                   spellcheck="false" placeholder="TT.MM.JJJJ" hidden />
           </div>
         </div>
       </div>
@@ -231,6 +240,11 @@
       </div>
 
       <div class="field">
+        <label>Kategorien</label>
+        <button type="button" id="btn-categories">Kategorien bearbeiten…</button>
+      </div>
+
+      <div class="field">
         <label>Darstellung</label>
         <button type="button" id="btn-theme">Hell / Dunkel / System</button>
       </div>
@@ -246,6 +260,25 @@
     </div>
     <div class="dlg-foot">
       <button type="button" id="btn-menu-close" class="primary">Schließen</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ------------------------------------------------------------------ -->
+<dialog id="category-dialog" aria-labelledby="cat-title">
+  <form method="dialog">
+    <div class="dlg-head">
+      <h2 id="cat-title">Kategorien</h2>
+      <p class="hint" style="margin:0.3rem 0 0">
+        Änderungen wirken sofort auf alle Termine. Rückgängig mit <kbd>Strg</kbd>+<kbd>Z</kbd>.
+      </p>
+    </div>
+    <div class="dlg-body">
+      <div id="cat-list" class="cat-list"></div>
+      <button type="button" id="cat-add" style="align-self:flex-start">+ Kategorie</button>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" id="cat-close" class="primary">Schließen</button>
     </div>
   </form>
 </dialog>

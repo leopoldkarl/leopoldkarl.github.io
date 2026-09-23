@@ -135,3 +135,71 @@ export function fmtDateShort(d) {
 export function todayYmd() {
   return ymd(new Date());
 }
+
+/* ------------------------------------------------------------------ */
+/* Tastatureingabe von Datum und Uhrzeit                               */
+/* ------------------------------------------------------------------ */
+//
+// Die nativen <input type="date"> und <input type="time"> zerfallen in
+// mehrere Teilfelder (Tag, Monat, Jahr), die jeweils einen eigenen
+// Tab-Halt haben, und bringen ein Kalender- bzw. Uhr-Symbol mit. Für
+// reine Tastatureingabe ist beides im Weg. Stattdessen Textfelder mit
+// toleranter Erkennung und Normalisierung beim Verlassen.
+
+/**
+ * 'TT.MM.JJJJ', 'T.M.JJ', 'TT.MM.', 'TTMM', 'TTMMJJ', 'TTMMJJJJ',
+ * 'JJJJ-MM-TT', dazu 'heute'/'morgen'/'gestern' und '+n'/'-n' Tage.
+ * Rückgabe 'YYYY-MM-DD' oder null.
+ */
+export function parseDateInput(input, today = new Date()) {
+  const s = String(input).trim().toLowerCase();
+  if (!s) return null;
+
+  if (/^(h|heute)$/.test(s)) return ymd(today);
+  if (/^(m|morgen)$/.test(s)) return ymd(addDays(today, 1));
+  if (/^(g|gestern)$/.test(s)) return ymd(addDays(today, -1));
+  let m;
+  if ((m = /^([+-])\s*(\d{1,4})$/.exec(s))) {
+    return ymd(addDays(today, (m[1] === '-' ? -1 : 1) * Number(m[2])));
+  }
+
+  const build = (d, mo, y) => {
+    if (mo < 1 || mo > 12) return null;
+    if (d < 1 || d > daysInMonth(y, mo - 1)) return null;
+    return `${y}-${pad(mo)}-${pad(d)}`;
+  };
+  // Zweistellige Jahre: 00–69 -> 2000er, 70–99 -> 1900er (wie POSIX).
+  const fullYear = (yy) => (yy < 70 ? 2000 + yy : 1900 + yy);
+
+  if ((m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s))) return build(+m[3], +m[2], +m[1]);
+  if ((m = /^(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{4})$/.exec(s))) return build(+m[1], +m[2], +m[3]);
+  if ((m = /^(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{2})$/.exec(s))) return build(+m[1], +m[2], fullYear(+m[3]));
+  if ((m = /^(\d{1,2})[.\-/](\d{1,2})\.?$/.exec(s))) return build(+m[1], +m[2], today.getFullYear());
+  if ((m = /^(\d{2})(\d{2})(\d{4})$/.exec(s))) return build(+m[1], +m[2], +m[3]);
+  if ((m = /^(\d{2})(\d{2})(\d{2})$/.exec(s))) return build(+m[1], +m[2], fullYear(+m[3]));
+  if ((m = /^(\d{2})(\d{2})$/.exec(s))) return build(+m[1], +m[2], today.getFullYear());
+  return null;
+}
+
+/** 'YYYY-MM-DD' -> 'TT.MM.JJJJ' */
+export function formatDateInput(s) {
+  if (!s) return '';
+  const [y, m, d] = String(s).slice(0, 10).split('-');
+  return `${d}.${m}.${y}`;
+}
+
+/**
+ * 'HH:MM', 'H:M', 'HH.MM', 'HHMM', 'HH', 'H'.
+ * Rückgabe 'HH:MM' oder null.
+ */
+export function parseTimeInput(input) {
+  const s = String(input).trim();
+  if (!s) return null;
+  const ok = (h, mi) => ((h >= 0 && h <= 23 && mi >= 0 && mi <= 59) ? `${pad(h)}:${pad(mi)}` : null);
+  let m;
+  if ((m = /^(\d{1,2})[:.,\s](\d{1,2})$/.exec(s))) return ok(+m[1], +m[2]);
+  if ((m = /^(\d{4})$/.exec(s))) return ok(+s.slice(0, 2), +s.slice(2));
+  if ((m = /^(\d{3})$/.exec(s))) return ok(+s.slice(0, 1), +s.slice(1));
+  if ((m = /^(\d{1,2})$/.exec(s))) return ok(+m[1], 0);
+  return null;
+}

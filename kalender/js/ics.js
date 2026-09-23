@@ -223,8 +223,10 @@ export function parseICS(text, categories = []) {
   const known = new Set(categories.map((c) => c.id));
   const lines = parseLines(text);
   const events = [];
+  const meta = [];        // uid / recurrenceId je Termin, fuer die Nachbereitung
   const tasks = [];
   let skipped = 0;
+  let cancelled = 0;
   let cur = null;
   let kind = null;
 
@@ -238,8 +240,10 @@ export function parseICS(text, categories = []) {
       if (!cur) continue;
       try {
         if (kind === 'VEVENT') {
+          if (cur.status === 'CANCELLED') { cancelled += 1; cur = null; kind = null; continue; }
           const ev = finishEvent(cur, known);
-          if (ev) events.push(ev); else skipped += 1;
+          if (ev) { events.push(ev); meta.push({ uid: cur.uid, recurrenceId: cur.recurrenceId }); }
+          else skipped += 1;
         } else {
           const t = finishTodo(cur);
           if (t) tasks.push(t); else skipped += 1;
@@ -269,6 +273,7 @@ export function parseICS(text, categories = []) {
         cur.endIsDate = params.VALUE === 'DATE' || /^\d{8}$/.test(value.trim());
         break;
       case 'DUE': cur.due = parseIcsValue(value, params); break;
+      case 'RECURRENCE-ID': cur.recurrenceId = parseIcsValue(value, params); break;
       case 'DURATION': cur.duration = value; break;
       case 'RRULE': cur.rrule = parseRRule(value); break;
       case 'EXDATE':
@@ -281,7 +286,54 @@ export function parseICS(text, categories = []) {
     }
   }
 
-  return { events, tasks, skipped };
+  return { ...reconcileOverrides(events, meta), tasks, skipped, cancelled };
+}
+
+/**
+ * Google und andere Kalender exportieren eine geaenderte Einzelinstanz einer
+ * Serie als zweites VEVENT mit derselben UID plus RECURRENCE-ID. Ohne
+ * Nachbereitung stuenden danach beide im Kalender: die urspruengliche
+ * Instanz aus der Serie UND die Abweichung.
+ *
+ * Behandlung: die Abweichung bekommt eine eigene ID und wird ein
+ * eigenstaendiger Termin, die Serie bekommt fuer dieses Datum ein EXDATE.
+ * Das ist dasselbe Verfahren, das die App beim Loesen einer Instanz
+ * anwendet, und haelt die Datenstruktur frei von Override-Sonderfaellen.
+ */
+function reconcileOverrides(events, meta) {
+  const byUid = new Map();
+  events.forEach((ev, i) => {
+    const m = meta[i];
+    if (m && m.uid && !m.recurrenceId) byUid.set(m.uid, ev);
+  });
+
+  const seen = new Set();
+  const out = [];
+  let overrides = 0;
+
+  events.forEach((ev, i) => {
+    const m = meta[i] || {};
+    if (m.recurrenceId) {
+      const day = String(m.recurrenceId).slice(0, 10);
+      const master = byUid.get(m.uid);
+      if (master) {
+        master.exdates = Array.from(new Set([...(master.exdates || []), day])).sort();
+        overrides += 1;
+      }
+      ev.id = `${ev.id}-${day.replace(/-/g, '')}`;
+      ev.rrule = null;
+    }
+    // Gleiche ID zweimal in derselben Datei: die spaetere gewinnt nicht
+    // stillschweigend, sie bekommt eine eigene ID.
+    let id = ev.id;
+    let n = 2;
+    while (seen.has(id)) { id = `${ev.id}-${n}`; n += 1; }
+    ev.id = id;
+    seen.add(id);
+    out.push(ev);
+  });
+
+  return { events: out, overrides };
 }
 
 function parseDuration(s) {

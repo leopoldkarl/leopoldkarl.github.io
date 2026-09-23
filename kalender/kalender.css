@@ -407,9 +407,12 @@ dialog {
   box-shadow: var(--shadow);
   width: min(30rem, calc(100vw - 2rem));
   max-height: calc(100dvh - 3rem);
+  /* Ohne das scrollt der Dialog selbst UND .dlg-body — zwei Balken
+     nebeneinander. Genau ein Scroller je Dialog: .dlg-body. */
+  overflow: hidden;
 }
 dialog::backdrop { background: rgba(15, 18, 22, 0.45); }
-dialog form { display: flex; flex-direction: column; max-height: calc(100dvh - 3rem); }
+dialog form { display: flex; flex-direction: column; max-height: calc(100dvh - 3rem); overflow: hidden; min-height: 0; }
 .dlg-head { padding: 0.85rem 1rem 0.5rem; }
 .dlg-head h2 { font-family: var(--font-serif); font-size: 1.05rem; margin: 0; }
 .dlg-body { padding: 0.25rem 1rem 0.85rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.6rem; }
@@ -447,8 +450,9 @@ dialog form { display: flex; flex-direction: column; max-height: calc(100dvh - 3
 .catpick .sw { width: 9px; height: 9px; border-radius: 999px; background: var(--c); }
 .catpick label:has(input:checked) { border-color: var(--c); background: color-mix(in srgb, var(--c) 14%, var(--surface)); font-weight: 600; }
 
-/* Vorschau des Geburtstags-Imports */
-.bd-list { display: flex; flex-direction: column; gap: 1px; max-height: 45dvh; overflow-y: auto; }
+/* Vorschau des Geburtstags-Imports.
+   Kein eigener overflow: der Dialog hat genau einen Scroller (.dlg-body). */
+.bd-list { display: flex; flex-direction: column; gap: 1px; }
 .bd-row {
   display: grid; grid-template-columns: 1fr auto auto; gap: 0.5rem;
   align-items: baseline; padding: 0.25rem 0.35rem; border-radius: 6px; font-size: 0.85rem;
@@ -465,6 +469,24 @@ dialog form { display: flex; flex-direction: column; max-height: calc(100dvh - 3
   font-size: 0.8rem; border-left: 3px solid var(--accent-2);
   padding: 0.3rem 0.55rem; margin-bottom: 0.5rem;
   background: var(--surface-2); border-radius: 0 6px 6px 0;
+}
+
+/* Kategorien-Editor */
+.cat-list { display: flex; flex-direction: column; gap: 0.35rem; }
+.cat-row { display: grid; grid-template-columns: auto 1fr auto auto; gap: 0.5rem; align-items: center; }
+.cat-row input[type="color"] {
+  width: 2rem; height: 2rem; padding: 0; border-radius: 6px;
+  border: 1px solid var(--line-strong); background: var(--surface); cursor: pointer;
+}
+.cat-row .use { font-size: 0.74rem; color: var(--muted); white-space: nowrap; }
+.cat-row .rm { border: 0; background: transparent; color: var(--muted); font-size: 1.1rem; line-height: 1; padding: 0 0.3rem; cursor: pointer; }
+.cat-row .rm:hover { color: #b91c1c; }
+.cat-row .rm[disabled] { opacity: 0.3; cursor: default; }
+
+/* Ungültige Tastatureingabe in Datums- und Zeitfeldern */
+input.invalid, input[aria-invalid="true"] {
+  border-color: #dc2626;
+  background: color-mix(in srgb, #dc2626 8%, var(--surface));
 }
 
 .banner {

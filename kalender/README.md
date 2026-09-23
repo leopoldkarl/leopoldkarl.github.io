@@ -56,6 +56,25 @@ leistet:
   Bei wachsender Datenmenge sollte das auf einzelne Termine umgestellt
   werden.
 
+## Bedienung
+
+**Kategorien** ändern: Menü (⋯) → „Kategorien bearbeiten". Name und Farbe
+wirken sofort auf alle Termine. Beim Löschen wandern die betroffenen Termine
+nach „Sonstiges"; diese eine Kategorie ist deshalb das Auffangbecken und
+nicht löschbar. Alles rückgängig mit `Strg+Z`.
+
+**Datum und Uhrzeit** sind reine Textfelder, kein `<input type="date">`.
+Grund: das native Feld zerfällt in Teilfelder für Tag, Monat und Jahr mit je
+eigenem Tab-Halt und bringt ein Kalendersymbol mit — für Tastatureingabe ist
+beides im Weg. So ist jedes Feld genau ein Tab-Halt und die Reihenfolge lautet
+Datum → Von → Bis → Kategorie.
+
+Erkannt werden `23.09.2026`, `23.9.`, `23.9.26`, `2309`, `230926`, `23092026`,
+`2026-09-23`, dazu `h`/`heute`, `m`/`morgen`, `g`/`gestern` und `+7`/`-1`.
+Uhrzeit: `9`, `915`, `1415`, `14:15`, `14.15`. Beim Verlassen des Feldes wird
+auf die kanonische Schreibweise normalisiert; was nicht lesbar ist, wird rot
+markiert und **nicht** geraten — der Dialog bleibt dann offen.
+
 ## Geburtstage aus Kontakten
 
 Menü (⋯) → „Kontakt-Export wählen". Frisst Google CSV, andere CSV-Exporte mit
@@ -110,7 +129,9 @@ Zwei Entwurfsentscheidungen:
 
 ## Tests
 
-Nicht Teil des Repos. Geprüft wurden 56 Einheitentests (Wiederholungsregeln,
-ics-Roundtrip inklusive Zeilenfaltung und Maskierung, CSV-/vCard-Parser,
-Datumserkennung, Schaltjahr-Rückfall) und 19 Browsertests (Rendern, Dialoge,
-Drag & Drop, Rückgängig, Export, Geburtstags-Import, schmale Fenster).
+Nicht Teil des Repos. Geprüft wurden 85 Einheitentests (Wiederholungsregeln,
+ics-Roundtrip inklusive Zeilenfaltung und Maskierung, RECURRENCE-ID-Auflösung,
+CSV-/vCard-Parser, Tastatureingabe von Datum und Uhrzeit, Schaltjahr-Rückfall)
+und 28 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
+Geburtstags-Import, Kategorien-Editor, Tab-Reihenfolge, Scrollbalken,
+schmale Fenster).

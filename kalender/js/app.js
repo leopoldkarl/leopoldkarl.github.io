@@ -4,6 +4,7 @@ import {
   ymd, hm, ymdhm, parseYmd, parseLocal, addDays, addMonths, startOfWeek,
   startOfMonth, endOfMonth, isoDow, isoWeek, minutesToHm, MONTH_NAMES,
   fmtDateLong, pad, sameDay, diffDays, startOfDay,
+  parseDateInput, formatDateInput, parseTimeInput,
 } from './dates.js';
 import { Store, LocalStorageAdapter, uid } from './store.js';
 import { occurrencesInRange, describeRule } from './recurrence.js';
@@ -247,10 +248,11 @@ function openEventDialog(init, meta = {}) {
   $('#f-allday').checked = !!init.allDay;
   const startD = String(init.start).slice(0, 10);
   const endD = String(init.end || init.start).slice(0, 10);
-  $('#f-date').value = startD;
-  $('#f-enddate').value = endD;
-  $('#f-from').value = init.allDay ? '09:00' : String(init.start).slice(11, 16) || '09:00';
-  $('#f-to').value = init.allDay ? '10:00' : String(init.end).slice(11, 16) || '10:00';
+  $('#f-date').value = formatDateInput(startD);
+  $('#f-enddate').value = formatDateInput(endD);
+  $('#f-from').value = init.allDay ? '09:00' : (String(init.start).slice(11, 16) || '09:00');
+  $('#f-to').value = init.allDay ? '10:00' : (String(init.end).slice(11, 16) || '10:00');
+  for (const id of ['#f-date', '#f-enddate', '#f-from', '#f-to', '#f-until']) markInvalid($(id), false);
   $('#f-notes').value = init.notes || '';
 
   const cat = init.category || store.state.settings.defaultCategory;
@@ -263,7 +265,7 @@ function openEventDialog(init, meta = {}) {
     cb.checked = !!(r && r.byDay && r.byDay.includes(Number(cb.value)));
   }
   if (r && r.count) { $('#f-endmode').value = 'count'; $('#f-count').value = r.count; $('#f-until').value = ''; }
-  else if (r && r.until) { $('#f-endmode').value = 'until'; $('#f-until').value = r.until; $('#f-count').value = 10; }
+  else if (r && r.until) { $('#f-endmode').value = 'until'; $('#f-until').value = formatDateInput(r.until); $('#f-count').value = 10; }
   else { $('#f-endmode').value = 'never'; $('#f-count').value = 10; $('#f-until').value = ''; }
 
   $('#dlg-title').textContent = editing.isNew ? 'Neuer Termin' : 'Termin bearbeiten';
@@ -290,18 +292,77 @@ function syncDialogState() {
   $('#f-until').hidden = mode !== 'until';
 }
 
+/* ---- Tastatureingabe in Datums- und Zeitfeldern ---- */
+
+function markInvalid(elm, bad) {
+  if (!elm) return;
+  elm.classList.toggle('invalid', !!bad);
+  if (bad) elm.setAttribute('aria-invalid', 'true');
+  else elm.removeAttribute('aria-invalid');
+}
+
+function fail(sel) {
+  const elm = $(sel);
+  markInvalid(elm, true);
+  elm.focus();
+  elm.select?.();
+  toast('Eingabe nicht lesbar — siehe Hinweis unter den Feldern.');
+  return null;
+}
+
+/** Beim Verlassen auf die kanonische Schreibweise bringen. */
+function normalizeField(elm, kind) {
+  const raw = elm.value.trim();
+  if (!raw) { markInvalid(elm, false); return; }
+  const parsed = kind === 'date' ? parseDateInput(raw) : parseTimeInput(raw);
+  if (parsed) {
+    elm.value = kind === 'date' ? formatDateInput(parsed) : parsed;
+    markInvalid(elm, false);
+  } else {
+    markInvalid(elm, true);
+  }
+}
+
+function attachFieldNormalizers() {
+  const fields = [['#f-date', 'date'], ['#f-enddate', 'date'], ['#f-until', 'date'],
+    ['#f-from', 'time'], ['#f-to', 'time']];
+  for (const [sel, kind] of fields) {
+    const elm = $(sel);
+    elm.addEventListener('blur', () => normalizeField(elm, kind));
+    elm.addEventListener('input', () => markInvalid(elm, false));
+  }
+}
+
+/**
+ * Liest die Eingabefelder. Gibt null zurueck und markiert das erste
+ * unlesbare Feld, statt stillschweigend einen Ersatzwert einzusetzen.
+ */
 function readDialog() {
   const allDay = $('#f-allday').checked;
-  const d = $('#f-date').value;
-  if (!d) return null;
+
+  const d = parseDateInput($('#f-date').value);
+  if (!d) return fail('#f-date');
+
+  let endDay = d;
+  if (allDay && $('#f-enddate').value.trim()) {
+    endDay = parseDateInput($('#f-enddate').value);
+    if (!endDay) return fail('#f-enddate');
+  }
+
+  let from = '09:00';
+  let toT = '10:00';
+  if (!allDay) {
+    from = parseTimeInput($('#f-from').value || '09:00');
+    if (!from) return fail('#f-from');
+    toT = parseTimeInput($('#f-to').value || from);
+    if (!toT) return fail('#f-to');
+  }
+
   let start; let end;
   if (allDay) {
     start = d;
-    end = $('#f-enddate').value || d;
-    if (end < start) end = start;
+    end = endDay < d ? d : endDay;
   } else {
-    const from = $('#f-from').value || '09:00';
-    let toT = $('#f-to').value || from;
     start = `${d}T${from}`;
     end = `${d}T${toT}`;
     if (end <= start) {
@@ -317,12 +378,17 @@ function readDialog() {
       ? [...document.querySelectorAll('input[name="byday"]:checked')].map((c) => Number(c.value))
       : null;
     const mode = $('#f-endmode').value;
+    let until = null;
+    if (mode === 'until') {
+      until = parseDateInput($('#f-until').value);
+      if (!until) return fail('#f-until');
+    }
     rrule = {
       freq,
       interval: Math.max(1, parseInt($('#f-interval').value, 10) || 1),
       byDay: byDay && byDay.length ? byDay : null,
       count: mode === 'count' ? Math.max(1, parseInt($('#f-count').value, 10) || 1) : null,
-      until: mode === 'until' ? ($('#f-until').value || null) : null,
+      until,
     };
   }
 
@@ -558,22 +624,102 @@ async function handleImportFile(file, mode) {
       store.importJSON(text, { merge: mode === 'merge' });
       toast('Backup eingelesen.');
     } else {
-      const { events, tasks, skipped } = parseICS(text, store.state.categories);
+      const { events, tasks, skipped, cancelled, overrides } = parseICS(text, store.state.categories);
+      let added = 0;
       store.mutate((s) => {
         if (mode === 'replace') { s.events = []; s.tasks = []; }
+        // Das Set muss mitwachsen, sonst landen zwei Einträge mit derselben
+        // ID aus EINER Datei beide im Zustand.
         const known = new Set(s.events.map((e) => e.id));
-        for (const e of events) if (!known.has(e.id)) s.events.push(e);
+        for (const e of events) {
+          if (known.has(e.id)) continue;
+          known.add(e.id);
+          s.events.push(e);
+          added += 1;
+        }
         const kt = new Set(s.tasks.map((t) => t.id));
-        for (const t of tasks) if (!kt.has(t.id)) s.tasks.push(t);
+        for (const t of tasks) {
+          if (kt.has(t.id)) continue;
+          kt.add(t.id);
+          s.tasks.push(t);
+        }
       });
-      toast(`${events.length} Termine, ${tasks.length} Aufgaben importiert`
-        + (skipped ? `, ${skipped} übersprungen.` : '.'));
+      const notes = [];
+      if (skipped) notes.push(`${skipped} übersprungen`);
+      if (cancelled) notes.push(`${cancelled} abgesagt`);
+      if (overrides) notes.push(`${overrides} Serien-Ausnahmen`);
+      toast(`${added} Termine, ${tasks.length} Aufgaben importiert`
+        + (notes.length ? ` (${notes.join(', ')}).` : '.'));
     }
   } catch (err) {
     console.error(err);
     toast('Datei konnte nicht gelesen werden.');
     undoStack.pop();
   }
+  render();
+}
+
+/* ------------------------------------------------------------------ */
+/* Kategorien                                                          */
+/* ------------------------------------------------------------------ */
+
+/** Die Auswahlknoepfe im Termin-Dialog aus dem Zustand neu aufbauen. */
+function buildCatPick() {
+  const keep = document.querySelector('input[name="cat"]:checked')?.value;
+  $('#catpick').replaceChildren(...store.state.categories.map((c) => {
+    const label = el('label');
+    label.style.setProperty('--c', c.color);
+    const input = document.createElement('input');
+    input.type = 'radio'; input.name = 'cat'; input.value = c.id;
+    if (c.id === keep) input.checked = true;
+    label.append(input, el('span', 'sw'), document.createTextNode(c.name));
+    return label;
+  }));
+}
+
+function categoryUsage() {
+  const counts = new Map();
+  for (const e of store.state.events) counts.set(e.category, (counts.get(e.category) || 0) + 1);
+  return counts;
+}
+
+function renderCategoryEditor() {
+  const counts = categoryUsage();
+  const list = $('#cat-list');
+  list.replaceChildren(...store.state.categories.map((c) => {
+    const row = el('div', 'cat-row');
+
+    const color = document.createElement('input');
+    color.type = 'color';
+    color.value = c.color;
+    color.dataset.catcolor = c.id;
+    color.setAttribute('aria-label', `Farbe für ${c.name}`);
+
+    const name = document.createElement('input');
+    name.type = 'text';
+    name.value = c.name;
+    name.dataset.catname = c.id;
+    name.autocomplete = 'off';
+    name.setAttribute('aria-label', 'Name der Kategorie');
+
+    const n = counts.get(c.id) || 0;
+    const use = el('span', 'use', n === 1 ? '1 Termin' : `${n} Termine`);
+
+    const rm = el('button', 'rm', '×');
+    rm.type = 'button';
+    rm.dataset.catdel = c.id;
+    rm.setAttribute('aria-label', `Kategorie ${c.name} löschen`);
+    // "sonstiges" ist das Auffangbecken beim Loeschen und muss bleiben.
+    if (c.id === 'sonstiges') { rm.disabled = true; rm.title = 'Auffangkategorie, nicht löschbar'; }
+
+    row.append(color, name, use, rm);
+    return row;
+  }));
+}
+
+function afterCategoryChange() {
+  renderCategoryEditor();
+  buildCatPick();
   render();
 }
 
@@ -777,6 +923,56 @@ function bind() {
     e.target.value = '';
     $('#menu-dialog').close();
   });
+  attachFieldNormalizers();
+
+  $('#btn-categories').addEventListener('click', () => {
+    renderCategoryEditor();
+    $('#category-dialog').showModal();
+  });
+  $('#cat-close').addEventListener('click', () => $('#category-dialog').close());
+  $('#cat-add').addEventListener('click', () => {
+    pushUndo('Kategorie angelegt');
+    store.mutate((st) => {
+      st.categories.push({ id: `cat-${uid().slice(0, 8)}`, name: 'Neue Kategorie', color: '#64748b' });
+    });
+    afterCategoryChange();
+    const rows = $('#cat-list').querySelectorAll('[data-catname]');
+    const last = rows[rows.length - 1];
+    if (last) { last.focus(); last.select(); }
+  });
+  // 'change' statt 'input': sonst landet jeder Tastendruck im Undo-Stapel.
+  $('#cat-list').addEventListener('change', (e) => {
+    const nameEl = e.target.closest('[data-catname]');
+    const colorEl = e.target.closest('[data-catcolor]');
+    if (!nameEl && !colorEl) return;
+    pushUndo('Kategorie geändert');
+    store.mutate((st) => {
+      const id = (nameEl || colorEl).dataset.catname || colorEl.dataset.catcolor;
+      const c = st.categories.find((x) => x.id === id);
+      if (!c) return;
+      if (nameEl) c.name = nameEl.value.trim() || c.name;
+      if (colorEl) c.color = colorEl.value;
+    });
+    buildCatPick();
+    render();
+  });
+  $('#cat-list').addEventListener('click', (e) => {
+    const del = e.target.closest('[data-catdel]');
+    if (!del || del.disabled) return;
+    const id = del.dataset.catdel;
+    const moved = categoryUsage().get(id) || 0;
+    pushUndo('Kategorie gelöscht');
+    store.mutate((st) => {
+      st.categories = st.categories.filter((c) => c.id !== id);
+      for (const ev of st.events) if (ev.category === id) ev.category = 'sonstiges';
+      if (st.settings.defaultCategory === id) st.settings.defaultCategory = 'sonstiges';
+    });
+    afterCategoryChange();
+    toast(moved
+      ? `Kategorie gelöscht, ${moved} Termine nach „Sonstiges“ verschoben.`
+      : 'Kategorie gelöscht.');
+  });
+
   $('#btn-contacts').addEventListener('click', () => $('#contacts-input').click());
   $('#contacts-input').addEventListener('change', async (e) => {
     const file = e.target.files?.[0];
@@ -834,17 +1030,8 @@ async function main() {
   const theme = localStorage_get('kalender.theme', '');
   if (theme) document.documentElement.setAttribute('data-theme', theme);
 
-  // Kategorien-Auswahl im Dialog aus dem Zustand aufbauen.
   await store.init();
-  const catpick = $('#catpick');
-  catpick.replaceChildren(...store.state.categories.map((c) => {
-    const label = el('label');
-    label.style.setProperty('--c', c.color);
-    const input = document.createElement('input');
-    input.type = 'radio'; input.name = 'cat'; input.value = c.id;
-    label.append(input, el('span', 'sw'), document.createTextNode(c.name));
-    return label;
-  }));
+  buildCatPick();
 
   bind();
   render();
