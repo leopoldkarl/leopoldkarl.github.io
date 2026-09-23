@@ -29,6 +29,7 @@ Voraussetzung, nicht zur Option.
     js/store.js       Zustand + Adapter-Interface
     js/recurrence.js  Expansion der Wiederholungsregeln
     js/ics.js         iCalendar-Export/Import
+    js/contacts.js    Geburtsdaten aus Google-CSV- und vCard-Exporten
     js/views.js       reine Render-Funktionen
     js/app.js         Controller: Navigation, Dialoge, Drag & Drop
 
@@ -55,6 +56,39 @@ leistet:
   Bei wachsender Datenmenge sollte das auf einzelne Termine umgestellt
   werden.
 
+## Geburtstage aus Kontakten
+
+Menü (⋯) → „Kontakt-Export wählen". Frisst Google CSV, andere CSV-Exporte mit
+erkennbarer Geburtstags-Spalte, und vCard 3.0/4.0. Vor dem Schreiben kommt
+eine Vorschau; nichts wird ohne Bestätigung angelegt, und `Strg+Z` macht den
+Import rückgängig.
+
+Was der Parser leistet:
+
+- CSV nach RFC 4180 (Anführungszeichen, Kommas und Umbrüche im Feld),
+  Trennzeichen-Erkennung (`,` `;` Tab), BOM- und UTF-16-Erkennung.
+- Namen aus `Name` oder aus `First/Middle/Last Name`, ersatzweise `Organization`.
+- vCard mit Zeilenfaltung, `FN`/`N`/`ORG`, `X-APPLE-OMIT-YEAR`.
+- Datumsformen: `YYYY-MM-DD`, `YYYYMMDD`, `--MM-DD`, `--MMDD`, `TT.MM.JJJJ`,
+  `TT.MM.`, und Schrägstrich-Notation **nur wenn eindeutig**.
+
+Was er bewusst nicht leistet: `03/04/2001` wird nicht geraten. Solche Zeilen
+erscheinen in der Vorschau als „mehrdeutig" und werden übersprungen.
+
+Angelegt wird je Kontakt ein jährlicher ganztägiger Termin in der Kategorie
+`geburtstag`. Die ID ist deterministisch aus Name und Datum abgeleitet, ein
+zweiter Import verdoppelt also nicht, sondern meldet die Duplikate.
+
+Zwei Entwurfsentscheidungen:
+
+- **Alter.** Steht nicht im Titel, sondern wird beim Rendern aus `birthYear`
+  und dem Jahr der jeweiligen Instanz berechnet. Im Titel wäre es für jedes
+  Jahr außer einem falsch. Im ics-Export reist es als `X-BIRTH-YEAR` mit,
+  das fremde Kalender ignorieren.
+- **29. Februar.** Das Flag `rrule.leapFallback` klemmt den Tag in
+  Nicht-Schaltjahren auf den 28. Ohne das Flag gilt weiter RFC 5545, wo
+  die Instanz schlicht ausfällt.
+
 ## Bewusste Vereinfachungen
 
 - **Zeitzonen.** Alle Zeitpunkte sind Wanduhrzeit des Geräts, ohne
@@ -76,6 +110,7 @@ leistet:
 
 ## Tests
 
-Nicht Teil des Repos. Geprüft wurden 22 Einheitentests (Wiederholungsregeln,
-ics-Roundtrip inklusive Zeilenfaltung und Maskierung) und 14 Browsertests
-(Rendern, Dialoge, Drag & Drop, Rückgängig, Export, schmale Fenster).
+Nicht Teil des Repos. Geprüft wurden 56 Einheitentests (Wiederholungsregeln,
+ics-Roundtrip inklusive Zeilenfaltung und Maskierung, CSV-/vCard-Parser,
+Datumserkennung, Schaltjahr-Rückfall) und 19 Browsertests (Rendern, Dialoge,
+Drag & Drop, Rückgängig, Export, Geburtstags-Import, schmale Fenster).

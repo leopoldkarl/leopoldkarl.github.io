@@ -54,14 +54,28 @@ export function layoutColumns(items) {
 /* Bausteine                                                           */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Anzeigetitel einer Instanz. Bei Geburtstagen wird das Alter aus dem
+ * Jahrgang und dem Jahr DIESER Instanz berechnet — deshalb steht es nicht
+ * im gespeicherten Titel, wo es fuer jedes andere Jahr falsch waere.
+ */
+export function titleOf(occ) {
+  const t = occ.event.title || '(ohne Titel)';
+  const by = occ.event.birthYear;
+  if (!by) return t;
+  const age = occ.start.getFullYear() - by;
+  return age >= 0 && age < 200 ? `${t} (${age})` : t;
+}
+
 function chip(occ, color, { showTime = true } = {}) {
   const c = el('div', occ.allDay ? 'chip allday' : 'chip');
   c.style.setProperty('--c', color);
   c.dataset.ev = occ.event.id;
   c.dataset.occ = occ.occDate;
-  c.title = `${occ.event.title}${occ.allDay ? '' : ` · ${hm(occ.start)}–${hm(occ.end)}`}`;
+  const label = titleOf(occ);
+  c.title = `${label}${occ.allDay ? '' : ` · ${hm(occ.start)}–${hm(occ.end)}`}`;
   if (!occ.allDay && showTime) c.append(el('span', 't', hm(occ.start)));
-  c.append(el('span', 's', occ.event.title || '(ohne Titel)'));
+  c.append(el('span', 's', label));
   return c;
 }
 
@@ -241,10 +255,10 @@ export function renderTimeGrid(ctx, days) {
       b.style.width = `calc(${width}% - 4px)`;
       b.style.zIndex = String(1 + it._col);
       if (it.e - it.s < 40) b.classList.add('compact');
-      b.append(el('div', 'bt', it.occ.event.title || '(ohne Titel)'));
+      b.append(el('div', 'bt', titleOf(it.occ)));
       b.append(el('div', 'bm', `${minutesToHm(it.s)}–${minutesToHm(it.e === 1440 ? 1439 : it.e)}`.replace('23:59', '24:00')));
       if (!it.clippedEnd) b.append(el('div', 'grip'));
-      b.title = `${it.occ.event.title}\n${hm(it.occ.start)}–${hm(it.occ.end)}`;
+      b.title = `${titleOf(it.occ)}\n${hm(it.occ.start)}–${hm(it.occ.end)}`;
       col.append(b);
     }
 
@@ -333,7 +347,7 @@ export function renderAgenda(occs, colorOf) {
     li.dataset.occ = o.occDate;
     const dot = el('span', 'dot');
     dot.style.setProperty('--c', colorOf(o.event.category));
-    li.append(dot, el('span', 'tm', o.allDay ? 'ganztg.' : hm(o.start)), el('span', 'tx', o.event.title || '(ohne Titel)'));
+    li.append(dot, el('span', 'tm', o.allDay ? 'ganztg.' : hm(o.start)), el('span', 'tx', titleOf(o)));
     ul.append(li);
   }
   return ul;

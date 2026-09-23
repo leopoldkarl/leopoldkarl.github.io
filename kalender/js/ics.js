@@ -95,6 +95,9 @@ export function toICS(state) {
     lines.push(`SUMMARY:${esc(ev.title)}`);
     if (ev.notes) lines.push(`DESCRIPTION:${esc(ev.notes)}`);
     if (ev.category) lines.push(`CATEGORIES:${esc(ev.category)}`);
+    // Eigene Erweiterung: erlaubt, das Alter beim Wiedereinlesen weiter pro
+    // Instanz zu berechnen. Fremde Kalender ignorieren X-Properties.
+    if (ev.birthYear) lines.push(`X-BIRTH-YEAR:${ev.birthYear}`);
     const rr = rruleString(ev.rrule);
     if (rr) lines.push(`RRULE:${rr}`);
     if (ev.exdates && ev.exdates.length) {
@@ -256,6 +259,7 @@ export function parseICS(text, categories = []) {
       case 'DESCRIPTION': cur.description = unescape_(value); break;
       case 'CATEGORIES': cur.categories = unescape_(value); break;
       case 'STATUS': cur.status = value.toUpperCase(); break;
+      case 'X-BIRTH-YEAR': cur.birthYear = parseInt(value, 10) || null; break;
       case 'DTSTART':
         cur.start = parseIcsValue(value, params);
         cur.startIsDate = params.VALUE === 'DATE' || /^\d{8}$/.test(value.trim());
@@ -309,6 +313,11 @@ function finishEvent(c, known) {
   }
 
   const cat = (c.categories || '').split(',')[0]?.trim().toLowerCase();
+  // Ein jaehrlicher Termin mit Jahrgang ist ein Geburtstag; dann soll der
+  // 29.02. auch nach dem Wiedereinlesen auf den 28. klemmen.
+  const rrule = c.rrule && c.birthYear && c.rrule.freq === 'YEARLY'
+    ? { ...c.rrule, leapFallback: true }
+    : c.rrule;
   return normalizeEvent({
     id: c.uid ? c.uid.replace(/@.*$/, '') : uid(),
     title: c.summary || '(ohne Titel)',
@@ -317,8 +326,9 @@ function finishEvent(c, known) {
     start,
     end,
     category: known.has(cat) ? cat : 'sonstiges',
-    rrule: c.rrule,
+    rrule,
     exdates: c.exdates,
+    birthYear: c.birthYear ?? null,
   });
 }
 

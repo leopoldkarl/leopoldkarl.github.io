@@ -8,6 +8,7 @@ import {
 import { Store, LocalStorageAdapter, uid } from './store.js';
 import { occurrencesInRange, describeRule } from './recurrence.js';
 import { toICS, parseICS } from './ics.js';
+import { decodeBuffer, parseContactsFile, toBirthdayEvent } from './contacts.js';
 import {
   renderMonth, renderTimeGrid, renderMiniMonth, renderTasks, renderAgenda,
   collapseOverflow, el,
@@ -346,13 +347,19 @@ function saveDialog() {
   } else if (editing.isSeries && $('#scope-one').checked) {
     // Nur diese Instanz: aus der Serie ausnehmen und als eigenen Termin anlegen.
     pushUndo('Einzeltermin aus Serie gelöst');
+    const src = store.state.events.find((e) => e.id === editing.id);
     store.excludeOccurrence(editing.id, editing.occDate);
-    store.addEvent({ ...data, id: uid(), rrule: null, exdates: [] });
+    store.addEvent({ ...data, id: uid(), rrule: null, exdates: [], birthYear: src?.birthYear ?? null });
   } else {
     pushUndo('Termin geändert');
     const existing = store.state.events.find((e) => e.id === editing.id);
     const patch = { ...data };
     if (editing.isSeries) patch.exdates = existing ? existing.exdates : [];
+    // readDialog() kennt leapFallback nicht — sonst ginge die Schaltjahr-
+    // Behandlung eines Geburtstags beim ersten Bearbeiten verloren.
+    if (existing?.rrule?.leapFallback && patch.rrule?.freq === 'YEARLY') {
+      patch.rrule = { ...patch.rrule, leapFallback: true };
+    }
     store.updateEvent(editing.id, patch);
   }
   dlg().close();
@@ -571,6 +578,93 @@ async function handleImportFile(file, mode) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Geburtstage aus Kontakten                                           */
+/* ------------------------------------------------------------------ */
+
+let pendingBirthdays = null;
+
+const MONTH_SHORT_DE = ['Jän', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+
+async function loadContactsFile(file) {
+  const text = decodeBuffer(await file.arrayBuffer());
+  const { entries, diagnostics, kind } = parseContactsFile(text, file.name);
+
+  const existing = new Set(store.state.events.map((e) => e.id));
+  const good = [];
+  const bad = [];
+  let duplicates = 0;
+
+  for (const e of entries) {
+    if (!e.ok) { bad.push(e); continue; }
+    const ev = toBirthdayEvent(e);
+    if (existing.has(ev.id)) { duplicates += 1; continue; }
+    good.push({ entry: e, event: ev });
+  }
+
+  pendingBirthdays = good;
+  renderBirthdayPreview({ good, bad, duplicates, diagnostics, kind, total: entries.length });
+  $('#birthday-dialog').showModal();
+}
+
+function renderBirthdayPreview({ good, bad, duplicates, diagnostics, kind, total }) {
+  const withoutYear = good.filter((g) => g.entry.y == null).length;
+  const parts = [`${good.length} Geburtstage werden angelegt`];
+  if (withoutYear) parts.push(`${withoutYear} davon ohne Jahrgang (kein Alter)`);
+  if (duplicates) parts.push(`${duplicates} bereits vorhanden, übersprungen`);
+  if (bad.length) parts.push(`${bad.length} nicht lesbar`);
+  $('#bd-summary').textContent = `${parts.join(' · ')} — gelesen als ${kind === 'vcard' ? 'vCard' : 'CSV'}, ${total} Einträge mit Datum.`;
+
+  const problems = $('#bd-problems');
+  problems.replaceChildren();
+  for (const d of diagnostics || []) problems.append(el('div', 'bd-note', d));
+  if (bad.length) {
+    const ambiguous = bad.filter((b) => b.ambiguous).length;
+    problems.append(el('div', 'bd-note',
+      ambiguous
+        ? `${ambiguous} Datumsangaben sind mehrdeutig (z. B. 03/04/2001 — Tag oder Monat zuerst?). Sie werden nicht übernommen; im Zweifel in den Kontakten auf ein eindeutiges Format ändern.`
+        : `${bad.length} Datumsangaben konnten nicht gelesen werden und werden übersprungen.`));
+  }
+
+  const list = $('#bd-list');
+  list.replaceChildren();
+  const rows = [
+    ...good.map((g) => ({ ...g.entry, ok: true })),
+    ...bad.map((b) => ({ ...b, ok: false })),
+  ];
+  if (!rows.length) {
+    list.append(el('div', 'empty', 'Keine Geburtstage in der Datei gefunden.'));
+  }
+  for (const r of rows) {
+    const row = el('div', r.ok ? 'bd-row' : 'bd-row bad');
+    row.append(el('span', 'n', r.name));
+    row.append(el('span', 'd', r.ok
+      ? `${String(r.d).padStart(2, '0')}. ${MONTH_SHORT_DE[r.m - 1]}${r.y ? ` ${r.y}` : ''}`
+      : String(r.raw)));
+    row.append(el('span', 'a', r.ok
+      ? (r.y ? `${new Date().getFullYear() - r.y} Jahre` : 'ohne Jahr')
+      : (r.ambiguous ? 'mehrdeutig' : 'unlesbar')));
+    list.append(row);
+  }
+
+  $('#bd-confirm').disabled = good.length === 0;
+  $('#bd-confirm').textContent = good.length ? `${good.length} übernehmen` : 'Nichts zu übernehmen';
+}
+
+function confirmBirthdays() {
+  if (!pendingBirthdays || !pendingBirthdays.length) { $('#birthday-dialog').close(); return; }
+  pushUndo('Geburtstage importiert');
+  const n = pendingBirthdays.length;
+  store.mutate((s) => {
+    for (const { event } of pendingBirthdays) s.events.push(event);
+  });
+  pendingBirthdays = null;
+  $('#birthday-dialog').close();
+  $('#menu-dialog').close();
+  toast(`${n} Geburtstage übernommen — rückgängig mit Strg+Z.`);
+  render();
+}
+
+/* ------------------------------------------------------------------ */
 /* Bindung                                                             */
 /* ------------------------------------------------------------------ */
 
@@ -683,6 +777,24 @@ function bind() {
     e.target.value = '';
     $('#menu-dialog').close();
   });
+  $('#btn-contacts').addEventListener('click', () => $('#contacts-input').click());
+  $('#contacts-input').addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      await loadContactsFile(file);
+    } catch (err) {
+      console.error(err);
+      toast('Kontakt-Datei konnte nicht gelesen werden.');
+    }
+  });
+  $('#bd-confirm').addEventListener('click', confirmBirthdays);
+  $('#bd-cancel').addEventListener('click', () => {
+    pendingBirthdays = null;
+    $('#birthday-dialog').close();
+  });
+
   $('#btn-theme').addEventListener('click', () => {
     const cur = document.documentElement.getAttribute('data-theme');
     const next = cur === 'dark' ? 'light' : (cur === 'light' ? '' : 'dark');

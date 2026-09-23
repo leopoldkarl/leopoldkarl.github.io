@@ -447,6 +447,26 @@ dialog form { display: flex; flex-direction: column; max-height: calc(100dvh - 3
 .catpick .sw { width: 9px; height: 9px; border-radius: 999px; background: var(--c); }
 .catpick label:has(input:checked) { border-color: var(--c); background: color-mix(in srgb, var(--c) 14%, var(--surface)); font-weight: 600; }
 
+/* Vorschau des Geburtstags-Imports */
+.bd-list { display: flex; flex-direction: column; gap: 1px; max-height: 45dvh; overflow-y: auto; }
+.bd-row {
+  display: grid; grid-template-columns: 1fr auto auto; gap: 0.5rem;
+  align-items: baseline; padding: 0.25rem 0.35rem; border-radius: 6px; font-size: 0.85rem;
+}
+.bd-row:nth-child(odd) { background: var(--surface-2); }
+.bd-row .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bd-row .d { font-variant-numeric: tabular-nums; color: var(--muted); }
+.bd-row .a { font-size: 0.76rem; color: var(--muted); min-width: 5rem; text-align: right; }
+.bd-row.bad { background: #fef2f2; color: #7f1d1d; }
+.bd-row.bad .d, .bd-row.bad .a { color: #b91c1c; }
+:root[data-theme="dark"] .bd-row.bad,
+:root:not([data-theme="light"]) .bd-row.bad { background: #3f1d1d; color: #fecaca; }
+.bd-note {
+  font-size: 0.8rem; border-left: 3px solid var(--accent-2);
+  padding: 0.3rem 0.55rem; margin-bottom: 0.5rem;
+  background: var(--surface-2); border-radius: 0 6px 6px 0;
+}
+
 .banner {
   background: #fef3c7; color: #78350f; border: 1px solid #fcd34d;
   padding: 0.45rem 0.8rem; font-size: 0.82rem; text-align: center;

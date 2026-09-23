@@ -14,6 +14,7 @@ export const DEFAULT_CATEGORIES = [
   { id: 'uni',       name: 'Uni-Termine', color: '#0369a1' },
   { id: 'sport',     name: 'Sport',      color: '#f59e0b' },
   { id: 'privat',    name: 'Privat',     color: '#db2777' },
+  { id: 'geburtstag', name: 'Geburtstage', color: '#9333ea' },
   { id: 'sonstiges', name: 'Sonstiges',  color: '#64748b' },
 ];
 
@@ -241,9 +242,14 @@ export function normalizeEvent(ev) {
           byDay: Array.isArray(ev.rrule.byDay) ? [...ev.rrule.byDay].sort((a, b) => a - b) : null,
           count: ev.rrule.count ? Math.max(1, Number(ev.rrule.count)) : null,
           until: ev.rrule.until || null,
+          leapFallback: !!ev.rrule.leapFallback,
         }
       : null,
     exdates: Array.isArray(ev.exdates) ? [...ev.exdates] : [],
+    // Nur bei Geburtstagen gesetzt: erlaubt, das Alter pro Instanz zu
+    // berechnen, statt es fest in den Titel zu schreiben (in einer Serie
+    // waere es dann fuer alle Jahre bis auf eines falsch).
+    birthYear: Number.isInteger(ev.birthYear) ? ev.birthYear : null,
   };
   if (out.allDay) {
     out.start = String(out.start).slice(0, 10);
@@ -272,6 +278,11 @@ export function migrate(state) {
   }));
   if (!Array.isArray(s.categories) || !s.categories.length) {
     s.categories = base.categories;
+  } else {
+    // Neu hinzugekommene Standardkategorien nachtragen, ohne eigene Farben
+    // oder Namen zu ueberschreiben.
+    const known = new Set(s.categories.map((c) => c.id));
+    for (const c of base.categories) if (!known.has(c.id)) s.categories.push({ ...c });
   }
   s.settings = { ...base.settings, ...(state.settings || {}) };
   return s;

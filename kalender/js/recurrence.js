@@ -103,14 +103,21 @@ export function* ruleDates(ev, limit) {
     const dom = base.getDate();
     let y = base.getFullYear();
     while (guard++ < HARD_CAP) {
-      if (dom <= daysInMonth(y, mon)) {   // 29.02. in Nicht-Schaltjahren
-        const d = new Date(y, mon, dom);
-        if (d >= base) {
-          if (until && d > until) return;
-          if (d > limit) return;
-          yield emit(d);
-          if (exhausted()) return;
-        }
+      const dim = daysInMonth(y, mon);
+      // Standard (RFC 5545): der 29.02. faellt in Nicht-Schaltjahren aus.
+      // Mit leapFallback rutscht er stattdessen auf den letzten Tag des
+      // Monats, also den 28.02. — fuer Geburtstage das gewollte Verhalten.
+      let day = dom;
+      if (dom > dim) {
+        if (!r.leapFallback) { y += interval; if (new Date(y, 0, 1) > limit) return; continue; }
+        day = dim;
+      }
+      const d = new Date(y, mon, day);
+      if (d >= base) {
+        if (until && d > until) return;
+        if (d > limit) return;
+        yield emit(d);
+        if (exhausted()) return;
       }
       y += interval;
       if (new Date(y, 0, 1) > limit) return;

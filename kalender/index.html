@@ -220,6 +220,17 @@
       </div>
 
       <div class="field">
+        <label>Geburtstage aus Kontakten</label>
+        <button type="button" id="btn-contacts">Kontakt-Export wählen (.csv oder .vcf)…</button>
+        <input id="contacts-input" type="file" accept=".csv,.vcf,text/csv,text/vcard" class="sr-only" />
+        <p class="hint">
+          In Google Kontakte: Kontakte auswählen → „Weitere Aktionen“ → „Exportieren“ → Google&nbsp;CSV
+          oder vCard. Vor dem Schreiben kommt eine Vorschau. Geburtstage werden als jährliche
+          ganztägige Termine angelegt; der 29.&nbsp;Februar rutscht in Nicht-Schaltjahren auf den 28.
+        </p>
+      </div>
+
+      <div class="field">
         <label>Darstellung</label>
         <button type="button" id="btn-theme">Hell / Dunkel / System</button>
       </div>
@@ -235,6 +246,24 @@
     </div>
     <div class="dlg-foot">
       <button type="button" id="btn-menu-close" class="primary">Schließen</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ------------------------------------------------------------------ -->
+<dialog id="birthday-dialog" aria-labelledby="bd-title">
+  <form method="dialog">
+    <div class="dlg-head">
+      <h2 id="bd-title">Geburtstage übernehmen</h2>
+      <p id="bd-summary" class="hint" style="margin:0.3rem 0 0"></p>
+    </div>
+    <div class="dlg-body">
+      <div id="bd-problems"></div>
+      <div id="bd-list" class="bd-list"></div>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" id="bd-cancel">Abbrechen</button>
+      <button type="button" id="bd-confirm" class="primary">Übernehmen</button>
     </div>
   </form>
 </dialog>
