@@ -1,10 +1,11 @@
 // store.js — Zustand + austauschbare Persistenzschicht.
 //
 // Der Store kennt die Speicherung nicht. Er spricht nur das Adapter-Interface
-//     load()  -> Promise<state|null>
-//     save(s) -> Promise<boolean>
+//     load()   -> Promise<state|null>
+//     save(s)  -> Promise<boolean>
+//     watch(cb) -> unsubscribe        (optional: Aenderung von aussen)
 // Ein spaeterer Server-Adapter (Backend beim Vater, Cloudflare Worker, ...)
-// implementiert dieselben zwei Methoden; am uebrigen Code aendert sich nichts.
+// implementiert dieselben Methoden; am uebrigen Code aendert sich nichts.
 
 export const SCHEMA_VERSION = 3;
 
@@ -135,6 +136,30 @@ export class LocalStorageAdapter {
       return false;
     }
   }
+
+  /**
+   * Meldet Zustaende, die ein anderes Fenster desselben Browsers in denselben
+   * Schluessel geschrieben hat.
+   *
+   * Das `storage`-Ereignis feuert ausschliesslich in den *anderen* Fenstern,
+   * nie in dem, das geschrieben hat — ein Echo auf die eigene Speicherung gibt
+   * es also nicht. Andere Schluessel derselben Herkunft (kalender.page,
+   * kalender.view, ...) werden ausgefiltert.
+   *
+   * Ein Server-Adapter wuerde hier pollen oder eine SSE-Verbindung halten; die
+   * Signatur bleibt dieselbe.
+   */
+  watch(cb) {
+    if (typeof window === 'undefined') return () => {};
+    const handler = (e) => {
+      if (e.key !== this.key || e.newValue == null) return;
+      let parsed;
+      try { parsed = JSON.parse(e.newValue); } catch { return; }
+      cb(parsed);
+    };
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -184,6 +209,28 @@ export class Store {
     clearTimeout(this._saveTimer);
     this.lastSaveOk = await this.adapter.save(this.state);
     return this.lastSaveOk;
+  }
+
+  /**
+   * Einen von aussen gekommenen Zustand uebernehmen (anderes Fenster).
+   *
+   * Bewusst ohne Speichern: der fremde Zustand steht bereits im Speicher, ein
+   * Rueckschreiben wuerde nur zwischen den Fenstern hin- und herschwingen. Eine
+   * noch ausstehende *eigene* Speicherung wird dabei verworfen — damit gilt in
+   * allen Fenstern dieselbe Regel: der zuletzt geschriebene Zustand gewinnt.
+   * Verloren gehen kann nur eine Aenderung aus den letzten 250 ms.
+   *
+   * Die Felder werden im vorhandenen Objekt ersetzt statt das Objekt selbst,
+   * damit Referenzen auf `store.state` gueltig bleiben.
+   */
+  adoptExternal(raw) {
+    clearTimeout(this._saveTimer);
+    this._saveTimer = null;
+    const next = migrate(raw);
+    for (const k of Object.keys(this.state)) delete this.state[k];
+    Object.assign(this.state, next);
+    this._emit();
+    return this.state;
   }
 
   /* ---- Termine ---- */

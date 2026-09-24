@@ -35,8 +35,12 @@ Dashboard).
 Die Daten liegen ausschließlich im `localStorage` des jeweiligen Browsers.
 Daraus folgt dreierlei, und zwar unabhängig voneinander:
 
-1. **Kein Sync.** Laptop und Handy sehen verschiedene Kalender, Aufgaben
-   und Tagebücher.
+1. **Kein Sync über Geräte und Browser.** Laptop und Handy sehen
+   verschiedene Kalender, Aufgaben und Tagebücher; ebenso zwei verschiedene
+   Browser auf demselben Rechner und zwei verschiedene Herkünfte
+   (`leopoldkarl.com` und `leopoldkarl.github.io` sind für den Browser
+   getrennte Speicher). Mehrere **Fenster desselben Browsers auf derselben
+   Herkunft** ziehen dagegen nach: siehe „Mehrere Fenster".
 2. **Kein Zugriffsschutz nötig — noch nicht.** Die ausgelieferten Dateien
    enthalten keine Daten, sondern nur das Programm. Wer die URL kennt,
    sieht eine leere App. Ein Passwort schützt derzeit also nichts, was
@@ -67,18 +71,49 @@ Voraussetzung, nicht zur Option.
 Keine Abhängigkeiten, keine Build-Kette. ES-Module, direkt aus dem Repo
 ausgeliefert (`.nojekyll` ist gesetzt).
 
+## Mehrere Fenster
+
+Jedes Fenster hält seine eigene Kopie des Zustands im Arbeitsspeicher und
+schreibt beim Speichern den **gesamten** Zustand zurück. Ohne Gegenmaßnahme
+folgt daraus nicht nur, dass ein neuer Termin im anderen Fenster unsichtbar
+bleibt, sondern dass dessen nächste Änderung den alten Gesamtzustand darüber
+schreibt — der Termin wäre weg, und zwar endgültig, weil der Undo-Stapel im
+Arbeitsspeicher des jeweiligen Fensters liegt.
+
+Deshalb hört jedes Fenster auf das `storage`-Ereignis des eigenen Schlüssels
+(`LocalStorageAdapter.watch`) und übernimmt den fremden Zustand
+(`Store.adoptExternal`). Die Regeln dabei:
+
+- **Übernommen wird ohne Zurückschreiben.** Der fremde Zustand steht bereits
+  im Speicher; ein Rückschreiben ließe die Fenster gegeneinander schwingen.
+  Damit gilt überall dieselbe Regel: der zuletzt geschriebene Zustand gewinnt.
+  Verlieren kann man nur eine Änderung aus den letzten 250 ms (Entprellung).
+- **Offene Tagebuch-Eingaben werden vorher festgeschrieben**, sonst
+  verschluckte die Übernahme das gerade getippte Wort.
+- **Der Undo-Stapel wird verworfen.** Seine Schnappschüsse beschreiben einen
+  Zustand, den es nicht mehr gibt; ein Strg+Z darauf wäre genau das
+  Überschreiben, das hier verhindert werden soll.
+- **Während einer laufenden Zeigergeste** wird nicht neu gezeichnet, sondern
+  erst beim Loslassen übernommen.
+
+Das `storage`-Ereignis feuert nur in den *anderen* Fenstern, nie im
+schreibenden — ein Echo auf die eigene Speicherung gibt es also nicht. Für
+verschiedene Browser oder Geräte hilft das alles nicht; dafür braucht es
+einen Server-Adapter.
+
 ## Die Naht für später
 
-`store.js` spricht die Persistenz ausschließlich über zwei Methoden an:
+`store.js` spricht die Persistenz ausschließlich über diese Methoden an:
 
-    load()  -> Promise<state|null>
-    save(s) -> Promise<boolean>
+    load()    -> Promise<state|null>
+    save(s)   -> Promise<boolean>
+    watch(cb) -> unsubscribe        (optional)
 
 `LocalStorageAdapter` implementiert sie. Ein Server-Adapter — Backend auf
 einem eigenen Rechner, Cloudflare Worker, was auch immer — implementiert
-dieselben zwei Methoden, und im übrigen Code ändert sich nichts. Was ein
-solcher Adapter zusätzlich braucht und was `LocalStorageAdapter` nicht
-leistet:
+dieselben Methoden (`watch` dann als Polling oder SSE), und im übrigen Code
+ändert sich nichts. Was ein solcher Adapter zusätzlich braucht und was
+`LocalStorageAdapter` nicht leistet:
 
 - **Konfliktbehandlung.** Zwei Geräte, die denselben Zustand schreiben,
   überschreiben einander. Nötig ist mindestens ein Versionsstempel pro
@@ -262,11 +297,15 @@ Nicht Teil des Repos. Geprüft wurden 116 Einheitentests (Wiederholungsregeln,
 ics-Roundtrip inklusive Zeilenfaltung und Maskierung, RECURRENCE-ID-Auflösung,
 CSV-/vCard-Parser, Tastatureingabe von Datum und Uhrzeit, Schaltjahr-Rückfall,
 ISO-Wochenschlüssel, Vorlagen-Versionierung, Kopier-Isolation, Kontrastwahl)
-und 88 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
+und 98 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
 Geburtstags-Import, Kategorien-Editor, Tab-Reihenfolge, Scrollbalken,
 Seitenwechsel, Aufgaben-Reihenfolge und -Höhe, Tagebuch-Summen und
 -Speicherung, Vorlagen-Versionierung und Kopier-Isolation, Seitenleisten-Schalter und
-Spaltenbreiten, schmale Fenster).
+Spaltenbreiten, schmale Fenster, Zwei-Fenster-Abgleich).
+Der Zwei-Fenster-Fall läuft mit zwei echten Seiten in einem Browser-Kontext.
+Die Gegenprobe ist Teil des Befunds: schaltet man `adapter.watch` ab, fällt
+der Termin des einen Fensters aus dem Speicher, sobald das andere schreibt —
+genau der Datenverlust, den diese Prüfungen absichern.
 Die Versionierung über einen Tageswechsel hinweg wird mit der Browser-Uhr
 geprüft, nicht durch Manipulation am `localStorage` — die App schreibt ihren
 Stand beim Entladen zurück und würde eine solche Manipulation überschreiben.

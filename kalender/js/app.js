@@ -101,6 +101,48 @@ function undo() {
   toast(`Rückgängig: ${last.label}`);
 }
 
+/* ------------------------------------------------------------------ */
+/* Änderungen aus einem anderen Fenster                                */
+/* ------------------------------------------------------------------ */
+
+let pendingExternal = null;
+
+/**
+ * Ein anderes Fenster desselben Browsers hat geschrieben.
+ *
+ * Ohne diese Uebernahme haelt jedes Fenster seine eigene Kopie des Zustands:
+ * der Neuzugang im einen Fenster ist im anderen unsichtbar, und die naechste
+ * Aenderung dort schreibt den alten Gesamtzustand darueber. Genau das ist der
+ * Datenverlust, den das hier verhindert.
+ *
+ * Nicht geloest wird damit die Synchronisation zwischen verschiedenen
+ * Browsern oder Geraeten — `localStorage` ist pro Herkunft und Geraet. Dafuer
+ * braucht es einen Server-Adapter.
+ */
+function onExternalChange(raw) {
+  // Waehrend einer laufenden Zeigergeste nicht neu zeichnen: der gezogene
+  // Knoten verschwaende unter dem Finger. Uebernahme dann beim Loslassen.
+  if (document.querySelector('.dragging, .pl-dragging, .tk-dragging')) {
+    pendingExternal = raw;
+    return;
+  }
+  applyExternal(raw);
+}
+
+function applyExternal(raw) {
+  store.adoptExternal(raw);
+  // Eine offene, noch nicht geschriebene Tagebuch-Eingabe auf den neuen
+  // Zustand nachziehen, bevor render() die Felder neu aufbaut — sonst
+  // verschluckt die Uebernahme genau das Wort, das gerade getippt wurde.
+  flushJournalPending();
+  // Die Schnappschuesse im Undo-Stapel beschreiben einen Zustand, den es
+  // nirgends mehr gibt. Ein Strg+Z darauf wuerde die Aenderung des anderen
+  // Fensters ueberschreiben — also verwerfen.
+  undoStack.length = 0;
+  render();
+  toast('In einem anderen Fenster geändert — Ansicht aktualisiert.');
+}
+
 function download(filename, text, mime = 'text/plain;charset=utf-8') {
   const blob = new Blob([text], { type: mime });
   const url = URL.createObjectURL(blob);
@@ -1717,6 +1759,13 @@ function bind() {
     }
   });
 
+  window.addEventListener('pointerup', () => {
+    if (!pendingExternal) return;
+    const raw = pendingExternal;
+    pendingExternal = null;
+    applyExternal(raw);
+  });
+
   window.addEventListener('beforeunload', () => { flushJournalPending(); store.flush(); });
   window.addEventListener('resize', () => {
     if (ui.view === 'month') for (const c of document.querySelectorAll('.mv-cell')) collapseOverflow(c);
@@ -1730,6 +1779,7 @@ async function main() {
   if (theme) document.documentElement.setAttribute('data-theme', theme);
 
   await store.init();
+  adapter.watch(onExternalChange);
   buildCatPick();
 
   bind();
