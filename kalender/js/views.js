@@ -51,6 +51,56 @@ export function layoutColumns(items) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Lesbare Schriftfarbe auf einer Kategoriefarbe                       */
+/* ------------------------------------------------------------------ */
+
+const DARK_INK = '#111827';
+const LIGHT_INK = '#ffffff';
+
+/** '#rgb' oder '#rrggbb' -> [r, g, b] in 0..1, oder null. */
+function parseHex(hex) {
+  let h = String(hex).trim().replace(/^#/, '');
+  if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+  if (!/^[0-9a-f]{6}$/i.test(h)) return null;
+  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+}
+
+/** Relative Leuchtdichte nach WCAG 2.1 (sRGB linearisiert). */
+export function luminance(hex) {
+  const rgb = parseHex(hex);
+  if (!rgb) return null;
+  const lin = rgb.map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
+}
+
+/** Kontrastverhaeltnis zweier Farben nach WCAG 2.1. */
+export function contrastRatio(a, b) {
+  const la = luminance(a);
+  const lb = luminance(b);
+  if (la === null || lb === null) return null;
+  const hell = Math.max(la, lb);
+  const dunkel = Math.min(la, lb);
+  return (hell + 0.05) / (dunkel + 0.05);
+}
+
+/**
+ * Schrift auf farbigem Grund: die von beiden Tinten mit dem hoeheren
+ * Kontrast. Bei hellen Kategoriefarben (Weiss, Gelb, aber auch Tuerkis oder
+ * Bernstein) ist das die dunkle.
+ *
+ * Gerechnet wird gegen die TATSAECHLICHEN Tinten, nicht gegen reines Schwarz
+ * und Weiss. `#111827` ist kein Schwarz; mit der idealisierten Formel kippte
+ * die Entscheidung bei mittleren Farben wie Indigo in die falsche Richtung.
+ *
+ * Bei unlesbarer Farbangabe wird die dunkle Tinte gewaehlt: helle Schrift
+ * auf unbekanntem Grund ist der gefaehrlichere Fehler.
+ */
+export function contrastText(hex) {
+  if (luminance(hex) === null) return DARK_INK;
+  return contrastRatio(hex, DARK_INK) >= contrastRatio(hex, LIGHT_INK) ? DARK_INK : LIGHT_INK;
+}
+
+/* ------------------------------------------------------------------ */
 /* Bausteine                                                           */
 /* ------------------------------------------------------------------ */
 
@@ -70,6 +120,7 @@ export function titleOf(occ) {
 function chip(occ, color, { showTime = true } = {}) {
   const c = el('div', occ.allDay ? 'chip allday' : 'chip');
   c.style.setProperty('--c', color);
+  c.style.setProperty('--fg', contrastText(color));
   c.dataset.ev = occ.event.id;
   c.dataset.occ = occ.occDate;
   const label = titleOf(occ);

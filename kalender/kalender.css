@@ -223,9 +223,16 @@ button.danger { color: #b91c1c; border-color: #fca5a5; background: transparent; 
 }
 .chip .t { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
 .chip .s { overflow: hidden; text-overflow: ellipsis; }
-.chip.allday { background: var(--c, var(--accent-2)); color: #fff; border-left-color: transparent; }
-:root[data-theme="dark"] .chip.allday,
-:root:not([data-theme="light"]) .chip.allday { color: #0f1216; }
+/* Die Schriftfarbe kommt aus --fg und wird je Kategoriefarbe berechnet
+   (contrastText in views.js) — fest verdrahtetes Weiss waere auf hellen
+   Farben wie Weiss oder Gelb unlesbar. Der Haarstrich macht ausserdem
+   sehr helle Flaechen gegen den Untergrund sichtbar. */
+.chip.allday {
+  background: var(--c, var(--accent-2));
+  color: var(--fg, #fff);
+  border-left-color: transparent;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fg, #fff) 20%, transparent);
+}
 .chip.more { border-left-color: transparent; background: transparent; color: var(--muted); font-weight: 600; }
 
 /* ---------------------------------------------------------------- */

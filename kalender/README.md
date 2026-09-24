@@ -90,7 +90,15 @@ leistet:
 ## Bedienung
 
 **Kategorien** ändern: Menü (⋯) → „Kategorien bearbeiten". Name und Farbe
-wirken sofort auf alle Termine. Beim Löschen wandern die betroffenen Termine
+wirken sofort auf alle Termine. Die Schriftfarbe auf ganztägigen Terminen —
+der einzigen Stelle, an der Text auf der vollen Kategoriefarbe liegt — wird
+je Farbe berechnet (`contrastText` in `views.js`): dunkle Schrift auf hellem
+Grund, helle auf dunklem, je nachdem welche nach WCAG 2.1 den höheren
+Kontrast hat. Gerechnet wird gegen die tatsächlich verwendeten Tinten
+(`#111827` und `#ffffff`), nicht gegen reines Schwarz und Weiß — mit der
+idealisierten Formel kippte die Entscheidung bei mittleren Farben wie Indigo
+in die falsche Richtung. Ein Haarstrich innen macht sehr helle Flächen
+gegen den Untergrund sichtbar. Beim Löschen wandern die betroffenen Termine
 nach „Sonstiges"; diese eine Kategorie ist deshalb das Auffangbecken und
 nicht löschbar. Alles rückgängig mit `Strg+Z`.
 
@@ -250,11 +258,11 @@ Zwei Entwurfsentscheidungen:
 
 ## Tests
 
-Nicht Teil des Repos. Geprüft wurden 104 Einheitentests (Wiederholungsregeln,
+Nicht Teil des Repos. Geprüft wurden 116 Einheitentests (Wiederholungsregeln,
 ics-Roundtrip inklusive Zeilenfaltung und Maskierung, RECURRENCE-ID-Auflösung,
 CSV-/vCard-Parser, Tastatureingabe von Datum und Uhrzeit, Schaltjahr-Rückfall,
-ISO-Wochenschlüssel, Vorlagen-Versionierung, Kopier-Isolation)
-und 87 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
+ISO-Wochenschlüssel, Vorlagen-Versionierung, Kopier-Isolation, Kontrastwahl)
+und 88 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
 Geburtstags-Import, Kategorien-Editor, Tab-Reihenfolge, Scrollbalken,
 Seitenwechsel, Aufgaben-Reihenfolge und -Höhe, Tagebuch-Summen und
 -Speicherung, Vorlagen-Versionierung und Kopier-Isolation, Seitenleisten-Schalter und
