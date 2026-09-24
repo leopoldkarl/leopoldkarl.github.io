@@ -112,11 +112,17 @@ export class LocalStorageAdapter {
     this.key = key;
     this.degraded = false;
     this._memory = null;
+    // Zuletzt selbst geschriebener oder gesehener Rohtext. Grundlage fuer
+    // `poll()`: nur ein davon abweichender Speicherinhalt ist eine fremde
+    // Aenderung. Ein Vergleich gegen `JSON.stringify(state)` taete es nicht —
+    // der haengt an der Schluesselreihenfolge und meldete Fehlalarme.
+    this.lastSeen = null;
   }
 
   async load() {
     try {
       const raw = localStorage.getItem(this.key);
+      this.lastSeen = raw;
       return raw ? JSON.parse(raw) : null;
     } catch (err) {
       console.warn('[kalender] localStorage nicht lesbar:', err);
@@ -128,7 +134,9 @@ export class LocalStorageAdapter {
   async save(state) {
     this._memory = state;
     try {
-      localStorage.setItem(this.key, JSON.stringify(state));
+      const text = JSON.stringify(state);
+      this.lastSeen = text;
+      localStorage.setItem(this.key, text);
       return true;
     } catch (err) {
       console.warn('[kalender] localStorage nicht schreibbar:', err);
@@ -155,10 +163,32 @@ export class LocalStorageAdapter {
       if (e.key !== this.key || e.newValue == null) return;
       let parsed;
       try { parsed = JSON.parse(e.newValue); } catch { return; }
+      this.lastSeen = e.newValue;
       cb(parsed);
     };
     window.addEventListener('storage', handler);
     return () => window.removeEventListener('storage', handler);
+  }
+
+  /**
+   * Nachsehen, ob im Speicher etwas steht, das dieses Fenster nicht selbst
+   * geschrieben und auch nicht als Ereignis gesehen hat. Liefert den fremden
+   * Zustand oder `null`.
+   *
+   * Noetig, weil `watch()` nicht lueckenlos ist: ein eingefrorener oder aus
+   * dem Vor-/Zurueck-Cache geholter Tab bekommt das `storage`-Ereignis gar
+   * nicht erst zugestellt und liefe danach mit veraltetem Stand weiter — mit
+   * der Gefahr, beim naechsten Schreiben alles zu ueberschreiben.
+   *
+   * Eigene, noch nicht gespeicherte Aenderungen aendern den Speicherinhalt
+   * nicht und loesen hier folglich nichts aus.
+   */
+  async poll() {
+    let raw;
+    try { raw = localStorage.getItem(this.key); } catch { return null; }
+    if (raw == null || raw === this.lastSeen) return null;
+    this.lastSeen = raw;
+    try { return JSON.parse(raw); } catch { return null; }
   }
 }
 

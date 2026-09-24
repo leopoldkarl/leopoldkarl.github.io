@@ -129,6 +129,17 @@ function onExternalChange(raw) {
   applyExternal(raw);
 }
 
+/**
+ * Nachholen, was das `storage`-Ereignis verpasst haben koennte. Aufgerufen,
+ * wenn das Fenster wieder sichtbar wird oder den Fokus bekommt: genau die
+ * Momente, in denen ein eingefrorener Tab weiterlaeuft. Steht nichts Fremdes
+ * im Speicher, passiert nichts — kein Neuzeichnen, keine Meldung.
+ */
+async function resyncFromStorage() {
+  const raw = await adapter.poll();
+  if (raw) onExternalChange(raw);
+}
+
 function applyExternal(raw) {
   store.adoptExternal(raw);
   // Eine offene, noch nicht geschriebene Tagebuch-Eingabe auf den neuen
@@ -1758,6 +1769,16 @@ function bind() {
       default: return;
     }
   });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') resyncFromStorage();
+  });
+  // Fensterwechsel am Desktop laesst die Sichtbarkeit unberuehrt (beide
+  // Fenster gelten als sichtbar), deshalb zusaetzlich der Fokus.
+  window.addEventListener('focus', () => { resyncFromStorage(); });
+  // Rueckkehr aus dem Vor-/Zurueck-Cache: die Seite lief nicht, das Ereignis
+  // kam nie an.
+  window.addEventListener('pageshow', (e) => { if (e.persisted) resyncFromStorage(); });
 
   window.addEventListener('pointerup', () => {
     if (!pendingExternal) return;

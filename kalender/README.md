@@ -97,8 +97,25 @@ Deshalb hört jedes Fenster auf das `storage`-Ereignis des eigenen Schlüssels
   erst beim Loslassen übernommen.
 
 Das `storage`-Ereignis feuert nur in den *anderen* Fenstern, nie im
-schreibenden — ein Echo auf die eigene Speicherung gibt es also nicht. Für
-verschiedene Browser oder Geräte hilft das alles nicht; dafür braucht es
+schreibenden — ein Echo auf die eigene Speicherung gibt es also nicht.
+
+**Die Zustellung ist allerdings nicht lückenlos.** Ein eingefrorener
+Hintergrund-Tab (mobil die Regel, am Desktop bei Speicherdruck) oder eine
+Seite aus dem Vor-/Zurück-Cache bekommt das Ereignis gar nicht erst und liefe
+danach mit veraltetem Stand weiter. Deshalb sieht jedes Fenster bei
+`visibilitychange` (sichtbar), `focus` und `pageshow` (aus dem Cache geholt)
+im Speicher nach: `LocalStorageAdapter.poll()` vergleicht den Rohtext mit dem
+zuletzt selbst geschriebenen oder gesehenen und meldet nur eine echte
+Abweichung. Verglichen wird bewusst der Rohtext und nicht
+`JSON.stringify(state)` — letzteres hängt an der Schlüsselreihenfolge und
+gäbe Fehlalarme, die bei jedem Fensterwechsel den Undo-Stapel löschten.
+Eigene, noch nicht gespeicherte Änderungen berühren den Speicherinhalt nicht
+und lösen hier folglich nichts aus.
+
+Der Fokus ist dabei nicht redundant: wechselt man zwischen zwei nicht
+verdeckten Fenstern desselben Browsers, bleibt die Sichtbarkeit unverändert.
+
+Für verschiedene Browser oder Geräte hilft das alles nicht; dafür braucht es
 einen Server-Adapter.
 
 ## Die Naht für später
@@ -297,7 +314,7 @@ Nicht Teil des Repos. Geprüft wurden 116 Einheitentests (Wiederholungsregeln,
 ics-Roundtrip inklusive Zeilenfaltung und Maskierung, RECURRENCE-ID-Auflösung,
 CSV-/vCard-Parser, Tastatureingabe von Datum und Uhrzeit, Schaltjahr-Rückfall,
 ISO-Wochenschlüssel, Vorlagen-Versionierung, Kopier-Isolation, Kontrastwahl)
-und 98 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
+und 100 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
 Geburtstags-Import, Kategorien-Editor, Tab-Reihenfolge, Scrollbalken,
 Seitenwechsel, Aufgaben-Reihenfolge und -Höhe, Tagebuch-Summen und
 -Speicherung, Vorlagen-Versionierung und Kopier-Isolation, Seitenleisten-Schalter und
@@ -306,6 +323,12 @@ Der Zwei-Fenster-Fall läuft mit zwei echten Seiten in einem Browser-Kontext.
 Die Gegenprobe ist Teil des Befunds: schaltet man `adapter.watch` ab, fällt
 der Termin des einen Fensters aus dem Speicher, sobald das andere schreibt —
 genau der Datenverlust, den diese Prüfungen absichern.
+Eine Einschränkung: headless-Chromium liefert beim Wechsel zwischen zwei
+Seiten weder `visibilitychange` noch `focus` (`bringToFront` lässt beide
+sichtbar und fokussiert, `Page.setWebLifecycleState` feuert nur
+`freeze`/`resume`). Geprüft wird dort die Kette Ereignis → `poll()` →
+Übernahme mit synthetisch ausgelöstem Ereignis; dass der Browser das Ereignis
+im Ernstfall auch schickt, ist nicht mitgeprüft.
 Die Versionierung über einen Tageswechsel hinweg wird mit der Browser-Uhr
 geprüft, nicht durch Manipulation am `localStorage` — die App schreibt ihren
 Stand beim Entladen zurück und würde eine solche Manipulation überschreiben.
