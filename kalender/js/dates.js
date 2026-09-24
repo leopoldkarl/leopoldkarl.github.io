@@ -118,6 +118,16 @@ export function isoWeek(d) {
   return 1 + Math.round((t - firstThu) / (7 * 86400000));
 }
 
+/** ISO-Woche als Schluessel, z. B. '2026-W39'. Das Jahr ist das ISO-Wochenjahr,
+ *  nicht das Kalenderjahr — der 31.12.2026 liegt in der KW 53 von 2026, der
+ *  1.1.2027 aber ebenfalls. */
+export function isoWeekKey(d) {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dn = (t.getUTCDay() + 6) % 7;
+  t.setUTCDate(t.getUTCDate() - dn + 3);          // Donnerstag dieser Woche
+  return `${t.getUTCFullYear()}-W${pad(isoWeek(d))}`;
+}
+
 /** 540 -> '09:00' */
 export function minutesToHm(min) {
   const m = ((min % 1440) + 1440) % 1440;

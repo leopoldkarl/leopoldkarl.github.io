@@ -4,9 +4,11 @@ import {
   ymd, hm, ymdhm, parseYmd, parseLocal, addDays, addMonths, startOfWeek,
   startOfMonth, endOfMonth, isoDow, isoWeek, minutesToHm, MONTH_NAMES,
   fmtDateLong, pad, sameDay, diffDays, startOfDay,
-  parseDateInput, formatDateInput, parseTimeInput,
+  parseDateInput, formatDateInput, parseTimeInput, isoWeekKey, WEEKDAY_LONG,
 } from './dates.js';
-import { Store, LocalStorageAdapter, uid, clampHeight } from './store.js';
+import {
+  Store, LocalStorageAdapter, uid, clampHeight, normalizeItem, sortItems,
+} from './store.js';
 import { occurrencesInRange, describeRule } from './recurrence.js';
 import { toICS, parseICS } from './ics.js';
 import { decodeBuffer, parseContactsFile, toBirthdayEvent } from './contacts.js';
@@ -16,14 +18,20 @@ import {
 } from './views.js';
 import { renderTaskDay, renderTaskWeek, attachTaskInteractions } from './tasks.js';
 import { renderJournal, computeField, formatHours } from './journal.js';
+import {
+  renderWeekPlan, renderDayPlan, attachPlanInteractions, eventItemsByDate,
+} from './plan.js';
 
 const adapter = new LocalStorageAdapter('kalender.v1');
 const store = new Store(adapter);
 
-const PAGES = ['kalender', 'aufgaben', 'tagebuch'];
+// Reihenfolge der Reiter — auch die Reihenfolge fuer Strg+A und 1..5.
+const PAGES = ['aufgaben', 'tagesplanung', 'wochenplanung', 'tagebuch', 'kalender'];
 
 const ui = {
-  page: 'kalender',
+  page: localStorage_get('kalender.page', 'aufgaben'),
+  planMode: localStorage_get('kalender.planmode', 'week'),   // 'week' | 'template'
+  templateId: null,
   view: localStorage_get('kalender.view', 'week'),
   taskView: localStorage_get('kalender.taskview', 'day'),
   cursor: new Date(),
@@ -67,13 +75,12 @@ function undo() {
   const last = undoStack.pop();
   if (!last) { toast('Nichts rückgängig zu machen.'); return; }
   const restored = JSON.parse(last.snapshot);
+  // Alle Felder zuruecksetzen, nicht einzeln aufgezaehlte: bei jeder neuen
+  // Datenart wurde sonst vergessen, sie hier nachzutragen — genau so ist die
+  // Planung anfangs durch das Rueckgaengigmachen gefallen.
   store.mutate((s) => {
-    s.events = restored.events;
-    s.tasks = restored.tasks;
-    s.categories = restored.categories;
-    s.settings = restored.settings;
-    s.journal = restored.journal;
-    s.journalSchema = restored.journalSchema;
+    for (const k of Object.keys(s)) delete s[k];
+    Object.assign(s, restored);
   });
   toast(`Rückgängig: ${last.label}`);
 }
@@ -108,9 +115,10 @@ function visibleDays() {
 
 /** Welche Zeitspanne die Pfeiltasten bewegen, haengt von Seite und Ansicht ab. */
 function activeSpan() {
-  if (ui.page === 'kalender') return ui.view;          // month | week | day
-  if (ui.page === 'aufgaben') return ui.taskView;      // day | week
-  return 'day';                                        // Tagebuch
+  if (ui.page === 'kalender') return ui.view;             // month | week | day
+  if (ui.page === 'aufgaben') return ui.taskView;         // day | week
+  if (ui.page === 'wochenplanung') return 'week';
+  return 'day';                                           // Tagesplanung, Tagebuch
 }
 
 function periodLabel() {
@@ -137,6 +145,7 @@ function setPage(page, { updateHash = true } = {}) {
   ui.page = page;
   // Auf Aufgaben- und Tagebuchseite ist der gewaehlte Tag das, was zaehlt.
   if (page !== 'kalender') ui.cursor = parseYmd(ui.selected);
+  localStorage_set('kalender.page', page);
   if (updateHash && location.hash.slice(1) !== page) location.hash = page;
 
   for (const node of document.querySelectorAll('.page')) {
@@ -159,6 +168,8 @@ function setPage(page, { updateHash = true } = {}) {
 
 function render() {
   if (ui.page === 'aufgaben') return renderTaskPage();
+  if (ui.page === 'tagesplanung') return renderDayPlanPage();
+  if (ui.page === 'wochenplanung') return renderWeekPlanPage();
   if (ui.page === 'tagebuch') return renderJournalPage();
   return renderCalendarPage();
 }
@@ -216,6 +227,163 @@ function renderTaskPage() {
   };
   root.replaceChildren(ui.taskView === 'week' ? renderTaskWeek(ctx) : renderTaskDay(ctx));
   renderCommonChrome();
+}
+
+/* ---- Planung: gemeinsame Ableitungen ---- */
+
+const weekDayKeys = (cursor) => Array.from({ length: 7 }, (_, i) => ymd(addDays(startOfWeek(cursor), i)));
+const weekDays = (cursor) => Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(cursor), i));
+
+/** Kalendertermine der Woche als Plan-Entwuerfe, nach Tag gruppiert. */
+function weekEventDrafts(cursor) {
+  const from = startOfDay(startOfWeek(cursor));
+  const to = addDays(from, 7);
+  return eventItemsByDate(occurrencesInRange(store.state.events, from, to));
+}
+
+/** Die Vorlage, die fuer diese Woche gilt — gewaehlte oder die zum Montag jüngste. */
+function templateForWeek(cursor) {
+  if (ui.templateId) {
+    const t = store.templateById(ui.templateId);
+    if (t) return t;
+    ui.templateId = null;
+  }
+  return store.templateFor(ymd(startOfWeek(cursor)));
+}
+
+/**
+ * Was die Wochenplanung anzeigt: der eigenstaendige Wochenplan, wenn es ihn
+ * gibt — sonst die Vorschau aus Vorlage und Kalender, ohne etwas anzulegen.
+ */
+function weekView(cursor) {
+  const key = isoWeekKey(cursor);
+  const plan = store.weekPlan(key);
+  const keys = weekDayKeys(cursor);
+  if (plan) {
+    const pending = countPendingEvents(plan, weekEventDrafts(cursor));
+    return { key, materialized: true, days: plan.days, templateId: plan.templateId, pending };
+  }
+  const tpl = templateForWeek(cursor);
+  const drafts = weekEventDrafts(cursor);
+  const days = {};
+  keys.forEach((date, dow) => {
+    days[date] = sortItems([
+      ...((tpl && tpl.days[dow]) || []).map((b) => normalizeItem({ ...b, id: `vorschau-${b.id}`, source: 'template', srcId: b.id })),
+      ...((drafts[date] || []).map((e) => normalizeItem({ ...e, id: `vorschau-${e.srcId}` }))),
+    ]);
+  });
+  return { key, materialized: false, days, templateId: tpl ? tpl.id : null, pending: 0 };
+}
+
+function countPendingEvents(plan, drafts) {
+  let n = 0;
+  for (const [date, items] of Object.entries(drafts)) {
+    const known = new Set((plan.days[date] || []).filter((x) => x.source === 'event').map((x) => x.srcId));
+    for (const e of items) if (!known.has(e.srcId)) n += 1;
+  }
+  return n;
+}
+
+/** Legt den Wochenplan an, falls noetig, und gibt ihn zurueck. */
+function materializeWeek(cursor) {
+  const key = isoWeekKey(cursor);
+  const existing = store.weekPlan(key);
+  if (existing) return existing;
+  const tpl = templateForWeek(cursor);
+  const byDow = {};
+  for (let i = 0; i < 7; i += 1) byDow[i] = (tpl && tpl.days[i]) || [];
+  return store.ensureWeekPlan(key, weekDayKeys(cursor), byDow, weekEventDrafts(cursor), tpl ? tpl.id : null);
+}
+
+/* ---- Wochenplanung ---- */
+
+function renderWeekPlanPage() {
+  const view = weekView(ui.cursor);
+  const tplId = ui.planMode === 'template'
+    ? (ui.templateId || (store.templatesSorted()[0] || {}).id || null)
+    : view.templateId;
+  const tpl = tplId ? store.templateById(tplId) : null;
+
+  $('#wp-root').replaceChildren(renderWeekPlan({
+    mode: ui.planMode,
+    days: weekDays(ui.cursor),
+    dayKeys: weekDayKeys(ui.cursor),
+    itemsFor: (key) => (ui.planMode === 'template'
+      ? ((tpl && tpl.days[Number(key)]) || [])
+      : (view.days[key] || [])),
+    materialized: view.materialized,
+    templates: store.templatesSorted(),
+    activeTemplateId: tplId,
+    pendingEvents: view.pending,
+    today: new Date(),
+    selected: ui.selected,
+    colorOf,
+  }));
+  renderCommonChrome();
+}
+
+/* ---- Tagesplanung ---- */
+
+/** Die Eintraege des Tages: eigener Tagesplan, sonst der Tag aus der Woche. */
+function dayPlanView(dateYmd) {
+  const own = store.dayPlan(dateYmd);
+  if (own) return { detached: true, items: own.items };
+  const view = weekView(parseYmd(dateYmd));
+  return { detached: false, items: view.days[dateYmd] || [] };
+}
+
+function renderDayPlanPage() {
+  const v = dayPlanView(ui.selected);
+  $('#tp-root').replaceChildren(renderDayPlan({
+    dateYmd: ui.selected,
+    items: v.items,
+    detached: v.detached,
+    today: new Date(),
+    colorOf,
+  }));
+  renderCommonChrome();
+}
+
+/**
+ * Jede Aenderung auf der Tagesplanung geht durch diesen Trichter: er legt
+ * den eigenstaendigen Tagesplan an, falls es ihn noch nicht gibt, und
+ * uebergibt dann dessen Eintragsliste zur Bearbeitung.
+ */
+function mutateDayPlan(fn, label) {
+  pushUndo(label);
+  const existing = store.dayPlan(ui.selected);
+  if (!existing) {
+    const v = dayPlanView(ui.selected);
+    store.ensureDayPlan(ui.selected, v.items);
+  }
+  store.mutate((s) => { fn(s.dayPlans[ui.selected]); });
+  render();
+}
+
+/** Dasselbe fuer die Wochenplanung: erst anlegen, dann aendern. */
+function mutateWeekPlan(fn, label) {
+  pushUndo(label);
+  const plan = materializeWeek(ui.cursor);
+  void plan;
+  const key = isoWeekKey(ui.cursor);
+  store.mutate((s) => { fn(s.weekPlans[key]); });
+  render();
+}
+
+/** Und fuer die Vorlage — dort erzeugt eine Aenderung ggf. eine neue Fassung. */
+function mutateTemplate(fn, label) {
+  const today = ymd(new Date());
+  let id = ui.templateId || (store.templatesSorted()[0] || {}).id;
+  if (!id) {
+    pushUndo('Vorlage angelegt');
+    id = store.createTemplate('Wochenvorlage', today).id;
+  } else {
+    pushUndo(label);
+  }
+  const effective = store.editTemplate(id, today, fn);
+  if (effective !== id) toast('Neue Fassung der Vorlage angelegt.');
+  ui.templateId = effective;
+  render();
 }
 
 /* ---- Tagebuchseite ---- */
@@ -767,6 +935,27 @@ async function handleImportFile(file, mode) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Hilfen fuer Plan-Listen                                             */
+/* ------------------------------------------------------------------ */
+
+/** Wendet `fn` auf jede Tagesliste eines Plans oder einer Vorlage an. */
+function forEachList(days, fn) {
+  for (const k of Object.keys(days)) fn(days[k]);
+}
+
+/** Verschiebt einen Eintrag innerhalb von `days` an Position `index` von `targetKey`. */
+function moveItemBetween(days, id, targetKey, index) {
+  let moved = null;
+  for (const k of Object.keys(days)) {
+    const i = days[k].findIndex((x) => x.id === id);
+    if (i >= 0) { [moved] = days[k].splice(i, 1); break; }
+  }
+  if (!moved) return;
+  if (!days[targetKey]) days[targetKey] = [];
+  days[targetKey].splice(Math.max(0, Math.min(index, days[targetKey].length)), 0, moved);
+}
+
+/* ------------------------------------------------------------------ */
 /* Tagebuch: entprelltes Schreiben                                     */
 /* ------------------------------------------------------------------ */
 //
@@ -1092,6 +1281,149 @@ function bind() {
     if (again) again.focus();
   });
 
+  /* ---- Planungsseiten ---- */
+  for (const root of [$('#wp-root'), $('#tp-root')]) {
+    const isWeek = root.id === 'wp-root';
+
+    attachPlanInteractions(root, {
+      onReorder: (id, targetKey, index) => {
+        if (isWeek && ui.planMode === 'template') {
+          mutateTemplate((t) => moveItemBetween(t.days, id, Number(targetKey), index), 'Vorlage umsortiert');
+        } else if (isWeek) {
+          mutateWeekPlan((p) => moveItemBetween(p.days, id, targetKey, index), 'Plan umsortiert');
+        } else {
+          mutateDayPlan((p) => {
+            const i = p.items.findIndex((x) => x.id === id);
+            if (i < 0) return;
+            const [it] = p.items.splice(i, 1);
+            p.items.splice(Math.max(0, Math.min(index, p.items.length)), 0, it);
+          }, 'Plan umsortiert');
+        }
+      },
+    });
+
+    root.addEventListener('change', (e) => {
+      const f = e.target.closest('[data-plitem]');
+      if (!f) return;
+      const { plitem: id, plpart: part } = f.dataset;
+      let value = f.value.trim();
+      if (part === 'start' || part === 'end') {
+        if (value) {
+          const parsed = parseTimeInput(value);
+          if (!parsed) { f.classList.add('invalid'); toast('Uhrzeit nicht lesbar.'); return; }
+          value = parsed;
+        } else value = null;
+      }
+      f.classList.remove('invalid');
+      const apply = (list) => {
+        const it = list.find((x) => x.id === id);
+        if (it) it[part] = value;
+      };
+      if (isWeek && ui.planMode === 'template') mutateTemplate((t) => forEachList(t.days, apply), 'Vorlage geändert');
+      else if (isWeek) mutateWeekPlan((p) => forEachList(p.days, apply), 'Plan geändert');
+      else mutateDayPlan((p) => apply(p.items), 'Plan geändert');
+    });
+
+    root.addEventListener('click', (e) => {
+      const del = e.target.closest('[data-pldel]');
+      if (del) {
+        const id = del.dataset.pldel;
+        const drop = (list) => {
+          const i = list.findIndex((x) => x.id === id);
+          if (i >= 0) list.splice(i, 1);
+        };
+        if (isWeek && ui.planMode === 'template') mutateTemplate((t) => forEachList(t.days, drop), 'Eintrag entfernt');
+        else if (isWeek) mutateWeekPlan((p) => forEachList(p.days, drop), 'Eintrag entfernt');
+        else mutateDayPlan((p) => drop(p.items), 'Eintrag entfernt');
+        return;
+      }
+      const goto = e.target.closest('[data-plgoto]');
+      if (goto) { ui.selected = goto.dataset.plgoto; setPage('tagesplanung'); return; }
+      if (!isWeek) {
+        if (e.target.closest('[data-plresetday]')) {
+          pushUndo('Tagesplan verworfen');
+          store.deleteDayPlan(ui.selected);
+          toast('Tag kommt wieder aus dem Wochenplan.');
+          render();
+        }
+        return;
+      }
+      const mode = e.target.closest('[data-plmode]');
+      if (mode) {
+        ui.planMode = mode.dataset.plmode;
+        localStorage_set('kalender.planmode', ui.planMode);
+        render();
+        return;
+      }
+      if (e.target.closest('[data-plnewtemplate]')) {
+        pushUndo('Vorlage angelegt');
+        const t = store.createTemplate(`Wochenvorlage ${store.state.planTemplates.length + 1}`, ymd(new Date()));
+        ui.templateId = t.id;
+        ui.planMode = 'template';
+        localStorage_set('kalender.planmode', 'template');
+        render();
+        return;
+      }
+      if (e.target.closest('[data-pldeltemplate]')) {
+        const id = ui.templateId || (store.templatesSorted()[0] || {}).id;
+        if (!id) return;
+        pushUndo('Vorlage gelöscht');
+        store.deleteTemplate(id);
+        ui.templateId = (store.templatesSorted()[0] || {}).id || null;
+        toast('Vorlage gelöscht.');
+        render();
+        return;
+      }
+      if (e.target.closest('[data-plsync]')) {
+        pushUndo('Kalender übernommen');
+        const n = store.syncWeekEvents(isoWeekKey(ui.cursor), weekEventDrafts(ui.cursor));
+        toast(n ? (n === 1 ? '1 Termin übernommen.' : `${n} Termine übernommen.`) : 'Nichts Neues im Kalender.');
+        render();
+        return;
+      }
+      if (e.target.closest('[data-plresetweek]')) {
+        pushUndo('Wochenplan verworfen');
+        store.deleteWeekPlan(isoWeekKey(ui.cursor));
+        toast('Woche kommt wieder aus Vorlage und Kalender.');
+        render();
+      }
+    });
+
+    root.addEventListener('submit', (e) => {
+      const form = e.target.closest('.pl-add');
+      if (!form) return;
+      e.preventDefault();
+      const input = form.querySelector('[data-pladd]');
+      const title = input.value.trim();
+      if (!title) return;
+      const key = form.dataset.plkey;
+      const draft = { title, source: 'own' };
+      if (isWeek && ui.planMode === 'template') {
+        mutateTemplate((t) => { t.days[Number(key)].push(normalizeItem(draft)); }, 'Eintrag angelegt');
+      } else if (isWeek) {
+        mutateWeekPlan((p) => { (p.days[key] ||= []).push(normalizeItem(draft)); }, 'Eintrag angelegt');
+      } else {
+        mutateDayPlan((p) => { p.items.push(normalizeItem(draft)); }, 'Eintrag angelegt');
+      }
+      const again = root.querySelector(`[data-pladd="${CSS.escape(key)}"]`);
+      if (again) again.focus();
+    });
+
+    if (isWeek) {
+      root.addEventListener('change', (e) => {
+        if (e.target.id !== 'pl-template') return;
+        ui.templateId = e.target.value || null;
+        if (ui.planMode === 'week') {
+          // In einer bereits angelegten Woche waehlt man die Vorlage nicht
+          // mehr um — die Woche ist eine Kopie und bleibt es.
+          const plan = store.weekPlan(isoWeekKey(ui.cursor));
+          if (plan) toast('Diese Woche ist bereits angelegt — erst zurücksetzen.');
+        }
+        render();
+      });
+    }
+  }
+
   /* ---- Tagebuchseite ---- */
   const jrRoot = $('#jr-root');
 
@@ -1317,19 +1649,38 @@ function bind() {
   /* Tastatur */
   document.addEventListener('keydown', (e) => {
     const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+
+    // Strg+A blaettert durch die Reiter. In einem Textfeld bleibt es
+    // "alles markieren" — dort waere das Ueberschreiben der gewohnten
+    // Bedeutung schlicht laestig.
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a' && !typing) {
+      e.preventDefault();
+      const i = PAGES.indexOf(ui.page);
+      const next = (i + (e.shiftKey ? -1 : 1) + PAGES.length) % PAGES.length;
+      setPage(PAGES[next]);
+      return;
+    }
+
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !typing) { e.preventDefault(); undo(); render(); return; }
     if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
     if (document.querySelector('dialog[open]')) return;
     switch (e.key) {
-      case '1': setPage('kalender'); break;
-      case '2': setPage('aufgaben'); break;
-      case '3': setPage('tagebuch'); break;
+      case '1': case '2': case '3': case '4': case '5':
+        setPage(PAGES[Number(e.key) - 1]);
+        break;
       case 'ArrowLeft': step(-1); break;
       case 'ArrowRight': step(1); break;
       case 'm': case 'M': if (ui.page === 'kalender') setView('month'); break;
       case 'w': case 'W':
         if (ui.page === 'kalender') setView('week');
         else if (ui.page === 'aufgaben') { ui.taskView = 'week'; localStorage_set('kalender.taskview', 'week'); render(); }
+        break;
+      case 'v': case 'V':
+        if (ui.page === 'wochenplanung') {
+          ui.planMode = ui.planMode === 'template' ? 'week' : 'template';
+          localStorage_set('kalender.planmode', ui.planMode);
+          render();
+        }
         break;
       case 'd': case 'D':
         if (ui.page === 'kalender') setView('day');
@@ -1360,7 +1711,7 @@ async function main() {
   buildCatPick();
 
   bind();
-  setPage(location.hash.slice(1) || 'kalender', { updateHash: false });
+  setPage(location.hash.slice(1) || ui.page, { updateHash: false });
 
   // Jetzt-Linie minuetlich nachfuehren.
   setInterval(() => { if (ui.view !== 'month') render(); }, 60000);

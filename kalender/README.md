@@ -1,9 +1,21 @@
-# Kalender, Aufgaben, Tagebuch
+# Aufgaben, Planung, Tagebuch, Kalender
 
-Drei Seiten unter `/kalender/`, umschaltbar über die Reiter oben links oder
-die Tasten `1` `2` `3`. Die Seite steht im URL-Fragment (`#kalender`,
-`#aufgaben`, `#tagebuch`), ist also lesezeichenfähig und übersteht ein
-Neuladen.
+Fünf Seiten unter `/kalender/`, in dieser Reihenfolge und mit diesen Kürzeln:
+
+    A    Aufgaben
+    TP   Tagesplanung
+    WP   Wochenplanung
+    TB   Tagebuch
+    K    Kalender
+
+Umschalten über die Reiter, über `1`…`5`, oder mit `Strg+A` (vorwärts) und
+`Strg+⇧+A` (rückwärts). Die Seite steht im URL-Fragment (`#wochenplanung`
+usw.), ist also lesezeichenfähig und übersteht ein Neuladen; zuletzt
+besuchte Seite wird gemerkt.
+
+`Strg+A` behält in einem Textfeld seine gewohnte Bedeutung „alles
+markieren". Die Belegung dort zu überschreiben wäre lästiger als der
+Gewinn.
 
 Von der Hauptseite **nicht** verlinkt, `noindex` gesetzt, kein
 Analytics-Skript eingebunden (sonst stünde der Pfad in einem fremden
@@ -40,6 +52,7 @@ Voraussetzung, nicht zur Option.
     js/views.js       reine Render-Funktionen der Kalenderansichten
     js/tasks.js       Aufgabenseite: Ansichten und Zeigergesten
     js/journal.js     Tagebuchseite: Feldtypen, Summen, Layout
+    js/plan.js        Tages- und Wochenplanung, Vorlagen
     js/app.js         Controller: Seitenwechsel, Navigation, Dialoge
 
 Keine Abhängigkeiten, keine Build-Kette. ES-Module, direkt aus dem Repo
@@ -103,6 +116,45 @@ Erledigte Aufgaben stehen immer unter den offenen. Das erzwingt die
 Sortierung beim Zeichnen (`(a.done - b.done) || (a.order - b.order)`), nicht
 die abgelegte Reihenfolge — abhaken und wieder freigeben lässt eine Aufgabe
 also an ihren alten Platz zurückkehren.
+
+## Planung: drei Ebenen, jede eine Kopie
+
+    Vorlage  --kopieren-->  Wochenplan  --kopieren-->  Tagesplan
+    (versioniert)           (+ Kalendertermine)
+
+Eine Ebene entsteht erst beim **ersten Eingriff**. Solange kein Wochenplan
+angelegt ist, zeigt die Wochenplanung eine Vorschau aus Vorlage und
+Kalender; solange kein Tagesplan angelegt ist, zeigt die Tagesplanung den
+betreffenden Tag aus dem Wochenplan. Ab dem ersten Eingriff ist die Ebene
+eigenständig — Änderungen wirken **nie** nach oben. Eine Änderung im
+Wochenplan berührt weder Vorlage noch Kalender, eine Änderung im Tagesplan
+nicht den Wochenplan.
+
+### Vorlagen sind versioniert
+
+Eine Vorlage wird nie überschrieben. Beim Bearbeiten gilt:
+
+- Stammt die Vorlage von **heute**, wird sie direkt geändert.
+- Ist sie **älter**, entsteht zuerst eine Kopie mit dem heutigen Datum, und
+  geändert wird die Kopie. Die alte Fassung bleibt in der Auswahlliste.
+
+Also **eine Fassung pro Bearbeitungstag**, nicht eine pro Tastendruck —
+sonst hätte man nach einer Sitzung dutzende. Welche Fassung für eine Woche
+gilt: die jüngste, deren Datum am Montag der Woche bereits zurückliegt;
+über die Auswahlliste auch von Hand.
+
+### Rückwege
+
+- **Kalender übernehmen** zieht neu hinzugekommene Termine in einen bereits
+  angelegten Wochenplan nach. Erkannt wird über `srcId` (Termin-ID plus
+  Instanzdatum), es entstehen also keine Doppelten; eigene und geänderte
+  Einträge bleiben unangetastet.
+- **Woche zurücksetzen** und **Wieder aus Wochenplan holen** verwerfen die
+  Kopie und schalten wieder auf die darüberliegende Ebene. Beides hängt am
+  Rückgängig-Stapel.
+
+Einträge tragen ihre Herkunft: durchgezogener Rand = selbst angelegt,
+gestrichelt = aus der Vorlage, eingefärbt = aus dem Kalender.
 
 ## Tagebuchseite
 
@@ -189,10 +241,14 @@ Zwei Entwurfsentscheidungen:
 
 ## Tests
 
-Nicht Teil des Repos. Geprüft wurden 85 Einheitentests (Wiederholungsregeln,
+Nicht Teil des Repos. Geprüft wurden 104 Einheitentests (Wiederholungsregeln,
 ics-Roundtrip inklusive Zeilenfaltung und Maskierung, RECURRENCE-ID-Auflösung,
-CSV-/vCard-Parser, Tastatureingabe von Datum und Uhrzeit, Schaltjahr-Rückfall)
-und 55 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
+CSV-/vCard-Parser, Tastatureingabe von Datum und Uhrzeit, Schaltjahr-Rückfall,
+ISO-Wochenschlüssel, Vorlagen-Versionierung, Kopier-Isolation)
+und 79 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
 Geburtstags-Import, Kategorien-Editor, Tab-Reihenfolge, Scrollbalken,
 Seitenwechsel, Aufgaben-Reihenfolge und -Höhe, Tagebuch-Summen und
--Speicherung, schmale Fenster).
+-Speicherung, Vorlagen-Versionierung und Kopier-Isolation, schmale Fenster).
+Die Versionierung über einen Tageswechsel hinweg wird mit der Browser-Uhr
+geprüft, nicht durch Manipulation am `localStorage` — die App schreibt ihren
+Stand beim Entladen zurück und würde eine solche Manipulation überschreiben.

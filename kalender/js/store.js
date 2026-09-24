@@ -6,7 +6,7 @@
 // Ein spaeterer Server-Adapter (Backend beim Vater, Cloudflare Worker, ...)
 // implementiert dieselben zwei Methoden; am uebrigen Code aendert sich nichts.
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 /** Standardhoehe eines Aufgabenblocks in Pixeln. */
 export const DEFAULT_TASK_HEIGHT = 44;
@@ -34,6 +34,13 @@ export function emptyState() {
     // Das Feldschema liegt im Zustand, nicht im Code: so wandert es in die
     // Sicherung und ueberlebt spaetere Aenderungen an der Feldliste.
     journalSchema: DEFAULT_JOURNAL_SCHEMA.map((f) => ({ ...f })),
+    // Wochenvorlagen, versioniert: jede Bearbeitung an einem neuen Tag legt
+    // eine neue Fassung an, die alte bleibt waehlbar.
+    planTemplates: [],
+    // Konkrete Wochenplaene je ISO-Woche, konkrete Tagesplaene je Datum.
+    // Beide entstehen erst beim ersten Bearbeiten (copy-on-write).
+    weekPlans: {},
+    dayPlans: {},
     settings: { defaultCategory: 'forschung', scrollHour: 7 },
   };
 }
@@ -275,6 +282,132 @@ export class Store {
       .sort((a, b) => (a.done - b.done) || (a.order - b.order));
   }
 
+  /* ---- Wochenvorlagen ---- */
+
+  /** Neueste zuerst. */
+  templatesSorted() {
+    return [...this.state.planTemplates].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  /** Die zum Stichtag juengste Vorlage, oder null. */
+  templateFor(dateYmd) {
+    const candidates = this.state.planTemplates.filter((t) => t.createdAt <= dateYmd);
+    if (!candidates.length) return null;
+    return candidates.reduce((best, t) => (t.createdAt > best.createdAt ? t : best));
+  }
+
+  templateById(id) {
+    return this.state.planTemplates.find((t) => t.id === id) || null;
+  }
+
+  createTemplate(label, today) {
+    const t = normalizeTemplate({ label, createdAt: today });
+    this.mutate((s) => { s.planTemplates.push(t); });
+    return t;
+  }
+
+  /**
+   * Aendert eine Vorlage nach dem Versionsprinzip: stammt die Vorlage von
+   * heute, wird sie direkt geaendert; ist sie aelter, entsteht zuerst eine
+   * Kopie mit dem heutigen Datum, und geaendert wird die Kopie.
+   *
+   * Absicht: eine Fassung pro Tag. Waere jede einzelne Aenderung eine eigene
+   * Fassung, haette man nach einer Bearbeitungssitzung dutzende davon.
+   * Rueckgabe: die ID der Fassung, die tatsaechlich geaendert wurde.
+   */
+  editTemplate(id, today, mutator) {
+    let effectiveId = id;
+    this.mutate((s) => {
+      const i = s.planTemplates.findIndex((t) => t.id === id);
+      if (i < 0) return;
+      let target = s.planTemplates[i];
+      if (target.createdAt !== today) {
+        const copy = normalizeTemplate({
+          ...JSON.parse(JSON.stringify(target)),
+          id: uid(),
+          createdAt: today,
+        });
+        s.planTemplates.push(copy);
+        target = copy;
+      }
+      effectiveId = target.id;
+      mutator(target);
+    });
+    return effectiveId;
+  }
+
+  deleteTemplate(id) {
+    this.mutate((s) => { s.planTemplates = s.planTemplates.filter((t) => t.id !== id); });
+  }
+
+  /* ---- Wochen- und Tagesplaene ---- */
+
+  weekPlan(weekKey) {
+    return this.state.weekPlans[weekKey] || null;
+  }
+
+  /**
+   * Legt den Wochenplan an, falls es ihn noch nicht gibt: Vorlage kopieren,
+   * Kalendertermine kopieren. Ab da ist die Woche eigenstaendig.
+   */
+  ensureWeekPlan(weekKey, dayKeys, templateItemsByDow, eventItemsByDate, templateId) {
+    if (this.state.weekPlans[weekKey]) return this.state.weekPlans[weekKey];
+    const days = {};
+    dayKeys.forEach((date, dow) => {
+      const items = [
+        ...(templateItemsByDow[dow] || []).map((b) => normalizeItem({ ...b, id: uid(), source: 'template', srcId: b.id })),
+        ...(eventItemsByDate[date] || []).map((e) => normalizeItem({ ...e, id: uid(), source: 'event' })),
+      ];
+      days[date] = sortItems(items);
+    });
+    const plan = { templateId: templateId || null, materializedAt: new Date().toISOString(), days };
+    this.mutate((s) => { s.weekPlans[weekKey] = plan; });
+    return plan;
+  }
+
+  /** Kalendertermine nachziehen: neue dazu, vorhandene und eigene unangetastet. */
+  syncWeekEvents(weekKey, eventItemsByDate) {
+    let added = 0;
+    this.mutate((s) => {
+      const plan = s.weekPlans[weekKey];
+      if (!plan) return;
+      for (const [date, items] of Object.entries(eventItemsByDate)) {
+        if (!plan.days[date]) plan.days[date] = [];
+        const known = new Set(plan.days[date].filter((x) => x.source === 'event').map((x) => x.srcId));
+        for (const e of items) {
+          if (known.has(e.srcId)) continue;
+          plan.days[date].push(normalizeItem({ ...e, id: uid(), source: 'event' }));
+          added += 1;
+        }
+        plan.days[date] = sortItems(plan.days[date]);
+      }
+    });
+    return added;
+  }
+
+  deleteWeekPlan(weekKey) {
+    this.mutate((s) => { delete s.weekPlans[weekKey]; });
+  }
+
+  dayPlan(dateYmd) {
+    return this.state.dayPlans[dateYmd] || null;
+  }
+
+  /** Beim ersten Eingriff den Tag aus dem Wochenplan herauskopieren. */
+  ensureDayPlan(dateYmd, itemsFromWeek) {
+    if (this.state.dayPlans[dateYmd]) return this.state.dayPlans[dateYmd];
+    const plan = {
+      materializedAt: new Date().toISOString(),
+      items: (itemsFromWeek || []).map((it) => normalizeItem({ ...it, id: uid() })),
+    };
+    this.mutate((s) => { s.dayPlans[dateYmd] = plan; });
+    return plan;
+  }
+
+  deleteDayPlan(dateYmd) {
+    this.mutate((s) => { delete s.dayPlans[dateYmd]; });
+  }
+
   /* ---- Tagebuch ---- */
 
   journalFor(dateYmd) {
@@ -377,6 +510,65 @@ export function normalizeEvent(ev) {
   return out;
 }
 
+/* ------------------------------------------------------------------ */
+/* Plan-Eintraege                                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Ein Eintrag in Vorlage, Wochenplan oder Tagesplan.
+ *   source 'template' — aus der Vorlage kopiert
+ *   source 'event'    — aus dem Kalender kopiert
+ *   source 'own'      — in diesem Plan selbst angelegt
+ * `srcId` haelt fest, woraus kopiert wurde; gebraucht wird es nur, um beim
+ * erneuten Uebernehmen des Kalenders Doppelte zu erkennen.
+ */
+export function normalizeItem(it) {
+  return {
+    id: it.id || uid(),
+    title: String(it.title ?? '').trim(),
+    start: normHm(it.start),
+    end: normHm(it.end),
+    category: it.category || 'sonstiges',
+    note: String(it.note ?? ''),
+    source: ['template', 'event', 'own'].includes(it.source) ? it.source : 'own',
+    srcId: it.srcId || null,
+    done: !!it.done,
+  };
+}
+
+function normHm(v) {
+  if (v == null || v === '') return null;
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(v));
+  if (!m) return null;
+  const h = Number(m[1]); const mi = Number(m[2]);
+  if (h < 0 || h > 23 || mi < 0 || mi > 59) return null;
+  return `${String(h).padStart(2, '0')}:${m[2]}`;
+}
+
+/** Eintraege mit Uhrzeit zuerst und chronologisch, danach die ohne. */
+export function sortItems(items) {
+  return [...items].sort((a, b) => {
+    if (a.start && b.start) return a.start.localeCompare(b.start) || String(a.title).localeCompare(String(b.title), 'de');
+    if (a.start) return -1;
+    if (b.start) return 1;
+    return 0;
+  });
+}
+
+export function normalizeTemplate(t) {
+  const days = {};
+  for (let i = 0; i < 7; i += 1) {
+    const list = (t.days && Array.isArray(t.days[i])) ? t.days[i] : [];
+    days[i] = list.map(normalizeItem);
+  }
+  return {
+    id: t.id || uid(),
+    createdAt: String(t.createdAt || '').slice(0, 10) || '1970-01-01',
+    label: String(t.label ?? '').trim() || 'Wochenvorlage',
+    days,
+  };
+}
+
 export function clampHeight(h) {
   const n = Number(h);
   if (!Number.isFinite(n)) return DEFAULT_TASK_HEIGHT;
@@ -408,6 +600,10 @@ export function migrate(state) {
   for (const list of byDay.values()) {
     list.sort((a, b) => a.order - b.order).forEach((t, i) => { t.order = i; });
   }
+
+  s.planTemplates = Array.isArray(s.planTemplates) ? s.planTemplates.map(normalizeTemplate) : [];
+  s.weekPlans = (s.weekPlans && typeof s.weekPlans === 'object') ? s.weekPlans : {};
+  s.dayPlans = (s.dayPlans && typeof s.dayPlans === 'object') ? s.dayPlans : {};
 
   s.journal = (s.journal && typeof s.journal === 'object') ? s.journal : {};
   for (const [k, v] of Object.entries(s.journal)) {

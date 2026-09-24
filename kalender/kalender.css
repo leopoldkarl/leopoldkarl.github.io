@@ -138,6 +138,8 @@ button.danger { color: #b91c1c; border-color: #fca5a5; background: transparent; 
 }
 /* Ausserhalb der Kalenderseite enthaelt die Leiste nur den Mini-Monat. */
 .app:has(.page[data-pageid="aufgaben"]:not([hidden])) .main,
+.app:has(.page[data-pageid="tagesplanung"]:not([hidden])) .main,
+.app:has(.page[data-pageid="wochenplanung"]:not([hidden])) .main,
 .app:has(.page[data-pageid="tagebuch"]:not([hidden])) .main { --sidebar-w: 236px; }
 
 .pagearea { min-width: 0; min-height: 0; display: flex; }
@@ -512,7 +514,7 @@ kbd {
   border-radius: 4px; padding: 0 0.28rem; background: var(--surface-2);
 }
 
-.pages button { font-weight: 700; }
+.pages button { font-weight: 700; min-width: 2.6rem; font-variant-numeric: tabular-nums; }
 .pages button[aria-selected="true"] { background: var(--accent); color: var(--bg); }
 
 /* ---------------------------------------------------------------- */
@@ -698,6 +700,100 @@ kbd {
   gap: 1rem;
 }
 
+
+/* ---------------------------------------------------------------- */
+/* Planungsseiten                                                    */
+/* ---------------------------------------------------------------- */
+
+.pl-page { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+
+.pl-bar {
+  display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;
+  padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--line); background: var(--surface);
+}
+.pl-bar select { width: auto; min-width: 12rem; }
+.pl-state { font-size: 0.76rem; color: var(--muted); margin-left: auto; text-align: right; }
+
+.pl-grid { flex: 1; min-height: 0; display: flex; overflow-x: auto; }
+.pl-grid.single { justify-content: center; padding: 1rem; }
+.pl-grid.single .pl-col { max-width: 46rem; width: 100%; }
+.pl-grid:not(.single) .pl-col { flex: 1 1 0; min-width: 200px; border-right: 1px solid var(--line); }
+.pl-grid:not(.single) .pl-col:last-child { border-right: 0; }
+
+.pl-col { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--surface); }
+.pl-col.today { background: color-mix(in srgb, var(--today) 55%, var(--surface)); }
+.pl-col.selected { box-shadow: inset 0 0 0 2px var(--accent-2); }
+
+.pl-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem;
+  padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; background: inherit; z-index: 2;
+}
+.pl-col-title { display: flex; align-items: baseline; gap: 0.4rem; cursor: pointer; font-weight: 600; }
+.pl-col-title .dow { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.pl-col-title .num { font-family: var(--font-serif); font-weight: 700; font-size: 1.05rem; }
+.pl-col.today .pl-col-title .num {
+  background: var(--accent-2); color: #06302f; border-radius: 999px;
+  min-width: 1.7rem; text-align: center; display: inline-block;
+}
+.pl-count { font-size: 0.74rem; color: var(--muted); white-space: nowrap; }
+
+.pl-list { flex: 1; min-height: 0; overflow-y: auto; padding: 0.4rem; display: flex; flex-direction: column; gap: 0.3rem; }
+
+/* Zweizeilig: Titel oben, Uhrzeit darunter. Einzeilig fraesse das
+   Zeitfeld in einer 200px-Spalte den ganzen Platz und der Titel bliebe
+   unsichtbar. */
+.pl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "handle title del"
+    "handle times del";
+  column-gap: 0.3rem; row-gap: 0;
+  align-items: center;
+  padding: 0.25rem 0.35rem;
+  border: 1px solid var(--line-strong);
+  border-left: 3px solid var(--c, var(--accent-2));
+  border-radius: 8px; background: var(--surface);
+  touch-action: none; cursor: grab;
+}
+.pl.pl-event { background: color-mix(in srgb, var(--c, var(--accent-2)) 10%, var(--surface)); }
+.pl.pl-template { border-left-style: dashed; }
+.pl.pl-dragging { box-shadow: var(--shadow); cursor: grabbing; opacity: 0.92; }
+.pl-handle { grid-area: handle; color: var(--muted); font-size: 0.8rem; user-select: none; }
+.pl-del { grid-area: del; }
+.pl-times { grid-area: times; display: flex; align-items: center; gap: 0.1rem; margin-left: -0.15rem; }
+.pl-dash { color: var(--muted); font-size: 0.7rem; }
+.pl input.pl-time {
+  width: 2.9rem; border: 0; background: transparent; padding: 0.1rem 0.15rem;
+  font: inherit; font-size: 0.78rem; font-variant-numeric: tabular-nums;
+  color: var(--muted); text-align: center; border-radius: 4px;
+}
+.pl input.pl-time:hover { background: var(--surface-2); }
+.pl input.pl-time:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 0; background: var(--surface); color: var(--text); }
+.pl input.pl-title {
+  grid-area: title;
+  border: 0; background: transparent; padding: 0.1rem 0.15rem;
+  font: inherit; font-size: 0.86rem; font-weight: 500;
+  width: 100%; min-width: 0; border-radius: 4px;
+}
+.pl input.pl-title:hover { background: var(--surface-2); }
+.pl input.pl-title:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 0; background: var(--surface); }
+.pl-del { border: 0; background: transparent; color: var(--muted); font-size: 1rem; line-height: 1; padding: 0 0.2rem; opacity: 0; align-self: center; }
+.pl:hover .pl-del, .pl-del:focus-visible { opacity: 1; }
+.pl-del:hover { color: #b91c1c; }
+
+.pl-placeholder {
+  border: 2px dashed var(--accent-2); border-radius: 8px;
+  background: color-mix(in srgb, var(--accent-2) 8%, transparent);
+}
+
+.pl-add { display: flex; gap: 0.3rem; padding: 0.4rem; border-top: 1px solid var(--line); }
+.pl-add input { flex: 1; min-width: 0; font-size: 0.82rem; }
+
+@media (max-width: 860px) {
+  .pl-state { margin-left: 0; text-align: left; width: 100%; }
+}
 
 /* ---------------------------------------------------------------- */
 /* Schmale Fenster                                                   */
