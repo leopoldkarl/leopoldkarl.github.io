@@ -1146,6 +1146,10 @@ async function loadContactsFile(file) {
     if (!e.ok) { bad.push(e); continue; }
     const ev = toBirthdayEvent(e);
     if (existing.has(ev.id)) { duplicates += 1; continue; }
+    // Der Export selbst kann denselben Kontakt doppelt enthalten; die Menge
+    // muss deshalb waehrend der Schleife mitwachsen, sonst entstehen zwei
+    // Termine mit identischer ID.
+    existing.add(ev.id);
     good.push({ entry: e, event: ev });
   }
 
