@@ -17,6 +17,15 @@ besuchte Seite wird gemerkt.
 markieren". Die Belegung dort zu überschreiben wäre lästiger als der
 Gewinn.
 
+Die rechte Seitenleiste lässt sich über den Knopf ▦ in der Kopfleiste oder
+mit `S` aus- und einblenden; der Zustand wird gemerkt. In **allen**
+Wochenansichten — Kalender, Aufgaben, Wochenplanung samt Vorlagen-Modus —
+teilen sich die sieben Tage immer die volle Breite gleichmäßig auf: mit
+eingeblendeter Leiste schmaler, ohne sie breiter, aber nie abgeschnitten
+und nie mit waagrechtem Scrollbalken. Nur unter 780 px Fensterbreite gilt
+wieder eine Mindestbreite von 150 px je Spalte, weil sieben Spalten darunter
+unleserlich würden.
+
 Von der Hauptseite **nicht** verlinkt, `noindex` gesetzt, kein
 Analytics-Skript eingebunden (sonst stünde der Pfad in einem fremden
 Dashboard).
@@ -245,10 +254,11 @@ Nicht Teil des Repos. Geprüft wurden 104 Einheitentests (Wiederholungsregeln,
 ics-Roundtrip inklusive Zeilenfaltung und Maskierung, RECURRENCE-ID-Auflösung,
 CSV-/vCard-Parser, Tastatureingabe von Datum und Uhrzeit, Schaltjahr-Rückfall,
 ISO-Wochenschlüssel, Vorlagen-Versionierung, Kopier-Isolation)
-und 79 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
+und 87 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
 Geburtstags-Import, Kategorien-Editor, Tab-Reihenfolge, Scrollbalken,
 Seitenwechsel, Aufgaben-Reihenfolge und -Höhe, Tagebuch-Summen und
--Speicherung, Vorlagen-Versionierung und Kopier-Isolation, schmale Fenster).
+-Speicherung, Vorlagen-Versionierung und Kopier-Isolation, Seitenleisten-Schalter und
+Spaltenbreiten, schmale Fenster).
 Die Versionierung über einen Tageswechsel hinweg wird mit der Browser-Uhr
 geprüft, nicht durch Manipulation am `localStorage` — die App schreibt ihren
 Stand beim Entladen zurück und würde eine solche Manipulation überschreiben.

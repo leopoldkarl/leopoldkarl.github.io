@@ -38,6 +38,7 @@ const ui = {
   selected: ymd(new Date()),
   miniCursor: startOfMonth(new Date()),
   scrollTop: null,
+  sidebar: localStorage_get('kalender.sidebar', 'on') !== 'off',
 };
 
 const undoStack = [];
@@ -65,6 +66,21 @@ function toast(msg) {
 }
 
 function colorOf(catId) { return store.category(catId).color; }
+
+/**
+ * Seitenleiste ein- oder ausblenden. Danach wird neu gezeichnet, weil die
+ * Monatsansicht ihre Chips an der Zellenhoehe abschneidet und die
+ * Wochenspalten ihre Breite neu aufteilen muessen.
+ */
+function setSidebar(visible) {
+  ui.sidebar = visible;
+  localStorage_set('kalender.sidebar', visible ? 'on' : 'off');
+  document.querySelector('.app').classList.toggle('sidebar-hidden', !visible);
+  const b = $('#btn-sidebar');
+  b.setAttribute('aria-pressed', String(visible));
+  b.setAttribute('aria-label', visible ? 'Seitenleiste ausblenden' : 'Seitenleiste einblenden');
+  render();
+}
 
 function pushUndo(label) {
   undoStack.push({ label, snapshot: JSON.stringify(store.state) });
@@ -1469,6 +1485,7 @@ function bind() {
   }
   $('#btn-new').addEventListener('click', () => newEventAt(ui.selected, null));
   $('#btn-menu').addEventListener('click', () => $('#menu-dialog').showModal());
+  $('#btn-sidebar').addEventListener('click', () => setSidebar(!ui.sidebar));
 
   /* Hauptansicht: Delegation */
   const viewport = $('#viewport');
@@ -1686,6 +1703,7 @@ function bind() {
         if (ui.page === 'kalender') setView('day');
         else if (ui.page === 'aufgaben') { ui.taskView = 'day'; localStorage_set('kalender.taskview', 'day'); render(); }
         break;
+      case 's': case 'S': setSidebar(!ui.sidebar); break;
       case 't': case 'T': case 'h': case 'H': goToday(); break;
       case 'n': case 'N':
         if (ui.page !== 'kalender') return;
@@ -1711,6 +1729,7 @@ async function main() {
   buildCatPick();
 
   bind();
+  setSidebar(ui.sidebar);
   setPage(location.hash.slice(1) || ui.page, { updateHash: false });
 
   // Jetzt-Linie minuetlich nachfuehren.

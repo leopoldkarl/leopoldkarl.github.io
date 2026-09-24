@@ -142,6 +142,11 @@ button.danger { color: #b91c1c; border-color: #fca5a5; background: transparent; 
 .app:has(.page[data-pageid="wochenplanung"]:not([hidden])) .main,
 .app:has(.page[data-pageid="tagebuch"]:not([hidden])) .main { --sidebar-w: 236px; }
 
+/* Eingeklappte Seitenleiste. Steht nach den Regeln oben, damit die
+   Spaltenbreite 0 sie ueberschreibt. */
+.app.sidebar-hidden .main { --sidebar-w: 0px !important; }
+.app.sidebar-hidden .sidebar { display: none; }
+
 .pagearea { min-width: 0; min-height: 0; display: flex; }
 .page { flex: 1; min-width: 0; min-height: 0; }
 .viewport { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--surface); }
@@ -524,7 +529,10 @@ kbd {
 .tk-page { display: flex; height: 100%; min-height: 0; overflow-x: auto; }
 .tk-page.day { justify-content: center; padding: 1rem; }
 .tk-page.day .tk-col { max-width: 46rem; width: 100%; }
-.tk-page.week .tk-col { flex: 1 1 0; min-width: 190px; border-right: 1px solid var(--line); }
+/* Alle sieben Tage muessen hineinpassen; beim Einblenden der Seitenleiste
+   werden sie schmaeler, nicht abgeschnitten. Eine Mindestbreite gilt erst
+   auf schmalen Fenstern, wo sieben Spalten sonst unleserlich wuerden. */
+.tk-page.week .tk-col { flex: 1 1 0; min-width: 0; border-right: 1px solid var(--line); }
 .tk-page.week .tk-col:last-child { border-right: 0; }
 
 .tk-col {
@@ -717,7 +725,7 @@ kbd {
 .pl-grid { flex: 1; min-height: 0; display: flex; overflow-x: auto; }
 .pl-grid.single { justify-content: center; padding: 1rem; }
 .pl-grid.single .pl-col { max-width: 46rem; width: 100%; }
-.pl-grid:not(.single) .pl-col { flex: 1 1 0; min-width: 200px; border-right: 1px solid var(--line); }
+.pl-grid:not(.single) .pl-col { flex: 1 1 0; min-width: 0; border-right: 1px solid var(--line); }
 .pl-grid:not(.single) .pl-col:last-child { border-right: 0; }
 
 .pl-col { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--surface); }
@@ -793,6 +801,12 @@ kbd {
 
 @media (max-width: 860px) {
   .pl-state { margin-left: 0; text-align: left; width: 100%; }
+}
+/* Unter dieser Breite waeren sieben Spalten schmaler als 100 px und damit
+   nutzlos — dort wird wieder waagrecht gewischt. */
+@media (max-width: 780px) {
+  .pl-grid:not(.single) .pl-col { min-width: 150px; }
+  .tk-page.week .tk-col { min-width: 150px; }
 }
 
 /* ---------------------------------------------------------------- */
