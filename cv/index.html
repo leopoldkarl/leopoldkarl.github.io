@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CV — Leopold Karl</title>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Merriweather:wght@300;700&display=swap" rel="stylesheet">
+
+  <!-- Basic SEO -->
+  <meta name="description" content="Leopold Karl — Curriculum Vitae in English and German.">
+
+  <link rel="stylesheet" href="/styles.css">
+
+  <!-- GoatCounter analytics -->
+  <script data-goatcounter="https://leopoldkarl.goatcounter.com/count"
+          async src="//gc.zgo.at/count.js"></script>
+
+  <style>
+    .cv-switch{display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center; margin-bottom:1rem}
+    .cv-switch .btn{cursor:pointer}
+    .cv-viewer{
+      width:100%; height:calc(100vh - 260px); min-height:480px;
+      border:1px solid #eef2f5; border-radius:10px; background:white; display:block;
+    }
+    .cv-fallback{margin-top:0.75rem}
+    @media (max-width:900px){
+      .cv-viewer{display:none}
+    }
+    .cv-hint{display:none}
+    @media (max-width:900px){
+      .cv-hint{display:block}
+    }
+  </style>
+</head>
+<body>
+
+  <header role="banner">
+    <div class="nav-inner">
+      <div class="brand"><a href="/" aria-label="Leopold Karl Startseite">Leopold Karl</a></div>
+
+      <nav role="navigation" aria-label="Hauptnavigation">
+        <button class="menu-toggle" aria-expanded="false" aria-controls="main-nav">☰</button>
+        <ul id="main-nav">
+          <li><a href="/">Home</a></li>
+          <li><a href="/research/">Research</a></li>
+          <li><a href="/teaching-materials/">Teaching</a></li>
+          <li><a href="/sports/">Sports</a></li>
+          <li><a href="/#contact">Contact</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main role="main">
+    <h1 class="page-title has-lead" id="cv-title">Curriculum Vitae</h1>
+    <p class="page-lead" id="cv-lead">Choose a language, read it here or download the PDF.</p>
+
+    <div class="cv-switch" role="group" aria-label="CV language">
+      <button type="button" class="btn primary" id="btn-en" data-lang="en"
+              data-goatcounter-click="cv-switch-en" aria-pressed="true">English</button>
+      <button type="button" class="btn" id="btn-de" data-lang="de"
+              data-goatcounter-click="cv-switch-de" aria-pressed="false">Deutsch</button>
+      <a class="btn" id="cv-download" href="/docs/LeopoldKarl_CV.pdf"
+         data-goatcounter-click="cv-download" target="_blank" rel="noopener"
+         download>Download PDF</a>
+    </div>
+
+    <object class="cv-viewer" id="cv-viewer" data="/docs/LeopoldKarl_CV.pdf#view=FitH"
+            type="application/pdf" aria-label="CV as PDF">
+      <p class="cv-fallback">Your browser cannot display PDFs inline.
+        <a id="cv-fallback-link" href="/docs/LeopoldKarl_CV.pdf" target="_blank" rel="noopener">Open the PDF</a>.</p>
+    </object>
+
+    <p class="cv-hint muted">On small screens the PDF is not embedded — use the download button above.</p>
+  </main>
+
+  <footer>
+    © <span id="year"></span> Leopold Karl
+  </footer>
+
+  <script src="/script.js"></script>
+  <script>
+    (function(){
+      var FILES = {
+        en: {pdf: '/docs/LeopoldKarl_CV.pdf',    title: 'Curriculum Vitae', lead: 'Choose a language, read it here or download the PDF.', download: 'Download PDF', htmlLang: 'en'},
+        de: {pdf: '/docs/LeopoldKarl_CV_DE.pdf', title: 'Lebenslauf',       lead: 'Sprache wählen, hier lesen oder das PDF herunterladen.',  download: 'PDF herunterladen', htmlLang: 'de'}
+      };
+
+      var viewer   = document.getElementById('cv-viewer');
+      var download = document.getElementById('cv-download');
+      var fallback = document.getElementById('cv-fallback-link');
+      var title    = document.getElementById('cv-title');
+      var lead     = document.getElementById('cv-lead');
+      var buttons  = {en: document.getElementById('btn-en'), de: document.getElementById('btn-de')};
+
+      function apply(lang, push){
+        var f = FILES[lang] || FILES.en;
+        viewer.setAttribute('data', f.pdf + '#view=FitH');
+        download.setAttribute('href', f.pdf);
+        download.textContent = f.download;
+        if (fallback) fallback.setAttribute('href', f.pdf);
+        title.textContent = f.title;
+        lead.textContent = f.lead;
+        document.documentElement.setAttribute('lang', f.htmlLang);
+        document.title = f.title + ' — Leopold Karl';
+        Object.keys(buttons).forEach(function(key){
+          var active = key === lang;
+          buttons[key].classList.toggle('primary', active);
+          buttons[key].setAttribute('aria-pressed', String(active));
+        });
+        if (push && window.history && window.history.replaceState){
+          window.history.replaceState(null, '', '#' + lang);
+        }
+      }
+
+      function fromHash(){
+        var h = (window.location.hash || '').replace('#','').toLowerCase();
+        return FILES[h] ? h : null;
+      }
+
+      Object.keys(buttons).forEach(function(key){
+        buttons[key].addEventListener('click', function(){ apply(key, true); });
+      });
+      window.addEventListener('hashchange', function(){ apply(fromHash() || 'en', false); });
+
+      var initial = fromHash();
+      if (!initial){
+        var nav = (navigator.language || '').toLowerCase();
+        initial = nav.indexOf('de') === 0 ? 'de' : 'en';
+      }
+      apply(initial, false);
+    })();
+  </script>
+</body>
+</html>
