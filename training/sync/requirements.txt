@@ -1,0 +1,3 @@
+garminconnect>=0.3
+garmin-fit-sdk>=21.0
+cryptography>=42

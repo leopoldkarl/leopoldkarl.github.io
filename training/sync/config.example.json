@@ -1,0 +1,15 @@
+{
+  "_hinweis": "Als config.json kopieren. config.json steht in .gitignore (Privatzonen = Wohnadresse).",
+  "raw_dir": "~/garmin-training",
+  "out_dir": "../data",
+  "mode": "encrypted",
+  "privacy_zones": [
+    {"lat": 48.20820, "lon": 16.37380, "radius_m": 400}
+  ],
+  "thresholds": [
+    {"from": "2025-01-01", "ftp": 240, "lthr": 168, "hr_max": 190, "hr_rest": 48,
+     "run_pace": "4:45", "swim_css": "1:50", "weight": 70}
+  ],
+  "exclude": [],
+  "garmin": {"email": "", "tokenstore": "~/.garminconnect"}
+}

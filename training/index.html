@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Training</title>
+
+  <!-- Wie /kalender: nicht von der Hauptseite verlinkt, nicht indexiert,
+       kein Analytics-Skript. Die Daten unter ./data/ sind verschluesselt;
+       ohne Passphrase ist hier nur das Programm sichtbar. -->
+  <meta name="robots" content="noindex,nofollow,noarchive,nosnippet" />
+  <meta name="referrer" content="no-referrer" />
+  <meta name="color-scheme" content="light dark" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./training.css" />
+  <script>
+    // Theme vor dem ersten Zeichnen setzen (kein Aufblitzen)
+    try {
+      const t = JSON.parse(localStorage.getItem('training.theme'));
+      if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+    } catch (e) {}
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#/">Training</a>
+      <nav class="tabs" aria-label="Bereiche">
+        <a href="#/" data-tab="overview">Übersicht</a>
+        <a href="#/aktivitaeten" data-tab="list">Aktivitäten</a>
+        <a href="#/fitness" data-tab="fitness">Fitness</a>
+        <a href="#/bestleistungen" data-tab="records">Bestleistungen</a>
+      </nav>
+      <div class="topbar-right">
+        <button id="btn-theme" class="icon-btn" type="button" aria-label="Darstellung wechseln">◐</button>
+        <button id="btn-lock" class="icon-btn" type="button" title="Sperren und gespeicherten Schlüssel vergessen" hidden>Sperren</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div id="filterbar" class="filterbar" role="group" aria-label="Sportarten" hidden></div>
+    <main id="view" aria-live="polite">
+      <p class="muted loading">Lade …</p>
+    </main>
+    <footer class="foot"><span id="data-info"></span></footer>
+  </div>
+
+  <noscript><p class="container">Diese Seite braucht JavaScript.</p></noscript>
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
