@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Rad Wochenende Andermatt — Leopold Karl</title>
+  <meta name="robots" content="noindex, nofollow">
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Merriweather:wght@300;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="rad.css">
+</head>
+<body>
+
+  <header role="banner">
+    <div class="nav-inner">
+      <div class="brand"><a href="/" aria-label="Leopold Karl Startseite">Leopold Karl</a></div>
+    </div>
+  </header>
+
+  <main role="main">
+    <h1 class="page-title has-lead">Rad Wochenende Andermatt</h1>
+    <p class="page-lead">Platzhalter</p>
+
+    <section class="rad-photos" aria-label="Die Pässe">
+      <figure>
+        <img src="img/gotthard.jpg" width="1280" height="853" loading="lazy"
+             alt="Die Tremola am Gotthardpass in der Abenddämmerung, Lichtspuren in den Kehren">
+        <figcaption>
+          <strong>Gotthardpass</strong>
+          <span class="credit">Foto: Samuel Ferrara,
+            <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.de" rel="license noopener" target="_blank">CC BY-SA 4.0</a>,
+            <a href="https://commons.wikimedia.org/wiki/File:Tremola_on_the_Gotthard_Pass.jpg" rel="noopener" target="_blank">Wikimedia Commons</a></span>
+        </figcaption>
+      </figure>
+      <figure>
+        <img src="img/oberalp.jpg" width="1280" height="853" loading="lazy"
+             alt="Die Oberalp-Passstrasse zwischen grünen Hängen, daneben die Bahnlinie">
+        <figcaption>
+          <strong>Oberalppass</strong>
+          <span class="credit">Foto: JoachimKohler-HB,
+            <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.de" rel="license noopener" target="_blank">CC BY-SA 4.0</a>,
+            <a href="https://commons.wikimedia.org/wiki/File:Oberalp-Passstrasse.jpg" rel="noopener" target="_blank">Wikimedia Commons</a></span>
+        </figcaption>
+      </figure>
+      <figure>
+        <img src="img/realp.jpg" width="1280" height="853" loading="lazy"
+             alt="Blick von der Furkastrasse hinunter auf Realp und das Urserental">
+        <figcaption>
+          <strong>Realp</strong>
+          <span class="credit">Foto: Adrian Michael,
+            <a href="https://creativecommons.org/licenses/by-sa/3.0/deed.de" rel="license noopener" target="_blank">CC BY-SA 3.0</a>,
+            <a href="https://commons.wikimedia.org/wiki/File:Realp_2022.jpeg" rel="noopener" target="_blank">Wikimedia Commons</a></span>
+        </figcaption>
+      </figure>
+      <figure>
+        <img src="img/belvedere.jpg" width="1280" height="853" loading="lazy"
+             alt="Das Hotel Belvédère an der Furkapassstrasse vor dem Rhonegletscher">
+        <figcaption>
+          <strong>Belvédère</strong>
+          <span class="credit">Foto: Ikiwaner,
+            <a href="https://creativecommons.org/licenses/by-sa/3.0/deed.de" rel="license noopener" target="_blank">CC BY-SA 3.0</a>,
+            <a href="https://commons.wikimedia.org/wiki/File:Oberwald_Belvedere.jpg" rel="noopener" target="_blank">Wikimedia Commons</a></span>
+        </figcaption>
+      </figure>
+    </section>
+
+    <section class="card rad-stay">
+      <h3>Unterkunft</h3>
+      <p>Wir übernachten im Ferienhaus <em>Im Oltä Stall</em> in Andermatt.</p>
+      <a class="btn" href="https://www.andermatt-sedrun-disentis.ch/en/service-providers/ferienhaus-im-oltae-stall"
+         target="_blank" rel="noopener">Zum Oltä Stall ↗</a>
+    </section>
+
+    <section id="anmeldung" class="card rad-form">
+      <h3>Verbindliche Anmeldung</h3>
+
+      <form id="signup" novalidate>
+        <label for="f-name">Vollständiger Name</label>
+        <input id="f-name" name="name" type="text" autocomplete="name" required
+               minlength="3" maxlength="120" placeholder="Vorname Nachname">
+
+        <label class="rad-check">
+          <input id="f-confirm" name="confirm" type="checkbox" required>
+          <span>Hiermit melde ich mich verbindlich für das Rad Wochenende Andermatt an.</span>
+        </label>
+
+        <!-- Honeypot gegen einfache Bots; für Menschen unsichtbar. -->
+        <input class="rad-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+
+        <button class="btn primary" type="submit">Verbindlich anmelden</button>
+        <p id="f-status" class="rad-status" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+  </main>
+
+  <footer>
+    © <span id="year"></span> Leopold Karl
+  </footer>
+
+  <script src="/script.js"></script>
+  <script src="anmeldung.js"></script>
+</body>
+</html>

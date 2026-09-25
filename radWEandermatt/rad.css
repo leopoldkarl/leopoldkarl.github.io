@@ -1,0 +1,56 @@
+.rad-photos{
+  display:grid;
+  grid-template-columns:repeat(2, 1fr);
+  gap:1.25rem;
+  margin:2rem 0;
+}
+.rad-photos figure{margin:0}
+.rad-photos img{
+  width:100%;
+  height:auto;
+  aspect-ratio:3 / 2;
+  object-fit:cover;
+  border-radius:10px;
+  border:1px solid #eef2f5;
+  display:block;
+  background:#e5e7eb;
+}
+.rad-photos figcaption{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:0.25rem 1rem;
+  margin-top:0.4rem;
+}
+.rad-photos figcaption strong{font-family:Merriweather,serif}
+.rad-photos .credit{color:var(--muted); font-size:0.75rem}
+.rad-photos .credit a{color:var(--muted); text-decoration:underline}
+
+.rad-stay, .rad-form{margin-top:1.5rem}
+.rad-stay p{margin:0 0 0.75rem 0}
+
+.rad-form form{display:flex; flex-direction:column; gap:0.6rem; max-width:32rem}
+.rad-form label{font-weight:600}
+.rad-form input[type="text"]{
+  font:inherit;
+  padding:0.6rem 0.75rem;
+  border:1px solid #d1d5db;
+  border-radius:8px;
+  background:white;
+}
+.rad-form input[type="text"]:focus{outline:2px solid var(--accent-2); outline-offset:1px; border-color:transparent}
+.rad-form .rad-check{display:flex; gap:0.6rem; align-items:flex-start; font-weight:400; margin:0.4rem 0}
+.rad-form .rad-check input{width:1.1rem; height:1.1rem; margin-top:0.2rem; flex-shrink:0; accent-color:var(--accent)}
+.rad-form button{align-self:flex-start; cursor:pointer; font:inherit; font-weight:600}
+.rad-form button[disabled]{opacity:0.5; cursor:not-allowed}
+.rad-form [aria-invalid="true"]{border-color:#b91c1c}
+.rad-hp{position:absolute; left:-9999px; width:1px; height:1px; opacity:0}
+
+.rad-status{margin:0; min-height:1.5em; font-size:0.95rem}
+.rad-status.ok{color:#047857}
+.rad-status.err{color:#b91c1c}
+
+@media (max-width:700px){
+  .rad-photos{grid-template-columns:1fr}
+}
