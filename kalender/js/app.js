@@ -21,6 +21,7 @@ import { renderJournal, computeField, formatHours } from './journal.js';
 import {
   renderWeekPlan, renderDayPlan, attachPlanInteractions, eventItemsByDate,
 } from './plan.js';
+import { initTooltips, hideTip } from './tooltip.js';
 
 const adapter = new LocalStorageAdapter('kalender.v1');
 const store = new Store(adapter);
@@ -236,6 +237,9 @@ function setPage(page, { updateHash = true } = {}) {
 /* ------------------------------------------------------------------ */
 
 function render() {
+  // Der Anker des Hinweiskastens verschwindet beim Neuzeichnen; er bliebe
+  // sonst neben einem Element stehen, das es nicht mehr gibt.
+  hideTip();
   if (ui.page === 'aufgaben') return renderTaskPage();
   if (ui.page === 'tagesplanung') return renderDayPlanPage();
   if (ui.page === 'wochenplanung') return renderWeekPlanPage();
@@ -1801,6 +1805,13 @@ async function main() {
 
   await store.init();
   adapter.watch(onExternalChange);
+  // Voller Titel beim Verweilen — nur dort, wo der Text abgeschnitten wird.
+  initTooltips([
+    { match: '.block', label: '.bt' },       // Termin in Wochen-/Tagesansicht
+    { match: '.chip', label: '.s' },         // Termin in Monatsansicht, Ganztags-Leiste
+    { match: 'input.pl-title' },             // Eintrag in Wochen- und Tagesplanung
+    { match: '.agenda li', label: '.tx' },   // Tagesliste in der Seitenleiste
+  ]);
   buildCatPick();
 
   bind();

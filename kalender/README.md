@@ -66,6 +66,7 @@ Voraussetzung, nicht zur Option.
     js/tasks.js       Aufgabenseite: Ansichten und Zeigergesten
     js/journal.js     Tagebuchseite: Feldtypen, Summen, Layout
     js/plan.js        Tages- und Wochenplanung, Vorlagen
+    js/tooltip.js     voller Titel beim Verweilen mit dem Zeiger
     js/app.js         Controller: Seitenwechsel, Navigation, Dialoge
 
 Keine Abhängigkeiten, keine Build-Kette. ES-Module, direkt aus dem Repo
@@ -140,6 +141,18 @@ dieselben Methoden (`watch` dann als Polling oder SSE), und im übrigen Code
   werden.
 
 ## Bedienung
+
+**Volle Titel** erscheinen, wenn der Zeiger rund eine Drittelsekunde über
+einem Termin (Wochen-, Tages- und Monatsansicht, Ganztags-Leiste, Tagesliste
+der Seitenleiste) oder über einem Eintrag der Wochen- und Tagesplanung
+verweilt — aber nur dann, wenn der Text tatsächlich abgeschnitten ist. Passt
+er in sein Element, bleibt der Kasten aus; sonst wäre jeder Zeigerweg über
+den Kalender ein Flackern von Kästen. Das `title`-Attribut leistet das nicht:
+seine Verzögerung ist nicht einstellbar, und über einem `<input>` — so sind
+die Titel in der Planung umgesetzt — zeigt es den eingegebenen Wert gar
+nicht. Auf Touchscreens bleibt die Einblendung aus, dort gibt es kein
+Verweilen ohne Berührung. Die Aufgabenseite ist bewusst nicht dabei; sie
+nachzuziehen wäre eine Zeile in `initTooltips`.
 
 **Kategorien** ändern: Menü (⋯) → „Kategorien bearbeiten". Name und Farbe
 wirken sofort auf alle Termine. Die Schriftfarbe auf ganztägigen Terminen —
@@ -314,11 +327,11 @@ Nicht Teil des Repos. Geprüft wurden 116 Einheitentests (Wiederholungsregeln,
 ics-Roundtrip inklusive Zeilenfaltung und Maskierung, RECURRENCE-ID-Auflösung,
 CSV-/vCard-Parser, Tastatureingabe von Datum und Uhrzeit, Schaltjahr-Rückfall,
 ISO-Wochenschlüssel, Vorlagen-Versionierung, Kopier-Isolation, Kontrastwahl)
-und 100 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
+und 112 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
 Geburtstags-Import, Kategorien-Editor, Tab-Reihenfolge, Scrollbalken,
 Seitenwechsel, Aufgaben-Reihenfolge und -Höhe, Tagebuch-Summen und
 -Speicherung, Vorlagen-Versionierung und Kopier-Isolation, Seitenleisten-Schalter und
-Spaltenbreiten, schmale Fenster, Zwei-Fenster-Abgleich).
+Spaltenbreiten, schmale Fenster, Zwei-Fenster-Abgleich, Titel-Einblendung).
 Der Zwei-Fenster-Fall läuft mit zwei echten Seiten in einem Browser-Kontext.
 Die Gegenprobe ist Teil des Befunds: schaltet man `adapter.watch` ab, fällt
 der Termin des einen Fensters aus dem Speicher, sobald das andere schreibt —

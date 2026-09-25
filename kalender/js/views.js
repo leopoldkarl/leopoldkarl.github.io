@@ -124,7 +124,8 @@ function chip(occ, color, { showTime = true } = {}) {
   c.dataset.ev = occ.event.id;
   c.dataset.occ = occ.occDate;
   const label = titleOf(occ);
-  c.title = `${label}${occ.allDay ? '' : ` · ${hm(occ.start)}–${hm(occ.end)}`}`;
+  // Kein `title`-Attribut: den vollen Titel zeigt tooltip.js, und zwar nur,
+  // wenn er abgeschnitten ist. Beides zusammen gaebe zwei Kaesten.
   if (!occ.allDay && showTime) c.append(el('span', 't', hm(occ.start)));
   c.append(el('span', 's', label));
   return c;
@@ -309,7 +310,7 @@ export function renderTimeGrid(ctx, days) {
       b.append(el('div', 'bt', titleOf(it.occ)));
       b.append(el('div', 'bm', `${minutesToHm(it.s)}–${minutesToHm(it.e === 1440 ? 1439 : it.e)}`.replace('23:59', '24:00')));
       if (!it.clippedEnd) b.append(el('div', 'grip'));
-      b.title = `${titleOf(it.occ)}\n${hm(it.occ.start)}–${hm(it.occ.end)}`;
+
       col.append(b);
     }
 

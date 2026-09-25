@@ -520,6 +520,21 @@ input.invalid, input[aria-invalid="true"] {
 }
 .toast.show { opacity: 1; }
 
+/* Voller Titel beim Verweilen. Bewusst kein Rundum-Schatten wie beim Dialog:
+   der Kasten liegt direkt am Element und soll nicht danebenstehen wie ein
+   eigenes Fenster. Breite begrenzt, damit lange Titel umbrechen statt den
+   halben Bildschirm zu queren. */
+.tip {
+  position: fixed; z-index: 120; pointer-events: none;
+  max-width: min(32rem, 70vw);
+  background: var(--accent); color: var(--bg);
+  padding: 0.3rem 0.55rem; border-radius: 6px;
+  font-size: 0.8rem; line-height: 1.35; font-weight: 500;
+  box-shadow: var(--shadow);
+  overflow-wrap: anywhere;
+}
+.tip[hidden] { display: none; }
+
 kbd {
   font: inherit; font-size: 0.72rem; font-weight: 600;
   border: 1px solid var(--line-strong); border-bottom-width: 2px;
