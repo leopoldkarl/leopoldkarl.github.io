@@ -12,7 +12,7 @@
 //      "Link abrufen" -> "Link kopieren".
 //   3. Diesen Link unten bei PREFILL_URL einsetzen. Mehr ist nicht nötig:
 //      Zieladresse und Feld-IDs werden daraus abgeleitet.
-const PREFILL_URL = "";
+const PREFILL_URL = "https://docs.google.com/forms/d/e/1FAIpQLSc8j8eByRid_QK-dUB4blkACfyrpnaV2h-LAPcTJqz7lppWgA/viewform?usp=pp_url&entry.195101946=NAME&entry.609199978=Hiermit+melde+ich+mich+verbindlich+f%C3%BCr+das+Rad+Wochenende+Andermatt+an.";
 
 (function(){
   const form   = document.getElementById('signup');
