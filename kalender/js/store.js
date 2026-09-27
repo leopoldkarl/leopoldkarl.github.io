@@ -530,20 +530,45 @@ export class Store {
     return JSON.stringify(this.state, null, 2);
   }
 
+  /**
+   * Backup einlesen.
+   *
+   * `merge: false` ersetzt den Zustand *vollstaendig*. Aufgezaehlt wird dabei
+   * nichts mehr: die Felder werden geloescht und aus dem Backup neu gesetzt.
+   * Die frueher aufgezaehlte Fassung liess Tagebuch, Vorlagen und Plaene des
+   * Zielgeraets stehen — ein „Backup" stellte also einen Mischzustand her,
+   * halb aus der Datei, halb vom Geraet. Genau dieselbe Falle wie beim
+   * Rueckgaengigmachen; deshalb hier dieselbe Loesung.
+   *
+   * `merge: true` fuegt nur hinzu, was es lokal noch nicht gibt: Termine und
+   * Aufgaben nach ID, Tagebuchtage und Plaene nach Schluessel. Bei Kollision
+   * gewinnt der lokale Stand — Zusammenfuehren auf Feldebene waere geraten.
+   */
   importJSON(text, { merge = false } = {}) {
     const parsed = migrate(JSON.parse(text));
     this.mutate((s) => {
-      if (merge) {
-        const known = new Set(s.events.map((e) => e.id));
-        for (const e of parsed.events) if (!known.has(e.id)) s.events.push(e);
-        const kt = new Set(s.tasks.map((t) => t.id));
-        for (const t of parsed.tasks) if (!kt.has(t.id)) s.tasks.push(t);
-      } else {
-        s.events = parsed.events;
-        s.tasks = parsed.tasks;
-        s.categories = parsed.categories;
-        s.settings = parsed.settings;
+      if (!merge) {
+        for (const k of Object.keys(s)) delete s[k];
+        Object.assign(s, parsed);
+        return;
       }
+      const known = new Set(s.events.map((e) => e.id));
+      for (const e of parsed.events) if (!known.has(e.id)) s.events.push(e);
+      const kt = new Set(s.tasks.map((t) => t.id));
+      for (const t of parsed.tasks) if (!kt.has(t.id)) s.tasks.push(t);
+      const kc = new Set(s.categories.map((c) => c.id));
+      for (const c of parsed.categories || []) if (!kc.has(c.id)) s.categories.push(c);
+      for (const [key, value] of Object.entries(parsed.journal || {})) {
+        if (!(key in s.journal)) s.journal[key] = value;
+      }
+      for (const [key, value] of Object.entries(parsed.weekPlans || {})) {
+        if (!(key in s.weekPlans)) s.weekPlans[key] = value;
+      }
+      for (const [key, value] of Object.entries(parsed.dayPlans || {})) {
+        if (!(key in s.dayPlans)) s.dayPlans[key] = value;
+      }
+      const kv = new Set(s.planTemplates.map((t) => t.id));
+      for (const t of parsed.planTemplates || []) if (!kv.has(t.id)) s.planTemplates.push(t);
     });
   }
 }
