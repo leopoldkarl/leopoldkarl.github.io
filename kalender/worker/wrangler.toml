@@ -19,4 +19,4 @@ compatibility_date = "2026-09-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "kalender"
-database_id = "HIER_EINTRAGEN"
+database_id = "6a98d003-cc89-4370-9ab8-56df3945c9f4"
