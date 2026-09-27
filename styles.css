@@ -169,5 +169,16 @@ footer{max-width:var(--container); margin:3rem auto 2rem auto; padding:1rem;text
 }
 
 @media (max-width:600px){
-  .contact-list .muted{flex-basis:100%; margin-left:1.9rem}
+  .contact-list li{gap:0.5rem}
+  .contact-list .muted{font-size:0.85rem}
+}
+
+@media (max-width:400px){
+  .contact-list a{font-size:0.92rem}
+}
+
+@media (max-width:375px){
+  .contact-list li{gap:0.4rem}
+  .contact-list a{font-size:0.85rem}
+  .contact-list .muted{font-size:0.78rem}
 }
