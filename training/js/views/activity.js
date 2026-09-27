@@ -66,8 +66,6 @@ export async function renderActivity(root, ctx, id) {
   if (st.t.length > 1) holder.append(streamsCard(a, st, map, ctx));
 
   // ---------------------------------------------------------- Splits / Runden
-  const lp = lapPaceCard(a, null, d.splits);
-  if (lp) holder.append(lp);
   if (d.splits?.length > 1 && (a.cat === 'run' || a.cat === 'other' || a.cat === 'ride')) holder.append(splitsCard(a, d.splits));
   if (d.lengths?.length) holder.append(lengthsCard(a, d.lengths));
   if (d.sets?.length) holder.append(setsCard(d.sets));
@@ -317,39 +315,6 @@ function intervalCard(a, laps, splits) {
     h('span', { text: 'schneller' }));
   return card(isRide ? 'Intervall-Tempo' : 'Intervall-Pace', h('div', {}, host, legend),
     { sub: `${src} · Breite ∝ Dauer, Höhe und Farbe ∝ ${isRide ? 'Geschwindigkeit' : 'Pace'}` });
-}
-
-// Balkendiagramm der Rundenpace. Quelle: Runden der Uhr, sonst km-Splits.
-// Breite ~ Distanz (sonst Dauer), Hoehe ~ Tempo.
-function lapPaceCard(a, laps, splits) {
-  const isRide = a.cat === 'ride', isSwim = a.cat === 'swim';
-  const withSpeed = (l) => ({ ...l, v: l.v || (l.dist && l.dur ? l.dist / l.dur : 0) });
-  let src = 'Runden', items = (laps || []).map(withSpeed).filter(l => l.dur > 0);
-  if (items.filter(l => l.v > 0).length < 2 && splits?.length > 1) {
-    src = isRide ? 'Runden à 5 km' : 'Runden à 1 km';
-    items = splits.map(withSpeed);
-  }
-  if (items.filter(l => l.v > 0).length < 2) return null;
-  const byDist = items.every(l => l.dist > 0);
-  const paceFmt = v => (isRide ? F.kmh(v) : F.pace(v, isSwim ? 100 : 1000));
-  const host = h('div', { class: 'lap-chart' });
-  queueMicrotask(() => lapChart(host, {
-    mode: isRide ? 'kmh' : 'pace', per: isSwim ? 100 : 1000, height: 180,
-    laps: items.map((l, i) => ({
-      w: byDist ? l.dist : l.dur,
-      v: l.v,
-      title: `Runde ${i + 1}`,
-      rows: [
-        { color: 'var(--c-speed)', shape: 'rect', value: l.v ? paceFmt(l.v) : F.DASH, label: isRide ? 'Tempo' : 'Pace' },
-        { value: F.duration(l.dur), label: 'Zeit' },
-        ...(l.dist ? [{ value: isSwim ? `${F.num(l.dist)} m` : F.km(l.dist, 2), label: 'Distanz' }] : []),
-        ...(l.hr ? [{ value: `${l.hr} bpm`, label: 'Ø HF' }] : []),
-        ...(l.pw ? [{ value: `${l.pw} W`, label: 'Ø Leistung' }] : []),
-      ],
-    })),
-  }));
-  return card(isRide ? 'Rundentempo' : 'Rundenpace', host,
-    { sub: `${src} · Balkenbreite ∝ ${byDist ? 'Distanz' : 'Dauer'}, Höhe ∝ ${isRide ? 'Geschwindigkeit' : 'Tempo'}` });
 }
 
 function lengthsCard(a, lengths) {
