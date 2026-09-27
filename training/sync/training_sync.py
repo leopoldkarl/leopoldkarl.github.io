@@ -21,6 +21,7 @@ import base64
 import concurrent.futures as cf
 import datetime as dt
 import getpass
+import glob
 import gzip
 import hashlib
 import hmac
@@ -264,7 +265,13 @@ def import_bytes(store: RawStore, name: str, data: bytes, stats: dict, depth=0):
 def cmd_import(cfg: Config, paths: list[str]):
     store = RawStore(cfg.raw)
     stats = {"neu": 0, "bekannt": 0, "keine_aktivitaet": 0, "nicht_unterstuetzt": 0, "fehler": 0}
-    for p in map(Path, paths):
+    expanded = []
+    for raw in paths:                       # Windows-Shells expandieren * nicht selbst
+        hits = sorted(glob.glob(os.path.expanduser(raw))) if any(c in raw for c in "*?[") else [raw]
+        if not hits:
+            print(f"  nichts gefunden: {raw}", file=sys.stderr)
+        expanded.extend(hits)
+    for p in map(Path, expanded):
         files = [p] if p.is_file() else sorted(x for x in p.rglob("*") if x.is_file())
         for f in files:
             import_bytes(store, f.name, f.read_bytes(), stats)
@@ -300,7 +307,25 @@ def cmd_garmin(cfg: Config, full: bool, since: str | None):
         email = email or input("Garmin E-Mail: ").strip()
         api = Garmin(email=email, password=getpass.getpass("Garmin Passwort: "),
                      prompt_mfa=lambda: input("Garmin MFA-Code: ").strip())
-        api.login(tokenstore)
+        try:
+            api.login(tokenstore)
+        except Exception as e:                                   # noqa: BLE001
+            msg = str(e)
+            if "429" in msg or "Cloudflare" in msg or "403" in msg:
+                raise SystemExit(
+                    "\nGarmin blockiert die Anmeldung von dieser IP-Adresse (429/Cloudflare).\n"
+                    "Das liegt nicht an Passwort oder Skript. Moeglichkeiten:\n"
+                    "  1. Einige Stunden warten und EINMAL erneut versuchen -- jeder weitere\n"
+                    "     Versuch kann die Sperre verlaengern.\n"
+                    "  2. Aus einem anderen Netz anmelden (z.B. Handy-Hotspot). Die Tokens\n"
+                    "     werden gespeichert; spaetere Laeufe brauchen keine Anmeldung mehr.\n"
+                    "  3. Bibliothek aktualisieren: py -m pip install -U garminconnect curl_cffi\n"
+                    "  4. Ohne Anmeldung: Garmin-Gesamtexport herunterladen und mit\n"
+                    "     'py training_sync.py import <export.zip>' einlesen.\n"
+                    f"(Detail: {msg[:300]})")
+            if "MFA" in msg or "Authentication" in type(e).__name__:
+                raise SystemExit(f"Garmin-Anmeldung fehlgeschlagen (Zugangsdaten/MFA?): {msg[:300]}")
+            raise SystemExit(f"Garmin-Anmeldung fehlgeschlagen: {msg[:300]}")
 
     known = store.garmin["ids"]
     since_d = dt.date.fromisoformat(since) if since else None
