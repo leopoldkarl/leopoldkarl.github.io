@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Unternehmungen — Leopold Karl</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="color-scheme" content="light dark" />
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Merriweather:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="unternehmungen.css">
+</head>
+<body>
+
+  <header role="banner">
+    <div class="nav-inner">
+      <div class="brand"><a href="/" aria-label="Leopold Karl Startseite">Leopold Karl</a></div>
+    </div>
+  </header>
+
+  <main role="main">
+    <h1 class="page-title">Unternehmungen</h1>
+
+    <!--
+      Neue Unternehmung: ein <li> in die Liste einfügen (Position egal).
+      data-von / data-bis im Format JJJJ-MM-TT; sortiert und in
+      „Bevorstehend“ / „Vergangen“ aufgeteilt wird per unternehmungen.js
+      anhand von data-bis (fehlt es, gilt data-von).
+    -->
+    <ul id="liste" class="u-liste">
+      <li data-von="2027-06-24" data-bis="2027-06-28">
+        <a class="tile" href="/radWEandermatt/">
+          <strong>Rad Wochenende Andermatt</strong>
+          <span class="u-datum">Do 24.6. – Mo 28.6.2027</span>
+        </a>
+      </li>
+    </ul>
+  </main>
+
+  <footer>
+    © <span id="year"></span> Leopold Karl
+  </footer>
+
+  <script src="/script.js"></script>
+  <script src="unternehmungen.js"></script>
+</body>
+</html>
