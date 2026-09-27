@@ -1,0 +1,30 @@
+.sperre{max-width:26rem; margin:4rem auto 0 auto}
+.sperre form{display:flex; flex-direction:column; gap:0.6rem; padding:1.25rem}
+.sperre label{font-weight:600}
+.sperre input[type=password]{
+  font:inherit; padding:0.55rem 0.7rem; border-radius:8px;
+  border:1px solid #d1d5db; background:white; color:var(--text);
+}
+.sperre input[type=password]:focus{outline:2px solid var(--accent-2); outline-offset:1px}
+.sperre .merken{font-weight:400; color:var(--muted); display:flex; gap:0.5rem; align-items:center}
+.sperre .btn{justify-content:center; cursor:pointer}
+.sperre .btn:disabled{opacity:0.6; cursor:progress}
+.meldung{min-height:1.5em; margin:0; color:#b91c1c; font-size:0.95rem}
+.meldung.info{color:var(--muted)}
+
+#inhalt .tile-grid{margin-top:1rem}
+#inhalt a.tile{display:block; color:var(--text); padding:1rem; transition:border-color .15s, box-shadow .15s}
+#inhalt a.tile:hover{text-decoration:none; border-color:var(--accent-2); box-shadow:0 6px 18px rgba(16,24,40,0.06)}
+#inhalt a.tile strong{display:block; font-size:1.05rem}
+#inhalt a.tile span{color:var(--muted); font-size:0.95rem}
+.sperren{margin-top:2rem}
+.sperren .btn{cursor:pointer}
+
+@media (prefers-color-scheme: dark){
+  :root{--bg:#0f1115; --text:#e5e7eb; --muted:#9ca3af; --accent:#e5e7eb}
+  .card,.tile,.btn{background:#171a21; border-color:#262b35}
+  .btn.primary{background:var(--accent-2); border-color:var(--accent-2); color:#0f1115}
+  main .btn.primary{color:#0f1115}
+  .sperre input[type=password]{background:#0f1115; border-color:#374151}
+  .meldung{color:#f87171}
+}

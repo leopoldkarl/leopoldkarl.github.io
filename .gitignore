@@ -1,2 +1,5 @@
 .claude/
 .git/pat.txt
+training/sync/config.json
+__pycache__/
+privat/quelle.html
