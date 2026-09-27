@@ -7,6 +7,7 @@
 // ohne Server-Anpassung passieren.
 //
 // Schnittstelle:
+//   GET  /version -> 200 { version, updatedAt }       (billiger Blick fuers Nachsehen)
 //   GET  /state -> 200 { version, updatedAt, blob }   (version 0, blob null: noch nichts da)
 //   PUT  /state    { baseVersion, blob }
 //                -> 200 { version, updatedAt }
@@ -82,8 +83,21 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders(request) });
     }
     if (url.pathname === '/health') return json(request, 200, { ok: true });
-    if (url.pathname !== '/state') return json(request, 404, { error: 'Unbekannter Pfad.' });
+    if (url.pathname !== '/state' && url.pathname !== '/version') {
+      return json(request, 404, { error: 'Unbekannter Pfad.' });
+    }
     if (!authorized(request, env)) return json(request, 401, { error: 'Nicht angemeldet.' });
+
+    // Nachsehen, ob sich etwas geaendert hat, ohne den ganzen Block zu holen:
+    // spart auf dem Handy Datenvolumen und spart das Entschluesseln.
+    if (url.pathname === '/version') {
+      if (request.method !== 'GET') return json(request, 405, { error: 'Methode nicht erlaubt.' });
+      const row = await readRow(env);
+      return json(request, 200, {
+        version: row ? row.version : 0,
+        updatedAt: row ? row.updatedAt : null,
+      });
+    }
 
     if (request.method === 'GET') {
       const row = await readRow(env);
