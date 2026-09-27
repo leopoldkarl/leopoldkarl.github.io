@@ -1,0 +1,22 @@
+# Cloudflare-Worker als Datenschnittstelle des Kalenders.
+#
+# Einrichtung (einmalig, in diesem Ordner):
+#   npx wrangler login
+#   npx wrangler d1 create kalender
+#     -> die ausgegebene database_id unten eintragen
+#   npx wrangler d1 execute kalender --remote --file=schema.sql
+#   npx wrangler secret put API_TOKEN
+#     -> 32 Zufallsbytes in Base64, z. B. aus
+#        node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+#   npx wrangler deploy
+#
+# Der Token ist ein Cloudflare-Secret; er steht weder im Repo noch in dieser Datei.
+
+name = "kalender"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "kalender"
+database_id = "HIER_EINTRAGEN"
