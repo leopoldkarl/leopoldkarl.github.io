@@ -1,7 +1,7 @@
 // Einzelne Aktivität: Kennzahlen, Karte, Verlaufsdiagramm mit Auswahl,
 // Splits, Runden, Zonen, Mean-Max, Bahnen bzw. Sätze.
 
-import { h, lineChart, curveChart, zoneBars } from '../charts.js';
+import { h, lineChart, curveChart, zoneBars, lapChart } from '../charts.js';
 import * as F from '../format.js';
 import * as M from '../model.js';
 import { loadDetail } from '../source.js';
@@ -288,7 +288,31 @@ function lapsCard(a, laps) {
   if (laps.some(l => l.hr)) cols.push({ label: 'Ø HF', value: r => r.hr ?? F.DASH, num: true });
   if (laps.some(l => l.pw)) cols.push({ label: 'Ø W', value: r => r.pw ?? F.DASH, num: true }, { label: 'NP', value: r => r.np ?? F.DASH, num: true });
   if (laps.some(l => l.asc)) cols.push({ label: 'Hm', value: r => r.asc ?? F.DASH, num: true });
-  return card('Runden', table(laps.map((l, i) => ({ ...l, i: i + 1 })), cols));
+  const rows = laps.map((l, i) => ({ ...l, i: i + 1 }));
+  // Balken ueber der Tabelle: Breite ~ Distanz (sonst Dauer), Hoehe ~ Tempo
+  const byDist = rows.every(r => r.dist > 0);
+  const chartHost = h('div', { class: 'lap-chart' });
+  const withV = rows.filter(r => r.v > 0);
+  if (withV.length > 1) {
+    const paceFmt = v => (isRide ? F.kmh(v) : F.pace(v, isSwim ? 100 : 1000));
+    queueMicrotask(() => lapChart(chartHost, {
+      mode: isRide ? 'kmh' : 'pace', per: isSwim ? 100 : 1000, height: 170,
+      laps: rows.map(r => ({
+        w: byDist ? r.dist : r.dur,
+        v: r.v || 0,
+        title: `Runde ${r.i}`,
+        rows: [
+          { color: 'var(--c-speed)', shape: 'rect', value: r.v ? paceFmt(r.v) : F.DASH, label: isRide ? 'Tempo' : 'Pace' },
+          { value: F.duration(r.dur), label: 'Zeit' },
+          ...(r.dist ? [{ value: isSwim ? `${F.num(r.dist)} m` : F.km(r.dist, 2), label: 'Distanz' }] : []),
+          ...(r.hr ? [{ value: `${r.hr} bpm`, label: 'Ø HF' }] : []),
+          ...(r.pw ? [{ value: `${r.pw} W`, label: 'Ø Leistung' }] : []),
+        ],
+      })),
+    }));
+  }
+  return card('Runden', h('div', {}, withV.length > 1 ? chartHost : null, table(rows, cols)),
+    { sub: withV.length > 1 ? `Balkenbreite ∝ ${byDist ? 'Distanz' : 'Dauer'}, Höhe ∝ ${isRide ? 'Geschwindigkeit' : 'Tempo'}` : null });
 }
 
 function lengthsCard(a, lengths) {

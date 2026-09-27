@@ -366,3 +366,5 @@ table.data a.name-link { color: var(--text); font-weight: 600; }
 
 details.more { margin-top: 0.75rem; }
 details.more summary { cursor: pointer; color: var(--accent-2); font-weight: 600; font-size: 0.9rem; }
+
+.lap-chart { margin-bottom: 0.75rem; }

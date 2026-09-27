@@ -6,6 +6,8 @@
     python training_sync.py import PFAD ...     .fit-Dateien, Ordner oder ZIPs (auch Garmins Gesamtexport)
     python training_sync.py build               Ausgabe neu erzeugen (z.B. nach Aenderung der config)
     python training_sync.py status              Ueberblick ueber Rohdaten und Ausgabe
+    python training_sync.py passphrase          Passphrase im Windows-Tresor ablegen (fuer 'auto')
+    python training_sync.py auto                unbeaufsichtigt: holen, bei Neuem bauen + pushen
 
 Optionen: --push (danach git commit + push der Ausgabe), --config PFAD.
 
@@ -285,7 +287,7 @@ def cmd_import(cfg: Config, paths: list[str]):
 # Garmin Connect
 # ==========================================================================
 
-def cmd_garmin(cfg: Config, full: bool, since: str | None):
+def cmd_garmin(cfg: Config, full: bool, since: str | None, interactive: bool = True) -> int:
     try:
         from garminconnect import Garmin
     except ImportError:
@@ -299,11 +301,12 @@ def cmd_garmin(cfg: Config, full: bool, since: str | None):
                  prompt_mfa=lambda: input("Garmin MFA-Code: ").strip())
     try:
         api.login(tokenstore)
-    except Exception:
+    except Exception as first:                                   # noqa: BLE001
         # keine/abgelaufene Tokens -> interaktiv anmelden
-        if not sys.stdin.isatty():
+        if not interactive or not (sys.stdin and sys.stdin.isatty()):
             raise SystemExit("Garmin-Anmeldung noetig, aber keine Konsole fuer die Eingabe. "
-                             "Einmal interaktiv ausfuehren.")
+                             "Einmal interaktiv 'training_sync.py garmin' ausfuehren. "
+                             f"(Detail: {str(first)[:300]})")
         email = email or input("Garmin E-Mail: ").strip()
         api = Garmin(email=email, password=getpass.getpass("Garmin Passwort: "),
                      prompt_mfa=lambda: input("Garmin MFA-Code: ").strip())
@@ -376,6 +379,7 @@ def cmd_garmin(cfg: Config, full: bool, since: str | None):
             print(f"  {n}/{len(todo)}")
         time.sleep(0.4)
     store.save_meta()
+    return len(todo)
 
 
 # ==========================================================================
@@ -524,12 +528,24 @@ def _in_public_repo(path: Path) -> bool:
     return "github.com" in url or "gitlab.com" in url
 
 
+KEYRING_SERVICE = "leopoldkarl-training"
+
+
+def _keyring_get():
+    try:
+        import keyring
+        return keyring.get_password(KEYRING_SERVICE, "passphrase")
+    except Exception:                                            # noqa: BLE001
+        return None
+
+
 def get_passphrase(existing: bool) -> str:
-    pw = os.environ.get("TRAINING_PASSPHRASE")
+    pw = os.environ.get("TRAINING_PASSPHRASE") or _keyring_get()
     if pw:
         return pw
-    if not sys.stdin.isatty():
-        raise SystemExit("Passphrase noetig: TRAINING_PASSPHRASE setzen oder interaktiv starten.")
+    if not (sys.stdin and sys.stdin.isatty()):
+        raise SystemExit("Passphrase noetig: 'training_sync.py passphrase' einmal ausfuehren "
+                         "(speichert sie in der Windows-Anmeldeinformationsverwaltung).")
     pw = getpass.getpass("Passphrase fuer die Trainingsdaten: ")
     if not existing:
         if len(pw) < 16:
@@ -611,8 +627,13 @@ def cmd_build(cfg: Config, allow_public_plain=False):
         "athlete": {"thresholds": sorted(cfg.thresholds, key=lambda t: t["from"])},
         "activities": summaries,
     }
-    blob, _ = pack(index, "index", key)
-    (out / "index.bin").write_bytes(blob)
+    idx_cmp = dict(index, generated=None)
+    idx_digest = hashlib.sha256(json.dumps(idx_cmp, sort_keys=True).encode()).hexdigest()
+    if state.get("_index") != idx_digest or not (out / "index.bin").exists():
+        blob, _ = pack(index, "index", key)
+        (out / "index.bin").write_bytes(blob)
+        state["_index"] = idx_digest
+        written += 1
     new_manifest = {"format": FORMAT, "version": FORMAT_VERSION, "mode": cfg.mode}
     if kdf:
         new_manifest["kdf"] = kdf
@@ -637,15 +658,69 @@ def git_push(cfg: Config):
     # Alles relativ zu out_dir ausfuehren: so muss kein Pfad aus git-Ausgaben
     # dekodiert werden (Umlaute im Pfad scheitern unter Windows an der Codepage).
     out = str(cfg.out)
+    # unter pythonw (Aufgabenplanung) kein Konsolenfenster fuer git aufpoppen lassen
+    kw = {"creationflags": 0x08000000} if os.name == "nt" else {}
     if subprocess.run(["git", "-C", out, "rev-parse", "--is-inside-work-tree"],
-                      capture_output=True).returncode != 0:
+                      capture_output=True, **kw).returncode != 0:
         raise SystemExit("out_dir liegt in keinem git-Repo.")
-    subprocess.run(["git", "-C", out, "add", "-A", "--", "."], check=True)
-    if subprocess.run(["git", "-C", out, "diff", "--cached", "--quiet", "--", "."]).returncode == 0:
+    subprocess.run(["git", "-C", out, "add", "-A", "--", "."], check=True, **kw)
+    if subprocess.run(["git", "-C", out, "diff", "--cached", "--quiet", "--", "."], **kw).returncode == 0:
         print("git: keine Aenderungen.")
         return
-    subprocess.run(["git", "-C", out, "commit", "-m", "Trainingsdaten aktualisieren", "--", "."], check=True)
-    subprocess.run(["git", "-C", out, "push"], check=True)
+    subprocess.run(["git", "-C", out, "commit", "-m", "Trainingsdaten aktualisieren", "--", "."], check=True, **kw)
+    if subprocess.run(["git", "-C", out, "push"], **kw).returncode != 0:
+        # Remote hat neuere Commits (z.B. vom Laptop): einholen und erneut pushen
+        subprocess.run(["git", "-C", out, "pull", "--rebase", "--autostash"], check=True, **kw)
+        subprocess.run(["git", "-C", out, "push"], check=True, **kw)
+
+
+def cmd_passphrase(cfg: Config):
+    import keyring
+    man = _load_json(cfg.out / "manifest.json", None)
+    pw = getpass.getpass("Passphrase der Trainingsdaten: ")
+    if man and man.get("mode") == "encrypted" and (cfg.out / "index.bin").exists():
+        key, _ = derive_keys(pw, base64.b64decode(man["kdf"]["salt"]), int(man["kdf"]["iterations"]))
+        try:
+            unpack((cfg.out / "index.bin").read_bytes(), "index", key)
+        except Exception:
+            raise SystemExit("Falsche Passphrase -- nichts gespeichert.")
+    keyring.set_password(KEYRING_SERVICE, "passphrase", pw)
+    print("Gespeichert (Windows: Anmeldeinformationsverwaltung, Eintrag 'leopoldkarl-training').")
+
+
+def cmd_auto(cfg: Config):
+    """Unbeaufsichtigter Lauf fuer die Aufgabenplanung: neue Aktivitaeten holen,
+    nur bei Neuem bauen und pushen. Nach einer Garmin-Sperre 24 h Pause."""
+    import logging
+    cfg.raw.mkdir(parents=True, exist_ok=True)
+    logging.basicConfig(filename=cfg.raw / "sync.log", level=logging.INFO,
+                        format="%(asctime)s %(levelname)s %(message)s", encoding="utf-8")
+    log = logging.getLogger("auto")
+    block_p = cfg.raw / "login_block.json"
+    block = _load_json(block_p, {})
+    if block.get("until", 0) > time.time():
+        log.info("uebersprungen: Garmin-Sperre bis %s (%s)",
+                 dt.datetime.fromtimestamp(block["until"]).strftime("%d.%m. %H:%M"), block.get("reason", ""))
+        return
+    try:
+        n = cmd_garmin(cfg, False, None, interactive=False)
+    except SystemExit as e:
+        msg = str(e)
+        if "429" in msg or "Cloudflare" in msg or "403" in msg:
+            _dump_json(block_p, {"until": time.time() + 24 * 3600, "reason": "429/Cloudflare"})
+        log.error("Garmin: %s", msg.replace("\n", " ")[:500])
+        raise
+    except Exception as e:                                       # noqa: BLE001
+        log.exception("Garmin-Abruf fehlgeschlagen: %s", e)
+        raise SystemExit(1)
+    if block_p.exists():
+        _dump_json(block_p, {})
+    if n == 0:
+        log.info("keine neuen Aktivitaeten")
+        return
+    cmd_build(cfg)
+    git_push(cfg)
+    log.info("%d neue Aktivitaet(en) hochgeladen", n)
 
 
 def main(argv=None):
@@ -663,10 +738,16 @@ def main(argv=None):
     b.add_argument("--push", action="store_true")
     b.add_argument("--allow-public-plain", action="store_true")
     sub.add_parser("status")
+    sub.add_parser("auto")
+    sub.add_parser("passphrase")
     a = ap.parse_args(argv)
     cfg = Config(Path(a.config))
     if a.cmd == "status":
         return cmd_status(cfg)
+    if a.cmd == "auto":
+        return cmd_auto(cfg)
+    if a.cmd == "passphrase":
+        return cmd_passphrase(cfg)
     if a.cmd == "garmin":
         cmd_garmin(cfg, a.full, a.since)
     elif a.cmd == "import":

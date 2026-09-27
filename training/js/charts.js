@@ -517,3 +517,79 @@ export function zoneBars(host, zones, color, fmt) {
       h('div', { class: 'zone-track' }, h('div', { class: 'zone-fill', style: { width: `${(z.seconds / max) * 100}%`, background: color(i) } })),
       h('div', { class: 'zone-val' }, h('span', { text: fmt(z.seconds) }), h('span', { class: 'muted', text: `${Math.round((z.seconds / total) * 100)} %` }))))));
 }
+
+// ------------------------------------------------------------------ Runden-Balken (variable Breite)
+//
+// opts = { laps: [{w, v, title, rows}], mode: 'pace' | 'kmh', per: 1000 | 100, height, color }
+// Breite ~ w (Distanz, sonst Dauer), Hoehe ~ Geschwindigkeit (schneller = hoeher).
+// Bei Pace liegen die Achsenmarken auf runden Pace-Werten; die Grundlinie ist
+// die langsamste Marke unter der langsamsten Runde (Achse beginnt nicht bei 0).
+export function lapChart(host, opts) {
+  host.classList.add('chart');
+  host.replaceChildren();
+  const wrap = h('div', { class: 'chart-svg' });
+  host.append(wrap);
+  const laps = opts.laps.filter(l => l.w > 0);
+  const vs = laps.map(l => l.v).filter(v => v > 0);
+  if (!vs.length) return null;
+  const vmin = Math.min(...vs), vmax = Math.max(...vs);
+  let ticks, base, top, fmt;
+  if (opts.mode === 'pace') {
+    const per = opts.per;
+    const pFast = per / vmax, pSlow = per / vmin;
+    const span = Math.max(pSlow - pFast, per === 100 ? 5 : 10);
+    const step = [5, 10, 15, 20, 30, 60, 120, 300].find(st => span / st <= 4) || 600;
+    const pBase = Math.ceil((pSlow + step * 0.4) / step) * step;
+    const pTop = Math.max(step, Math.floor(pFast / step) * step);
+    ticks = [];
+    for (let p = pTop; p <= pBase + 1e-9; p += step) ticks.push(per / p);
+    base = per / pBase; top = per / pTop;
+    fmt = v => { const s = Math.round(per / v); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+  } else {
+    const lo = Math.max(0, vmin * 3.6 * 0.85), hi = vmax * 3.6 * 1.03;
+    const nt = niceTicks(lo, hi, 4);
+    ticks = nt.ticks.map(t => t / 3.6);
+    base = Math.floor(lo / nt.step) * nt.step / 3.6;
+    top = Math.max(ticks[ticks.length - 1], vmax);
+    fmt = v => `${Math.round(v * 3.6)}`;
+  }
+  const total = laps.reduce((s0, l) => s0 + l.w, 0);
+  return responsive(wrap, width => {
+    wrap.replaceChildren();
+    const H = opts.height || 180;
+    const m = { l: 48, r: 8, t: 10, b: 22 };
+    const iw = width - m.l - m.r;
+    const Y = v => H - m.b - ((Math.max(base, Math.min(top, v)) - base) / (top - base || 1)) * (H - m.t - m.b);
+    const svg = s('svg', { width, height: H, viewBox: `0 0 ${width} ${H}`, class: 'svg' });
+    for (const t of ticks) {
+      svg.append(s('line', { x1: m.l, x2: width - m.r, y1: Y(t), y2: Y(t), class: 'grid' }));
+      svg.append(s('text', { x: m.l - 6, y: Y(t) + 4, class: 'tick', 'text-anchor': 'end', text: fmt(t) }));
+    }
+    let x = m.l;
+    const y0 = Y(base);
+    laps.forEach((l, i) => {
+      const w = (l.w / total) * iw;
+      const bw = Math.max(1, w - 2);
+      const g = s('g', { class: 'bar-group', tabindex: 0 });
+      if (l.v > 0) {
+        const yt = Y(l.v), r = Math.min(4, bw / 2, y0 - yt);
+        const x0 = x + 1, x1 = x0 + bw;
+        g.append(s('path', {
+          d: `M${x0},${y0}V${yt + r}Q${x0},${yt} ${x0 + r},${yt}H${x1 - r}Q${x1},${yt} ${x1},${yt + r}V${y0}Z`,
+          class: 'bar', style: { fill: opts.color || 'var(--c-speed)' },
+        }));
+      }
+      g.append(s('rect', { x, y: m.t, width: Math.max(w, 1), height: H - m.t - m.b, class: 'hit' }));
+      if (w >= 18) svg.append(s('text', { x: x + w / 2, y: H - 6, class: 'tick', 'text-anchor': 'middle', text: String(i + 1) }));
+      const show = (cx, cy) => { g.classList.add('hover'); showTip(cx, cy, l.title, l.rows); };
+      g.addEventListener('pointermove', e => show(e.clientX, e.clientY));
+      g.addEventListener('pointerleave', () => { g.classList.remove('hover'); hideTip(); });
+      g.addEventListener('focus', () => { const b = g.getBoundingClientRect(); show(b.right, b.top); });
+      g.addEventListener('blur', () => { g.classList.remove('hover'); hideTip(); });
+      svg.append(g);
+      x += w;
+    });
+    svg.append(s('line', { x1: m.l, x2: width - m.r, y1: y0 + 0.5, y2: y0 + 0.5, class: 'axis' }));
+    wrap.append(svg);
+  });
+}

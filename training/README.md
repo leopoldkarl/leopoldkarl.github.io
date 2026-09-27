@@ -53,7 +53,25 @@ vorhanden:
 
     py training_sync.py import C:\Users\...\Downloads\garmin_export.zip
 
-Danach regelmäßig:
+### Automatisch (Windows-Aufgabenplanung)
+
+Einmalig, in `training\sync`:
+
+    py -m pip install -r requirements.txt       (neu: keyring)
+    py training_sync.py passphrase              Passphrase in der Windows-Anmeldeinformationsverwaltung ablegen
+    py training_sync.py garmin                  einmal interaktiv bei Garmin anmelden (legt Tokens an)
+    powershell -ExecutionPolicy Bypass -File .\aufgabe_einrichten.ps1
+
+Die Aufgabe „Trainingsdaten synchronisieren“ läuft täglich um 21:30 und
+10 Minuten nach jeder Anmeldung (verpasste Läufe werden nachgeholt) und
+ruft `training_sync.py auto` auf: neue Aktivitäten holen, nur wenn es
+welche gibt bauen, committen und pushen. Protokoll:
+`%USERPROFILE%\garmin-training\sync.log`. Blockiert Garmin die Anmeldung
+(429/Cloudflare), pausiert `auto` 24 Stunden, statt die Sperre durch
+weitere Versuche zu verlängern. Läuft das Token irgendwann ab, steht das im
+Protokoll; dann einmal `py training_sync.py garmin` von Hand.
+
+Von Hand, jederzeit:
 
     py training_sync.py garmin --push
 
