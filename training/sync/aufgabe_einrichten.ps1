@@ -1,6 +1,6 @@
 # Richtet die Windows-Aufgabe "Trainingsdaten synchronisieren" ein.
-#   - taeglich um 21:30 und 10 Minuten nach jeder Anmeldung
-#   - verpasste Laeufe (Rechner aus) werden nachgeholt
+#   - taeglich um 15:00 und 10 Minuten nach jeder Anmeldung
+#   - war der Rechner um 15:00 aus, wird der Lauf beim naechsten Start nachgeholt
 #   - laeuft unsichtbar (pythonw), Protokoll: %USERPROFILE%\garmin-training\sync.log
 # Aufruf in PowerShell im Ordner training\sync:
 #   powershell -ExecutionPolicy Bypass -File .\aufgabe_einrichten.ps1
@@ -13,7 +13,7 @@ $py = (Get-Command pythonw.exe -ErrorAction SilentlyContinue).Source
 if (-not $py) { $py = (Get-Command python.exe).Source }
 
 $action = New-ScheduledTaskAction -Execute $py -Argument '"training_sync.py" auto' -WorkingDirectory $dir
-$daily = New-ScheduledTaskTrigger -Daily -At '21:30'
+$daily = New-ScheduledTaskTrigger -Daily -At '15:00'
 $logon = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
 $logon.Delay = 'PT10M'
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries `

@@ -64,6 +64,8 @@ export async function renderActivity(root, ctx, id) {
   if (st.t.length > 1) holder.append(streamsCard(a, st, map, ctx));
 
   // ---------------------------------------------------------- Splits / Runden
+  const lp = lapPaceCard(a, d.laps, d.splits);
+  if (lp) holder.append(lp);
   if (d.splits?.length > 1 && (a.cat === 'run' || a.cat === 'other' || a.cat === 'ride')) holder.append(splitsCard(a, d.splits));
   if (d.lengths?.length) holder.append(lengthsCard(a, d.lengths));
   if (d.sets?.length) holder.append(setsCard(d.sets));
@@ -289,30 +291,40 @@ function lapsCard(a, laps) {
   if (laps.some(l => l.pw)) cols.push({ label: 'Ø W', value: r => r.pw ?? F.DASH, num: true }, { label: 'NP', value: r => r.np ?? F.DASH, num: true });
   if (laps.some(l => l.asc)) cols.push({ label: 'Hm', value: r => r.asc ?? F.DASH, num: true });
   const rows = laps.map((l, i) => ({ ...l, i: i + 1 }));
-  // Balken ueber der Tabelle: Breite ~ Distanz (sonst Dauer), Hoehe ~ Tempo
-  const byDist = rows.every(r => r.dist > 0);
-  const chartHost = h('div', { class: 'lap-chart' });
-  const withV = rows.filter(r => r.v > 0);
-  if (withV.length > 1) {
-    const paceFmt = v => (isRide ? F.kmh(v) : F.pace(v, isSwim ? 100 : 1000));
-    queueMicrotask(() => lapChart(chartHost, {
-      mode: isRide ? 'kmh' : 'pace', per: isSwim ? 100 : 1000, height: 170,
-      laps: rows.map(r => ({
-        w: byDist ? r.dist : r.dur,
-        v: r.v || 0,
-        title: `Runde ${r.i}`,
-        rows: [
-          { color: 'var(--c-speed)', shape: 'rect', value: r.v ? paceFmt(r.v) : F.DASH, label: isRide ? 'Tempo' : 'Pace' },
-          { value: F.duration(r.dur), label: 'Zeit' },
-          ...(r.dist ? [{ value: isSwim ? `${F.num(r.dist)} m` : F.km(r.dist, 2), label: 'Distanz' }] : []),
-          ...(r.hr ? [{ value: `${r.hr} bpm`, label: 'Ø HF' }] : []),
-          ...(r.pw ? [{ value: `${r.pw} W`, label: 'Ø Leistung' }] : []),
-        ],
-      })),
-    }));
+  return card('Runden', table(rows, cols));
+}
+
+// Balkendiagramm der Rundenpace. Quelle: Runden der Uhr, sonst km-Splits.
+// Breite ~ Distanz (sonst Dauer), Hoehe ~ Tempo.
+function lapPaceCard(a, laps, splits) {
+  const isRide = a.cat === 'ride', isSwim = a.cat === 'swim';
+  const withSpeed = (l) => ({ ...l, v: l.v || (l.dist && l.dur ? l.dist / l.dur : 0) });
+  let src = 'Runden', items = (laps || []).map(withSpeed).filter(l => l.dur > 0);
+  if (items.filter(l => l.v > 0).length < 2 && splits?.length > 1) {
+    src = isRide ? '5-km-Abschnitte' : 'km-Splits';
+    items = splits.map(withSpeed);
   }
-  return card('Runden', h('div', {}, withV.length > 1 ? chartHost : null, table(rows, cols)),
-    { sub: withV.length > 1 ? `Balkenbreite ∝ ${byDist ? 'Distanz' : 'Dauer'}, Höhe ∝ ${isRide ? 'Geschwindigkeit' : 'Tempo'}` : null });
+  if (items.filter(l => l.v > 0).length < 2) return null;
+  const byDist = items.every(l => l.dist > 0);
+  const paceFmt = v => (isRide ? F.kmh(v) : F.pace(v, isSwim ? 100 : 1000));
+  const host = h('div', { class: 'lap-chart' });
+  queueMicrotask(() => lapChart(host, {
+    mode: isRide ? 'kmh' : 'pace', per: isSwim ? 100 : 1000, height: 180,
+    laps: items.map((l, i) => ({
+      w: byDist ? l.dist : l.dur,
+      v: l.v,
+      title: `${src === 'Runden' ? 'Runde' : 'Abschnitt'} ${i + 1}`,
+      rows: [
+        { color: 'var(--c-speed)', shape: 'rect', value: l.v ? paceFmt(l.v) : F.DASH, label: isRide ? 'Tempo' : 'Pace' },
+        { value: F.duration(l.dur), label: 'Zeit' },
+        ...(l.dist ? [{ value: isSwim ? `${F.num(l.dist)} m` : F.km(l.dist, 2), label: 'Distanz' }] : []),
+        ...(l.hr ? [{ value: `${l.hr} bpm`, label: 'Ø HF' }] : []),
+        ...(l.pw ? [{ value: `${l.pw} W`, label: 'Ø Leistung' }] : []),
+      ],
+    })),
+  }));
+  return card(isRide ? 'Rundentempo' : 'Rundenpace', host,
+    { sub: `${src} · Balkenbreite ∝ ${byDist ? 'Distanz' : 'Dauer'}, Höhe ∝ ${isRide ? 'Geschwindigkeit' : 'Tempo'}` });
 }
 
 function lengthsCard(a, lengths) {
