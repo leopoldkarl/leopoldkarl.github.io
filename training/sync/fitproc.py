@@ -380,6 +380,9 @@ def _session(s, recs, laps, lengths, sets, tz, device, zones, multisport):
     elapsed = _num(s.get("total_elapsed_time")) or (recs[-1]["ts"] - start if recs else 0)
     timer = _num(s.get("total_timer_time")) or moving_s or elapsed
     dist = _num(s.get("total_distance"))
+    # Unplausible Werte (z.B. 2^32-Ueberlauf bei Wechselzonen) verwerfen
+    if dist is not None and dist / max(timer or elapsed or 1, 1) > 100:
+        dist = None
     if dist is None and d1:
         dist = max((x for x in d1 if x is not None), default=None)
 
