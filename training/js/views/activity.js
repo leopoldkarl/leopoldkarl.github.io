@@ -61,6 +61,8 @@ export async function renderActivity(root, ctx, id) {
     map = routeMap(mapHost, pts);
     if (d.privacy_hidden) mapHost.append(h('div', { class: 'map-note', text: 'Abschnitte in Privatzonen ausgeblendet' }));
   }
+  const iv = intervalCard(a, d.laps, d.splits);
+  if (iv) holder.append(iv);
   if (st.t.length > 1) holder.append(streamsCard(a, st, map, ctx));
 
   // ---------------------------------------------------------- Splits / Runden
@@ -278,6 +280,43 @@ function splitsCard(a, splits) {
     { label: 'Ø HF', value: r => r.hr ?? F.DASH, num: true },
     { label: 'Höhe', value: r => `+${r.up} / −${r.down}`, num: true },
   ]), { sub: `Automatisch je ${isRide ? '5 km' : 'km'} aus der Aufzeichnung` });
+}
+
+// Saeulen der Intervalle (Runden der Uhr): Breite ~ Dauer, Hoehe und Farbe ~ Tempo.
+// Ohne Runden der Uhr: automatische Runden (km bzw. 5 km).
+function intervalCard(a, laps, splits) {
+  const isRide = a.cat === 'ride', isSwim = a.cat === 'swim';
+  const sp = l => ({ ...l, v: l.v || (l.dist && l.dur ? l.dist / l.dur : 0) });
+  let items = (laps || []).map(sp).filter(l => l.dur > 0);
+  let src = 'Runden der Uhr';
+  if (items.filter(l => l.v > 0).length < 2) { items = (splits || []).map(sp); src = isRide ? 'automatisch je 5 km' : 'automatisch je km'; }
+  if (items.filter(l => l.v > 0).length < 2) return null;
+  const vs = items.map(l => l.v).filter(v => v > 0);
+  const lo = Math.min(...vs), hi = Math.max(...vs);
+  // 7-stufige Rampe: langsam = hell, schnell = kraeftig (Dunkelmodus umgekehrt)
+  const level = v => (v > 0 ? 1 + Math.round(((v - lo) / (hi - lo || 1)) * 6) : 1);
+  const colorOf = l => `var(--z${level(l.v)})`;
+  const paceFmt = v => (isRide ? F.kmh(v) : F.pace(v, isSwim ? 100 : 1000));
+  const host = h('div', { class: 'lap-chart' });
+  queueMicrotask(() => lapChart(host, {
+    mode: isRide ? 'kmh' : 'pace', per: isSwim ? 100 : 1000, height: 170, colorOf,
+    laps: items.map((l, i) => ({
+      w: l.dur, v: l.v,
+      title: `Intervall ${i + 1}`,
+      rows: [
+        { color: colorOf(l), shape: 'rect', value: l.v ? paceFmt(l.v) : F.DASH, label: isRide ? 'Tempo' : 'Pace' },
+        { value: F.duration(l.dur), label: 'Dauer' },
+        ...(l.dist ? [{ value: isSwim ? `${F.num(l.dist)} m` : F.km(l.dist, 2), label: 'Distanz' }] : []),
+        ...(l.hr ? [{ value: `${l.hr} bpm`, label: 'Ø HF' }] : []),
+        ...(l.pw ? [{ value: `${l.pw} W`, label: 'Ø Leistung' }] : []),
+      ],
+    })),
+  }));
+  const legend = h('div', { class: 'pace-legend' }, h('span', { text: 'langsamer' }),
+    [1, 2, 3, 4, 5, 6, 7].map(k => h('span', { class: 'sw', style: { background: `var(--z${k})` } })),
+    h('span', { text: 'schneller' }));
+  return card(isRide ? 'Intervall-Tempo' : 'Intervall-Pace', h('div', {}, host, legend),
+    { sub: `${src} · Breite ∝ Dauer, Höhe und Farbe ∝ ${isRide ? 'Geschwindigkeit' : 'Pace'}` });
 }
 
 // Balkendiagramm der Rundenpace. Quelle: Runden der Uhr, sonst km-Splits.

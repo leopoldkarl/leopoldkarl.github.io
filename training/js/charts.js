@@ -576,7 +576,7 @@ export function lapChart(host, opts) {
         const x0 = x + 1, x1 = x0 + bw;
         g.append(s('path', {
           d: `M${x0},${y0}V${yt + r}Q${x0},${yt} ${x0 + r},${yt}H${x1 - r}Q${x1},${yt} ${x1},${yt + r}V${y0}Z`,
-          class: 'bar', style: { fill: opts.color || 'var(--c-speed)' },
+          class: 'bar', style: { fill: opts.colorOf ? opts.colorOf(l, i) : (opts.color || 'var(--c-speed)') },
         }));
       }
       g.append(s('rect', { x, y: m.t, width: Math.max(w, 1), height: H - m.t - m.b, class: 'hit' }));

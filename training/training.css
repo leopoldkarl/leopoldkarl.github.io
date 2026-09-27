@@ -36,7 +36,7 @@
   --c-pw: #4a3aa7;
   --c-alt: #9aa1ab;
   --c-cad: #e87ba4;
-  --c-route: #eb6834;
+  --c-route: #2a78d6;
 
   /* Vergleiche und PMC */
   --c-accent: #2a78d6;
@@ -62,7 +62,7 @@
     --shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
     --grid: #232a33; --axis: #39424e; --tick: #8b95a3;
     --c-run: #3987e5; --c-ride: #d95926; --c-swim: #199e70; --c-strength: #c98500; --c-other: #9085e9;
-    --c-speed: #3987e5; --c-hr: #e66767; --c-pw: #9085e9; --c-alt: #6b7480; --c-cad: #d55181; --c-route: #f08a5d;
+    --c-speed: #3987e5; --c-hr: #e66767; --c-pw: #9085e9; --c-alt: #6b7480; --c-cad: #d55181; --c-route: #3987e5;
     --c-accent: #3987e5; --c-s1: #3987e5; --c-s2: #d95926; --c-prev1: #8b95a3; --c-prev2: #4b5461;
     --c-ctl: #3987e5; --c-atl: #d55181; --c-tsb: #c98500; --c-tss: #6b7480;
     --z1: #184f95; --z2: #1c5cab; --z3: #256abf; --z4: #2a78d6; --z5: #3987e5; --z6: #6da7ec; --z7: #9ec5f4;
@@ -75,7 +75,7 @@
   --shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
   --grid: #232a33; --axis: #39424e; --tick: #8b95a3;
   --c-run: #3987e5; --c-ride: #d95926; --c-swim: #199e70; --c-strength: #c98500; --c-other: #9085e9;
-  --c-speed: #3987e5; --c-hr: #e66767; --c-pw: #9085e9; --c-alt: #6b7480; --c-cad: #d55181; --c-route: #f08a5d;
+  --c-speed: #3987e5; --c-hr: #e66767; --c-pw: #9085e9; --c-alt: #6b7480; --c-cad: #d55181; --c-route: #3987e5;
   --c-accent: #3987e5; --c-s1: #3987e5; --c-s2: #d95926; --c-prev1: #8b95a3; --c-prev2: #4b5461;
   --c-ctl: #3987e5; --c-atl: #d55181; --c-tsb: #c98500; --c-tss: #6b7480;
   --z1: #184f95; --z2: #1c5cab; --z3: #256abf; --z4: #2a78d6; --z5: #3987e5; --z6: #6da7ec; --z7: #9ec5f4;
@@ -368,3 +368,6 @@ details.more { margin-top: 0.75rem; }
 details.more summary { cursor: pointer; color: var(--accent-2); font-weight: 600; font-size: 0.9rem; }
 
 .lap-chart { margin-bottom: 0.75rem; }
+
+.pace-legend { display: flex; align-items: center; gap: 4px; justify-content: flex-end; font-size: 0.78rem; color: var(--muted); margin-top: 0.35rem; }
+.pace-legend .sw { width: 14px; height: 10px; border-radius: 2px; display: inline-block; }
