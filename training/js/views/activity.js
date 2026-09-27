@@ -64,12 +64,11 @@ export async function renderActivity(root, ctx, id) {
   if (st.t.length > 1) holder.append(streamsCard(a, st, map, ctx));
 
   // ---------------------------------------------------------- Splits / Runden
-  const lp = lapPaceCard(a, d.laps, d.splits);
+  const lp = lapPaceCard(a, null, d.splits);
   if (lp) holder.append(lp);
   if (d.splits?.length > 1 && (a.cat === 'run' || a.cat === 'other' || a.cat === 'ride')) holder.append(splitsCard(a, d.splits));
   if (d.lengths?.length) holder.append(lengthsCard(a, d.lengths));
   if (d.sets?.length) holder.append(setsCard(d.sets));
-  if (d.laps?.length > 1) holder.append(lapsCard(a, d.laps));
 
   // ---------------------------------------------------------- Zonen + Mean-Max
   const zoneCards = [];
@@ -268,30 +267,17 @@ function splitsCard(a, splits) {
   const bar = v => h('span', { class: 'pace-bar' }, h('span', { style: { width: `${20 + 80 * ((v - vmin) / (vmax - vmin || 1))}%` } }));
   let cum = 0;
   const rows = splits.map((s, i) => ({ ...s, i: i + 1, v: s.dist / s.dur, cum: (cum += s.dist) }));
-  return card(isRide ? 'Abschnitte (5 km)' : 'Splits (km)', table(rows, [
-    { label: isRide ? 'km' : 'km', value: r => r.dist < (isRide ? 4990 : 990) ? F.num(r.cum / 1000, 2) : F.num(Math.round(r.cum / 1000)) },
+  return card('Runden', table(rows, [
+    { label: '#', value: r => r.i },
+    { label: 'Distanz', value: r => F.km(r.dist, 2), num: true },
+    { label: 'Gesamt', value: r => F.km(r.cum, 2), num: true },
     { label: 'Zeit', value: r => F.duration(r.dur), num: true },
     { label: isRide ? 'Tempo' : 'Pace', value: r => isRide ? F.kmh(r.v) : F.pace(r.v, 1000, false), num: true },
     { label: '', value: r => bar(r.v) },
     ...(a.cat === 'run' ? [{ label: 'GAP', value: r => r.gap ? F.pace(r.gap, 1000, false) : F.DASH, num: true }] : []),
     { label: 'Ø HF', value: r => r.hr ?? F.DASH, num: true },
     { label: 'Höhe', value: r => `+${r.up} / −${r.down}`, num: true },
-  ]));
-}
-
-function lapsCard(a, laps) {
-  const isRide = a.cat === 'ride', isSwim = a.cat === 'swim';
-  const cols = [
-    { label: '#', value: r => r.i },
-    { label: 'Zeit', value: r => F.duration(r.dur), num: true },
-    { label: 'Distanz', value: r => r.dist ? (isSwim ? `${F.num(r.dist)} m` : F.km(r.dist, 2)) : F.DASH, num: true },
-    { label: isRide ? 'Tempo' : 'Pace', value: r => r.v ? (isRide ? F.kmh(r.v) : F.pace(r.v, isSwim ? 100 : 1000, false)) : F.DASH, num: true },
-  ];
-  if (laps.some(l => l.hr)) cols.push({ label: 'Ø HF', value: r => r.hr ?? F.DASH, num: true });
-  if (laps.some(l => l.pw)) cols.push({ label: 'Ø W', value: r => r.pw ?? F.DASH, num: true }, { label: 'NP', value: r => r.np ?? F.DASH, num: true });
-  if (laps.some(l => l.asc)) cols.push({ label: 'Hm', value: r => r.asc ?? F.DASH, num: true });
-  const rows = laps.map((l, i) => ({ ...l, i: i + 1 }));
-  return card('Runden', table(rows, cols));
+  ]), { sub: `Automatisch je ${isRide ? '5 km' : 'km'} aus der Aufzeichnung` });
 }
 
 // Balkendiagramm der Rundenpace. Quelle: Runden der Uhr, sonst km-Splits.
@@ -301,7 +287,7 @@ function lapPaceCard(a, laps, splits) {
   const withSpeed = (l) => ({ ...l, v: l.v || (l.dist && l.dur ? l.dist / l.dur : 0) });
   let src = 'Runden', items = (laps || []).map(withSpeed).filter(l => l.dur > 0);
   if (items.filter(l => l.v > 0).length < 2 && splits?.length > 1) {
-    src = isRide ? '5-km-Abschnitte' : 'km-Splits';
+    src = isRide ? 'Runden à 5 km' : 'Runden à 1 km';
     items = splits.map(withSpeed);
   }
   if (items.filter(l => l.v > 0).length < 2) return null;
@@ -313,7 +299,7 @@ function lapPaceCard(a, laps, splits) {
     laps: items.map((l, i) => ({
       w: byDist ? l.dist : l.dur,
       v: l.v,
-      title: `${src === 'Runden' ? 'Runde' : 'Abschnitt'} ${i + 1}`,
+      title: `Runde ${i + 1}`,
       rows: [
         { color: 'var(--c-speed)', shape: 'rect', value: l.v ? paceFmt(l.v) : F.DASH, label: isRide ? 'Tempo' : 'Pace' },
         { value: F.duration(l.dur), label: 'Zeit' },
