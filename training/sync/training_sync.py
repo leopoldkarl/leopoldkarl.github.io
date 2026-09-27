@@ -634,17 +634,18 @@ def cmd_status(cfg: Config):
 
 
 def git_push(cfg: Config):
-    root = subprocess.run(["git", "-C", str(cfg.out), "rev-parse", "--show-toplevel"],
-                          capture_output=True, text=True).stdout.strip()
-    if not root:
+    # Alles relativ zu out_dir ausfuehren: so muss kein Pfad aus git-Ausgaben
+    # dekodiert werden (Umlaute im Pfad scheitern unter Windows an der Codepage).
+    out = str(cfg.out)
+    if subprocess.run(["git", "-C", out, "rev-parse", "--is-inside-work-tree"],
+                      capture_output=True).returncode != 0:
         raise SystemExit("out_dir liegt in keinem git-Repo.")
-    rel = os.path.relpath(cfg.out, root)
-    subprocess.run(["git", "-C", root, "add", "-A", "--", rel], check=True)
-    if subprocess.run(["git", "-C", root, "diff", "--cached", "--quiet", "--", rel]).returncode == 0:
+    subprocess.run(["git", "-C", out, "add", "-A", "--", "."], check=True)
+    if subprocess.run(["git", "-C", out, "diff", "--cached", "--quiet", "--", "."]).returncode == 0:
         print("git: keine Aenderungen.")
         return
-    subprocess.run(["git", "-C", root, "commit", "-m", "Trainingsdaten aktualisieren", "--", rel], check=True)
-    subprocess.run(["git", "-C", root, "push"], check=True)
+    subprocess.run(["git", "-C", out, "commit", "-m", "Trainingsdaten aktualisieren", "--", "."], check=True)
+    subprocess.run(["git", "-C", out, "push"], check=True)
 
 
 def main(argv=None):
