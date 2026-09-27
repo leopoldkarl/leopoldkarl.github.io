@@ -16,7 +16,9 @@
 // also gewinnt der fremde Stand, und der eigene wird vorher als Sicherung im
 // localStorage abgelegt, statt weggeworfen zu werden.
 
-import { encryptState, decryptState } from './crypto.js';
+import {
+  encryptState, decryptState, deriveKey, newSalt, saltOf, iterationsOf, KDF_ITERATIONS,
+} from './crypto.js';
 
 const PUSH_DEBOUNCE = 1500;      // ms nach der letzten Aenderung
 const POLL_INTERVAL = 90000;     // ms; 960 Abrufe/Tag, Freigrenze 100 000
@@ -84,6 +86,49 @@ export function keepConflictCopy(state) {
 export function conflictCopies() {
   try { return allKeys().filter((k) => k.startsWith(CONFLICT_PREFIX)).sort(); }
   catch { return []; }
+}
+
+/* ------------------------------------------------------------------ */
+/* Einrichten                                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Schluessel fuer diese Passphrase herstellen und dabei pruefen, ob sie zu dem
+ * passt, was schon auf dem Server liegt.
+ *
+ * Der wesentliche Punkt: liegt dort bereits ein Block, muss das Salz *aus
+ * diesem Block* kommen — sonst entstuende auf jedem Geraet ein anderer
+ * Schluessel und niemand koennte den anderen lesen. Und es wird sofort
+ * probeweise entschluesselt, damit eine vertippte Passphrase beim Einrichten
+ * auffaellt und nicht erst beim ersten Abgleich.
+ *
+ * @returns {Promise<{key: CryptoKey, salt: Uint8Array, iterations: number,
+ *                    version: number, remoteState: object|null}>}
+ */
+export async function establishKey(config, passphrase, fetchImpl) {
+  const f = fetchImpl || ((...a) => globalThis.fetch(...a));
+  const url = `${String(config.url).replace(/\/+$/, '')}/state`;
+  const res = await f(url, { headers: { Authorization: `Bearer ${config.token}` } });
+  if (res.status === 401) throw new Error('Das Token wird abgelehnt.');
+  if (!res.ok) throw new Error(`Server antwortet ${res.status}.`);
+  const body = await res.json();
+
+  if (!body.blob) {
+    const salt = newSalt();
+    const key = await deriveKey(passphrase, salt);
+    return { key, salt, iterations: KDF_ITERATIONS, version: 0, remoteState: null };
+  }
+
+  const salt = saltOf(body.blob);
+  const iterations = iterationsOf(body.blob);
+  const key = await deriveKey(passphrase, salt, iterations);
+  let remoteState;
+  try {
+    remoteState = await decryptState(key, body.blob);
+  } catch {
+    throw new Error('Die Passphrase passt nicht zu den Daten auf dem Server.');
+  }
+  return { key, salt, iterations, version: body.version, remoteState };
 }
 
 /* ------------------------------------------------------------------ */
@@ -326,6 +371,12 @@ export class SyncClient {
     saveConfig(config);
     if (!config) { this.meta = { version: 0, updatedAt: null }; saveMeta(this.meta); this._emit('aus'); return; }
     this.start();
+  }
+
+  /** Den Stand setzen, auf dem dieses Geraet aufsetzt (beim Einrichten). */
+  setVersion(version, updatedAt = null) {
+    this.meta = { version: Number(version) || 0, updatedAt };
+    saveMeta(this.meta);
   }
 
   /** Version zuruecksetzen, damit der naechste Abgleich alles neu holt. */

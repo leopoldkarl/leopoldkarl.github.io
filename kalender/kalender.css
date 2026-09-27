@@ -859,3 +859,17 @@ kbd {
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* Abgleich: die Anzeige in der Kopfzeile. Nur die Farbe traegt die Bedeutung
+   nicht allein — Zeichen und Titel sagen dasselbe, fuer Farbenblinde und fuer
+   Tastatur-/Screenreader-Bedienung. */
+.sync-badge { font-size: 0.95rem; line-height: 1; }
+.sync-badge[data-state="ok"]       { color: #16a34a; }
+.sync-badge[data-state="offline"]  { color: var(--muted); }
+.sync-badge[data-state="gesperrt"] { color: var(--muted); font-size: 0.8rem; }
+.sync-badge[data-state="konflikt"],
+.sync-badge[data-state="fehler"]   { color: #dc2626; }
+.sync-badge[data-state="aus"]      { color: var(--muted); opacity: 0.7; }
+
+#sync-msg:empty { display: none; }
+#sync-msg.good { color: #16a34a; }

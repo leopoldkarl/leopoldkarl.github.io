@@ -22,6 +22,10 @@ import {
   renderWeekPlan, renderDayPlan, attachPlanInteractions, eventItemsByDate,
 } from './plan.js';
 import { initTooltips, hideTip } from './tooltip.js';
+import {
+  SyncClient, establishKey, loadConfig, saveConfig, conflictCopies,
+} from './sync.js';
+import { loadKey, saveKey, clearKey } from './keystore.js';
 
 const adapter = new LocalStorageAdapter('kalender.v1');
 const store = new Store(adapter);
@@ -141,7 +145,11 @@ async function resyncFromStorage() {
   if (raw) onExternalChange(raw);
 }
 
-function applyExternal(raw) {
+/**
+ * @param {object} raw  der fremde Zustand
+ * @param {{quelle?: 'fenster'|'server'}} [opt]
+ */
+function applyExternal(raw, { quelle = 'fenster' } = {}) {
   store.adoptExternal(raw);
   // Eine offene, noch nicht geschriebene Tagebuch-Eingabe auf den neuen
   // Zustand nachziehen, bevor render() die Felder neu aufbaut — sonst
@@ -151,8 +159,152 @@ function applyExternal(raw) {
   // nirgends mehr gibt. Ein Strg+Z darauf wuerde die Aenderung des anderen
   // Fensters ueberschreiben — also verwerfen.
   undoStack.length = 0;
+  // Ein vom Server geholter Stand muss lokal festgeschrieben werden: er soll
+  // einen Neustart ueberleben, und das Schreiben meldet ihn zugleich den
+  // anderen Fenstern desselben Browsers.
+  if (quelle === 'server') store.flush();
   render();
-  toast('In einem anderen Fenster geändert — Ansicht aktualisiert.');
+  toast(quelle === 'server'
+    ? 'Vom Server übernommen.'
+    : 'In einem anderen Fenster geändert — Ansicht aktualisiert.');
+}
+
+/* ------------------------------------------------------------------ */
+/* Abgleich mit dem Server                                             */
+/* ------------------------------------------------------------------ */
+
+let sync = null;
+let keyCache = null;
+
+const SYNC_BADGE = {
+  aus:      { zeichen: '○', text: 'Abgleich: aus' },
+  gesperrt: { zeichen: '🔒', text: 'Abgleich: Passphrase fehlt auf diesem Gerät' },
+  ok:       { zeichen: '●', text: 'Abgleich: aktuell' },
+  offline:  { zeichen: '◌', text: 'Abgleich: kein Netz — lokal wird weitergearbeitet' },
+  konflikt: { zeichen: '⚠', text: 'Abgleich: Konflikt' },
+  fehler:   { zeichen: '⚠', text: 'Abgleich: Fehler' },
+};
+
+function renderSyncBadge({ state, detail, updatedAt } = { state: 'aus' }) {
+  const b = $('#btn-sync-badge');
+  if (!b) return;
+  const info = SYNC_BADGE[state] || SYNC_BADGE.aus;
+  b.textContent = info.zeichen;
+  b.dataset.state = state;
+  const stand = updatedAt ? ` · Stand ${new Date(updatedAt).toLocaleString('de-AT')}` : '';
+  b.title = `${info.text}${detail ? ` — ${detail}` : ''}${stand}`;
+  b.setAttribute('aria-label', b.title);
+
+  const hint = $('#sync-hint');
+  if (hint) {
+    hint.textContent = state === 'aus'
+      ? 'Ohne Abgleich liegen die Daten nur in diesem Browser auf diesem Gerät.'
+      : b.title;
+  }
+}
+
+/** Der Schluessel dieses Geraets; einmal aus IndexedDB geholt und gemerkt. */
+async function currentKey() {
+  if (keyCache) return keyCache;
+  keyCache = await loadKey();
+  return keyCache;
+}
+
+function buildSync() {
+  sync = new SyncClient({
+    store,
+    getKey: currentKey,
+    onRemoteState: (state) => applyExternal(state, { quelle: 'server' }),
+    onStatus: renderSyncBadge,
+  });
+  return sync;
+}
+
+async function startSync() {
+  buildSync();
+  if (!sync.enabled) { renderSyncBadge({ state: 'aus' }); return; }
+  const key = await currentKey();
+  if (!key) { renderSyncBadge({ state: 'gesperrt' }); return; }
+  sync.start();
+}
+
+/* ---- Dialog ---- */
+
+function syncMsg(text, ok = false) {
+  const el = $('#sync-msg');
+  el.textContent = text || '';
+  el.classList.toggle('good', !!ok);
+}
+
+async function openSyncDialog() {
+  const cfg = loadConfig();
+  $('#sync-url').value = cfg ? cfg.url : '';
+  $('#sync-token').value = cfg ? cfg.token : '';
+  $('#sync-pass').value = '';
+  $('#sync-pass2').value = '';
+  syncMsg(cfg ? 'Eingerichtet. Passphrase nur nötig, wenn du sie ändern oder dieses Gerät entsperren willst.' : '');
+  $('#sync-off').hidden = !cfg;
+
+  const liste = conflictCopies();
+  $('#sync-conflicts').textContent = liste.length
+    ? `${liste.length} Sicherung(en): ${liste.map((k) => k.replace('kalender.conflict.', '')).join(', ')} — im Menü über „Import“ einspielbar, wenn du sie brauchst.`
+    : 'keine';
+
+  $('#sync-dialog').showModal();
+}
+
+async function saveSyncDialog() {
+  const url = $('#sync-url').value.trim();
+  const token = $('#sync-token').value.trim();
+  const pass = $('#sync-pass').value;
+  const pass2 = $('#sync-pass2').value;
+  const vorhanden = await currentKey();
+
+  if (!/^https:\/\/\S+$/.test(url)) { syncMsg('Die Adresse muss mit https:// beginnen.'); return; }
+  if (!token) { syncMsg('Ohne Token geht nichts.'); return; }
+  if (!pass && !vorhanden) { syncMsg('Passphrase fehlt.'); return; }
+  if (pass && pass !== pass2) { syncMsg('Die beiden Passphrasen sind nicht gleich.'); return; }
+  if (pass && pass.length < 12) { syncMsg('Bitte mindestens zwölf Zeichen — besser vier zufällige Wörter.'); return; }
+
+  const config = { url, token };
+  syncMsg('Verbinde…');
+  try {
+    if (pass) {
+      const r = await establishKey(config, pass);
+      await saveKey(r.key, r.salt, r.iterations);
+      keyCache = { key: r.key, salt: r.salt, iterations: r.iterations };
+      saveConfig(config);
+      if (!sync) buildSync();
+      sync.reconfigure(config);
+      sync.setVersion(r.version, null);
+      if (r.remoteState) {
+        applyExternal(r.remoteState, { quelle: 'server' });
+        syncMsg(`Verbunden. Stand vom Server übernommen (Version ${r.version}).`, true);
+      } else {
+        await sync.push({ force: true });
+        syncMsg('Verbunden. Der Server war leer und hat jetzt deinen Stand.', true);
+      }
+    } else {
+      saveConfig(config);
+      if (!sync) buildSync();
+      sync.reconfigure(config);
+      syncMsg('Adresse und Token übernommen.', true);
+    }
+    $('#sync-dialog').close();
+    toast('Abgleich eingerichtet.');
+  } catch (err) {
+    syncMsg(String(err && err.message ? err.message : err));
+  }
+}
+
+async function turnSyncOff() {
+  if (sync) sync.reconfigure(null);
+  saveConfig(null);
+  try { await clearKey(); } catch { /* egal */ }
+  keyCache = null;
+  renderSyncBadge({ state: 'aus' });
+  $('#sync-dialog').close();
+  toast('Abgleich ausgeschaltet. Die Daten bleiben lokal erhalten.');
 }
 
 function download(filename, text, mime = 'text/plain;charset=utf-8') {
@@ -1649,6 +1801,16 @@ function bind() {
   });
   attachFieldNormalizers();
 
+  $('#btn-sync').addEventListener('click', () => { openSyncDialog(); });
+  $('#btn-sync-badge').addEventListener('click', () => {
+    // Klick auf die Anzeige: sofort nachsehen, wenn eingerichtet, sonst einrichten.
+    if (sync && sync.enabled) { sync.pull(); toast('Sehe beim Server nach…'); }
+    else { $('#menu-dialog').close(); openSyncDialog(); }
+  });
+  $('#sync-save').addEventListener('click', () => { saveSyncDialog(); });
+  $('#sync-off').addEventListener('click', () => { turnSyncOff(); });
+  $('#sync-cancel').addEventListener('click', () => { $('#sync-dialog').close(); });
+
   $('#btn-categories').addEventListener('click', () => {
     renderCategoryEditor();
     $('#category-dialog').showModal();
@@ -1775,11 +1937,16 @@ function bind() {
   });
 
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') resyncFromStorage();
+    if (document.visibilityState !== 'visible') return;
+    resyncFromStorage();
+    if (sync && sync.enabled) sync.pull();
   });
   // Fensterwechsel am Desktop laesst die Sichtbarkeit unberuehrt (beide
   // Fenster gelten als sichtbar), deshalb zusaetzlich der Fokus.
-  window.addEventListener('focus', () => { resyncFromStorage(); });
+  window.addEventListener('focus', () => {
+    resyncFromStorage();
+    if (sync && sync.enabled) sync.pull();
+  });
   // Rueckkehr aus dem Vor-/Zurueck-Cache: die Seite lief nicht, das Ereignis
   // kam nie an.
   window.addEventListener('pageshow', (e) => { if (e.persisted) resyncFromStorage(); });
@@ -1791,7 +1958,12 @@ function bind() {
     applyExternal(raw);
   });
 
-  window.addEventListener('beforeunload', () => { flushJournalPending(); store.flush(); });
+  window.addEventListener('beforeunload', () => {
+    flushJournalPending();
+    store.flush();
+    // Der Push ist entprellt; beim Schliessen bleibt dafuer keine Zeit mehr.
+    // Der lokale Stand steht, der Abgleich holt ihn beim naechsten Start nach.
+  });
   window.addEventListener('resize', () => {
     if (ui.view === 'month') for (const c of document.querySelectorAll('.mv-cell')) collapseOverflow(c);
   });
@@ -1806,6 +1978,7 @@ async function main() {
   await store.init();
   adapter.watch(onExternalChange);
   // Voller Titel beim Verweilen — nur dort, wo der Text abgeschnitten wird.
+  startSync();
   initTooltips([
     { match: '.block', label: '.bt' },       // Termin in Wochen-/Tagesansicht
     { match: '.chip', label: '.s' },         // Termin in Monatsansicht, Ganztags-Leiste

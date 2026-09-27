@@ -35,12 +35,14 @@ Dashboard).
 Die Daten liegen ausschließlich im `localStorage` des jeweiligen Browsers.
 Daraus folgt dreierlei, und zwar unabhängig voneinander:
 
-1. **Kein Sync über Geräte und Browser.** Laptop und Handy sehen
-   verschiedene Kalender, Aufgaben und Tagebücher; ebenso zwei verschiedene
-   Browser auf demselben Rechner und zwei verschiedene Herkünfte
+1. **Sync über Geräte: eingerichtet oder nicht.** Ohne eingerichteten
+   Abgleich sehen Laptop und Handy verschiedene Kalender; ebenso zwei
+   verschiedene Browser auf demselben Rechner und zwei verschiedene Herkünfte
    (`leopoldkarl.com` und `leopoldkarl.github.io` sind für den Browser
-   getrennte Speicher). Mehrere **Fenster desselben Browsers auf derselben
-   Herkunft** ziehen dagegen nach: siehe „Mehrere Fenster".
+   getrennte Speicher). Mit Abgleich (siehe „Abgleich über den Worker")
+   gleichen sich alle Geräte über einen Cloudflare Worker ab. Mehrere
+   **Fenster desselben Browsers** ziehen unabhängig davon nach: siehe
+   „Mehrere Fenster".
 2. **Kein Zugriffsschutz nötig — noch nicht.** Die ausgelieferten Dateien
    enthalten keine Daten, sondern nur das Programm. Wer die URL kennt,
    sieht eine leere App. Ein Passwort schützt derzeit also nichts, was
@@ -67,6 +69,10 @@ Voraussetzung, nicht zur Option.
     js/journal.js     Tagebuchseite: Feldtypen, Summen, Layout
     js/plan.js        Tages- und Wochenplanung, Vorlagen
     js/tooltip.js     voller Titel beim Verweilen mit dem Zeiger
+    js/crypto.js      AES-GCM + PBKDF2, Verschlüsselung im Browser
+    js/keystore.js    abgeleiteter Schlüssel in IndexedDB
+    js/sync.js        Abgleich mit dem Worker, Konfliktregel
+    worker/           Cloudflare Worker + D1 (Datenschnittstelle)
     js/app.js         Controller: Seitenwechsel, Navigation, Dialoge
 
 Keine Abhängigkeiten, keine Build-Kette. ES-Module, direkt aus dem Repo
@@ -118,6 +124,48 @@ verdeckten Fenstern desselben Browsers, bleibt die Sichtbarkeit unverändert.
 
 Für verschiedene Browser oder Geräte hilft das alles nicht; dafür braucht es
 einen Server-Adapter.
+
+## Abgleich über den Worker
+
+Aufbau: die Seite bleibt bei GitHub Pages, die Daten liegen bei einem
+Cloudflare Worker mit D1 dahinter (`worker/`). Der Worker verwahrt **einen**
+undurchsichtigen Block und kennt keine Kalenderlogik — verschlüsselt wird im
+Browser (`js/crypto.js`: AES-256-GCM, Schlüssel per PBKDF2-HMAC-SHA-256 mit
+600 000 Iterationen aus einer Passphrase, Salz im Block). Wer den Speicher
+liest — Cloudflare, jemand mit dem API-Token — sieht Chiffrat.
+
+Schnittstelle: `GET /version` (billiger Blick), `GET /state`, `PUT /state`,
+`GET /health`. Anmeldung mit `Authorization: Bearer <Token>`, zeitkonstant
+verglichen; das Token liegt als Cloudflare-Secret, nicht im Repo.
+
+Konfliktregel: der Server zählt eine Version, der Schreibende nennt seine
+Basis. Weicht sie ab, antwortet der Server mit `409` und dem aktuellen Block,
+statt zu überschreiben. Zusammenführen kann niemand — der Server sieht nur
+Chiffrat, und zwei Gesamtzustände lassen sich ohnehin nicht sinnvoll mischen.
+Also gewinnt der fremde Stand, und der eigene wird vorher als Sicherung im
+`localStorage` abgelegt (`kalender.conflict.<Zeitstempel>`, höchstens drei);
+sie lässt sich über „Import" wieder einspielen.
+
+Schlüsselablage: das abgeleitete `CryptoKey` liegt **nicht exportierbar** in
+IndexedDB (`js/keystore.js`). Passphrase einmal je Gerät, kein Rohschlüssel im
+Speicherabzug. Wer den entsperrten Browser bedient, kommt an die Daten —
+dagegen schützt diese Schicht nicht und soll es nicht.
+
+Beim Einrichten wird das Salz **aus dem vorhandenen Block** genommen, sonst
+entstünde auf jedem Gerät ein anderer Schlüssel; und es wird sofort probeweise
+entschlüsselt, damit eine vertippte Passphrase dort auffällt und nicht erst
+beim ersten Abgleich.
+
+Grenzen, die man kennen sollte:
+
+- **Passphrase vergessen heißt Daten weg.** Es gibt keine Hintertür.
+- **Kein Schutz gegen Zurücksetzen:** der Server könnte eine ältere, gültig
+  verschlüsselte Fassung ausliefern. AES-GCM erkennt Verfälschung, nicht Alter.
+- **Beim Schließen des Fensters** wird der lokale Stand geschrieben, der
+  entprellte Upload aber nicht mehr — er wird beim nächsten Start nachgeholt.
+- **Freigrenzen** (Stand September 2026): Worker 100 000 Anfragen/Tag, D1
+  100 000 geschriebene Zeilen/Tag, 5 GB; eine D1-Zeile darf 2 MB groß sein,
+  der Worker lehnt Blöcke über 1,5 MB mit `413` ab.
 
 ## Die Naht für später
 
@@ -323,15 +371,19 @@ Zwei Entwurfsentscheidungen:
 
 ## Tests
 
-Nicht Teil des Repos. Geprüft wurden 116 Einheitentests (Wiederholungsregeln,
+Nicht Teil des Repos. Geprüft wurden 166 Einheitentests (Wiederholungsregeln,
 ics-Roundtrip inklusive Zeilenfaltung und Maskierung, RECURRENCE-ID-Auflösung,
 CSV-/vCard-Parser, Tastatureingabe von Datum und Uhrzeit, Schaltjahr-Rückfall,
 ISO-Wochenschlüssel, Vorlagen-Versionierung, Kopier-Isolation, Kontrastwahl)
-und 112 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
+und 121 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
 Geburtstags-Import, Kategorien-Editor, Tab-Reihenfolge, Scrollbalken,
 Seitenwechsel, Aufgaben-Reihenfolge und -Höhe, Tagebuch-Summen und
 -Speicherung, Vorlagen-Versionierung und Kopier-Isolation, Seitenleisten-Schalter und
-Spaltenbreiten, schmale Fenster, Zwei-Fenster-Abgleich, Titel-Einblendung).
+Spaltenbreiten, schmale Fenster, Zwei-Fenster-Abgleich, Titel-Einblendung,
+Einrichtung und Abgleich über zwei Browser-Kontexte).
+Der „Server" ist in allen Abgleich-Tests der echte Worker-Code mit einer
+D1-Attrappe, geprüft wird also die Kette Verschlüsseln → Schnittstelle →
+Entschlüsseln und nicht eine nachgebaute Vorstellung davon.
 Der Zwei-Fenster-Fall läuft mit zwei echten Seiten in einem Browser-Kontext.
 Die Gegenprobe ist Teil des Befunds: schaltet man `adapter.watch` ab, fällt
 der Termin des einen Fensters aus dem Speicher, sobald das andere schreibt —

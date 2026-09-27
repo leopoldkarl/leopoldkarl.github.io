@@ -53,6 +53,8 @@
       <button id="btn-new" class="primary">+ Termin</button>
       <button id="btn-sidebar" class="icon" aria-pressed="true"
               aria-label="Seitenleiste ausblenden" title="Seitenleiste ein- und ausblenden (S)">▦</button>
+      <button id="btn-sync-badge" class="icon sync-badge" data-state="aus"
+              aria-label="Abgleich" title="Abgleich: aus">○</button>
       <button id="btn-menu" class="icon" aria-label="Menü" title="Import, Export, Darstellung">⋯</button>
     </div>
   </header>
@@ -261,6 +263,14 @@
       </div>
 
       <div class="field">
+        <label>Abgleich zwischen Geräten</label>
+        <button type="button" id="btn-sync">Abgleich einrichten…</button>
+        <p class="hint" id="sync-hint">
+          Ohne Abgleich liegen die Daten nur in diesem Browser auf diesem Gerät.
+        </p>
+      </div>
+
+      <div class="field">
         <label>Kategorien</label>
         <button type="button" id="btn-categories">Kategorien bearbeiten…</button>
       </div>
@@ -283,6 +293,55 @@
     </div>
     <div class="dlg-foot">
       <button type="button" id="btn-menu-close" class="primary">Schließen</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ------------------------------------------------------------------ -->
+<dialog id="sync-dialog" aria-labelledby="sync-title">
+  <form method="dialog">
+    <div class="dlg-head">
+      <h2 id="sync-title">Abgleich zwischen Geräten</h2>
+      <p class="hint" style="margin:0.3rem 0 0">
+        Der Server speichert nur einen verschlüsselten Block. Verschlüsselt wird hier im
+        Browser; die Passphrase verlässt das Gerät nicht und ist nirgends hinterlegt.
+        <strong>Vergessen heißt weg.</strong>
+      </p>
+    </div>
+    <div class="dlg-body">
+      <div class="field">
+        <label for="sync-url">Adresse des Workers</label>
+        <input id="sync-url" type="url" inputmode="url" autocomplete="off" spellcheck="false"
+               placeholder="https://kalender.dein-name.workers.dev" />
+      </div>
+      <div class="field">
+        <label for="sync-token">Token</label>
+        <input id="sync-token" type="password" autocomplete="off" spellcheck="false"
+               placeholder="aus wrangler secret put API_TOKEN" />
+      </div>
+      <div class="field">
+        <label for="sync-pass">Passphrase</label>
+        <input id="sync-pass" type="password" autocomplete="off" spellcheck="false" />
+        <p class="hint">
+          Auf jedem Gerät dieselbe. Vier bis fünf zufällige Wörter sind besser als ein
+          verfremdetes Wort: die Länge zählt, nicht die Sonderzeichen.
+        </p>
+      </div>
+      <div class="field" id="sync-pass2-row">
+        <label for="sync-pass2">Passphrase wiederholen</label>
+        <input id="sync-pass2" type="password" autocomplete="off" spellcheck="false" />
+      </div>
+      <p id="sync-msg" class="bd-note" role="status"></p>
+      <div class="field">
+        <label>Sicherungen aus Konflikten</label>
+        <div id="sync-conflicts" class="hint">keine</div>
+      </div>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" id="sync-off">Abgleich ausschalten</button>
+      <span style="flex:1"></span>
+      <button type="button" id="sync-cancel">Abbrechen</button>
+      <button type="button" id="sync-save" class="primary">Verbinden</button>
     </div>
   </form>
 </dialog>
