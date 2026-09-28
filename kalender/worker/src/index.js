@@ -14,12 +14,22 @@
 //                -> 409 { version, updatedAt, blob }  (inzwischen hat ein anderes Geraet geschrieben)
 //   GET  /health -> 200 { ok: true }
 //
+// Namensraeume: dieselben Endpunkte gibt es zusaetzlich unter /s/<name>/…
+// (z. B. /s/projekte/state) — je Namensraum eine eigene Zeile, eigene Version,
+// eigenes Chiffrat. Die Pfade ohne Praefix bleiben der Kalender (Zeile
+// 'default'). Bewusst ein Pfad und kein Query-Parameter: ein aelterer Worker
+// ohne diese Stelle antwortet auf /s/… mit 404, statt einen fremden Block
+// auszuliefern oder zu ueberschreiben.
+//
 // Die Versionsnummer ist die ganze Konfliktbehandlung: wer schreibt, sagt,
 // auf welchem Stand er aufsetzt. Stimmt der nicht mehr, bekommt er den
 // aktuellen zurueck statt ihn zu ueberschreiben. Zusammenfuehren kann der
 // Server nicht — er sieht ja nur Chiffrat —, das entscheidet der Client.
 
 const ROW_ID = 'default';
+// Erlaubte Namensraeume. Eine feste Liste statt eines Musters: mit einem
+// abgegriffenen Token soll niemand beliebig viele Zeilen anlegen koennen.
+const SPACES = new Set(['projekte']);
 const MAX_BLOB_BYTES = 1_500_000;   // D1: 2 MB je Zeile, mit Sicherheitsabstand
 
 const ALLOWED_ORIGINS = [
@@ -68,10 +78,20 @@ function authorized(request, env) {
   return !!m && safeEqual(m[1], expected);
 }
 
-async function readRow(env) {
+/** Pfad -> { rowId, endpoint } oder null. */
+function route(pathname) {
+  if (pathname === '/state' || pathname === '/version') {
+    return { rowId: ROW_ID, endpoint: pathname };
+  }
+  const m = /^\/s\/([a-z][a-z0-9-]{0,31})(\/state|\/version)$/.exec(pathname);
+  if (m && SPACES.has(m[1])) return { rowId: m[1], endpoint: m[2] };
+  return null;
+}
+
+async function readRow(env, rowId) {
   const row = await env.DB.prepare(
     'SELECT version, updated_at AS updatedAt, blob FROM state WHERE id = ?',
-  ).bind(ROW_ID).first();
+  ).bind(rowId).first();
   return row || null;
 }
 
@@ -83,16 +103,15 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders(request) });
     }
     if (url.pathname === '/health') return json(request, 200, { ok: true });
-    if (url.pathname !== '/state' && url.pathname !== '/version') {
-      return json(request, 404, { error: 'Unbekannter Pfad.' });
-    }
+    const r = route(url.pathname);
+    if (!r) return json(request, 404, { error: 'Unbekannter Pfad.' });
     if (!authorized(request, env)) return json(request, 401, { error: 'Nicht angemeldet.' });
 
     // Nachsehen, ob sich etwas geaendert hat, ohne den ganzen Block zu holen:
     // spart auf dem Handy Datenvolumen und spart das Entschluesseln.
-    if (url.pathname === '/version') {
+    if (r.endpoint === '/version') {
       if (request.method !== 'GET') return json(request, 405, { error: 'Methode nicht erlaubt.' });
-      const row = await readRow(env);
+      const row = await readRow(env, r.rowId);
       return json(request, 200, {
         version: row ? row.version : 0,
         updatedAt: row ? row.updatedAt : null,
@@ -100,7 +119,7 @@ export default {
     }
 
     if (request.method === 'GET') {
-      const row = await readRow(env);
+      const row = await readRow(env, r.rowId);
       if (!row) return json(request, 200, { version: 0, updatedAt: null, blob: null });
       return json(request, 200, {
         version: row.version,
@@ -124,7 +143,7 @@ export default {
         return json(request, 413, { error: `Block zu groß (${text.length} Zeichen, Grenze ${MAX_BLOB_BYTES}).` });
       }
 
-      const row = await readRow(env);
+      const row = await readRow(env, r.rowId);
       const current = row ? row.version : 0;
       if (current !== base) {
         return json(request, 409, {
@@ -143,11 +162,11 @@ export default {
         `INSERT INTO state (id, version, updated_at, blob) VALUES (?1, ?2, ?3, ?4)
          ON CONFLICT(id) DO UPDATE SET version = ?2, updated_at = ?3, blob = ?4
          WHERE state.version = ?5`,
-      ).bind(ROW_ID, version, updatedAt, text, base).run();
+      ).bind(r.rowId, version, updatedAt, text, base).run();
 
       const changed = res?.meta?.changes ?? res?.changes ?? 1;
       if (!changed) {
-        const now = await readRow(env);
+        const now = await readRow(env, r.rowId);
         return json(request, 409, {
           version: now ? now.version : 0,
           updatedAt: now ? now.updatedAt : null,

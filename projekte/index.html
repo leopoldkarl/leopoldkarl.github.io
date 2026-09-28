@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Projekte</title>
+
+  <!-- Nur über /privat verlinkt. noindex, kein Analytics-Skript: sonst stünde
+       der Pfad in einem fremden Dashboard. Die Datei enthält nur das Programm;
+       die Projekte liegen im Browser bzw. verschlüsselt beim Worker. -->
+  <meta name="robots" content="noindex,nofollow,noarchive,nosnippet" />
+  <meta name="referrer" content="no-referrer" />
+  <meta name="color-scheme" content="light dark" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./projekte.css" />
+</head>
+<body>
+
+<div id="storage-warning" class="banner" hidden>
+  Der Browser erlaubt keinen lokalen Speicher. Änderungen gehen beim Schließen des Tabs verloren — bitte exportieren.
+</div>
+
+<header class="topbar">
+  <a class="brand" href="#/" id="brand">Projekte</a>
+  <nav class="segmented" aria-label="Ansicht">
+    <a href="#/" data-view="uebersicht">Übersicht</a>
+    <a href="#/zeitleiste" data-view="zeitleiste">Zeitleiste</a>
+  </nav>
+  <span class="grow"></span>
+  <button id="btn-new" class="primary" title="Neues Projekt (N)">+ Projekt</button>
+  <button id="btn-sync-badge" class="icon sync-badge" data-state="aus" aria-label="Abgleich" title="Abgleich: aus">○</button>
+  <div class="menu-wrap">
+    <button id="btn-menu" class="icon" aria-haspopup="true" aria-expanded="false" aria-label="Menü">⋯</button>
+    <div id="menu" class="menu" role="menu" hidden>
+      <button role="menuitem" data-act="sync">Abgleich zwischen Geräten…</button>
+      <button role="menuitem" data-act="export">Export (.json)</button>
+      <button role="menuitem" data-act="import">Import (.json)…</button>
+      <hr />
+      <button role="menuitem" data-act="theme">Design: <span id="theme-label">automatisch</span></button>
+      <hr />
+      <a role="menuitem" href="/privat/">← Privat</a>
+    </div>
+  </div>
+  <input type="file" id="import-file" accept="application/json,.json" hidden />
+</header>
+
+<main id="main" tabindex="-1"></main>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<!-- ------------------------------------------------------------------ -->
+<dialog id="project-dialog" aria-labelledby="pd-title">
+  <form method="dialog" id="project-form">
+    <div class="dlg-head"><h2 id="pd-title">Projekt</h2></div>
+    <div class="dlg-body">
+      <div class="field">
+        <label for="pd-name">Titel</label>
+        <input id="pd-name" type="text" autocomplete="off" required maxlength="200" />
+      </div>
+      <div class="field">
+        <label for="pd-desc">Kurzbeschreibung</label>
+        <input id="pd-desc" type="text" autocomplete="off" maxlength="1000" />
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label for="pd-start">Beginn</label>
+          <input id="pd-start" type="text" inputmode="numeric" autocomplete="off" placeholder="TT.MM.JJJJ" />
+        </div>
+        <div class="field">
+          <label for="pd-due">Ziel</label>
+          <input id="pd-due" type="text" inputmode="numeric" autocomplete="off" placeholder="TT.MM.JJJJ" />
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label for="pd-status">Status</label>
+          <select id="pd-status"></select>
+        </div>
+        <div class="field">
+          <label>Farbe</label>
+          <div id="pd-colors" class="swatches" role="radiogroup" aria-label="Farbe"></div>
+        </div>
+      </div>
+      <p class="hint">Datum: <code>27.9.26</code>, <code>2709</code>, <code>h</code> (heute), <code>+30</code> (in 30 Tagen). Ohne Beginn und Ziel gibt es keine Soll-Kurve.</p>
+      <p id="pd-msg" class="err" role="alert"></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" id="pd-delete" class="danger">Löschen</button>
+      <span class="grow"></span>
+      <button type="button" id="pd-cancel">Abbrechen</button>
+      <button type="submit" id="pd-save" class="primary">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ------------------------------------------------------------------ -->
+<dialog id="milestone-dialog" aria-labelledby="md-title">
+  <form method="dialog" id="milestone-form">
+    <div class="dlg-head"><h2 id="md-title">Meilenstein</h2></div>
+    <div class="dlg-body">
+      <div class="field">
+        <label for="md-name">Titel</label>
+        <input id="md-name" type="text" autocomplete="off" required maxlength="300" />
+      </div>
+      <div class="field">
+        <label for="md-due">Fällig</label>
+        <input id="md-due" type="text" inputmode="numeric" autocomplete="off" placeholder="leer = Projektziel" />
+      </div>
+      <p class="hint">Ein Meilenstein ohne Aufgaben zählt als eine Einheit und wird direkt abgehakt.</p>
+      <p id="md-msg" class="err" role="alert"></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" id="md-delete" class="danger">Löschen</button>
+      <span class="grow"></span>
+      <button type="button" id="md-cancel">Abbrechen</button>
+      <button type="submit" id="md-save" class="primary">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ------------------------------------------------------------------ -->
+<dialog id="sync-dialog" aria-labelledby="sync-title">
+  <form method="dialog">
+    <div class="dlg-head">
+      <h2 id="sync-title">Abgleich zwischen Geräten</h2>
+      <p class="hint">
+        Derselbe Worker wie der Kalender, aber ein eigener verschlüsselter Block.
+        Verschlüsselt wird hier im Browser; die Passphrase verlässt das Gerät nicht.
+        <strong>Vergessen heißt weg.</strong>
+      </p>
+    </div>
+    <div class="dlg-body">
+      <div class="field">
+        <label for="sync-url">Adresse des Workers</label>
+        <input id="sync-url" type="url" inputmode="url" autocomplete="off" spellcheck="false"
+               placeholder="https://kalender.dein-name.workers.dev" />
+      </div>
+      <div class="field">
+        <label for="sync-token">Token</label>
+        <input id="sync-token" type="password" autocomplete="off" spellcheck="false" />
+        <p class="hint" id="sync-from-kalender" hidden>Adresse und Token aus dem Kalender übernommen.</p>
+      </div>
+      <div class="field">
+        <label for="sync-pass">Passphrase</label>
+        <input id="sync-pass" type="password" autocomplete="off" spellcheck="false" />
+        <p class="hint">Auf jedem Gerät dieselbe. Darf dieselbe wie im Kalender sein — der Schlüssel ist trotzdem ein anderer, weil jeder Block sein eigenes Salz hat.</p>
+      </div>
+      <div class="field">
+        <label for="sync-pass2">Passphrase wiederholen</label>
+        <input id="sync-pass2" type="password" autocomplete="off" spellcheck="false" />
+      </div>
+      <p id="sync-msg" class="note" role="status"></p>
+      <div class="field">
+        <label>Sicherungen aus Konflikten</label>
+        <div id="sync-conflicts" class="hint">keine</div>
+      </div>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" id="sync-off">Abgleich ausschalten</button>
+      <span class="grow"></span>
+      <button type="button" id="sync-cancel">Abbrechen</button>
+      <button type="button" id="sync-save" class="primary">Verbinden</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module" src="./js/app.js"></script>
+</body>
+</html>

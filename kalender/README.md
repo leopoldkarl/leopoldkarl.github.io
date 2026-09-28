@@ -135,7 +135,11 @@ Browser (`js/crypto.js`: AES-256-GCM, Schlüssel per PBKDF2-HMAC-SHA-256 mit
 liest — Cloudflare, jemand mit dem API-Token — sieht Chiffrat.
 
 Schnittstelle: `GET /version` (billiger Blick), `GET /state`, `PUT /state`,
-`GET /health`. Anmeldung mit `Authorization: Bearer <Token>`, zeitkonstant
+`GET /health`.
+Dieselben Endpunkte gibt es zusätzlich unter `/s/<name>/…` für weitere
+Seiten mit eigenem Block (derzeit nur `projekte`, feste Liste `SPACES`);
+jeder Namensraum ist eine eigene D1-Zeile mit eigener Version. Ein älterer
+Worker ohne diese Stelle antwortet dort mit 404. Anmeldung mit `Authorization: Bearer <Token>`, zeitkonstant
 verglichen; das Token liegt als Cloudflare-Secret, nicht im Repo.
 
 Konfliktregel: der Server zählt eine Version, der Schreibende nennt seine
