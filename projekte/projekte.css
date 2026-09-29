@@ -201,6 +201,26 @@ main { max-width: var(--container); margin: 0 auto; padding: 1.25rem 1rem 4rem; 
 .empty-small { padding: 1rem 0; }
 
 /* ---------------------------------------------------------------- */
+/* Tags                                                              */
+/* ---------------------------------------------------------------- */
+
+.tags { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.proj .tags { padding: 0 1rem 0.85rem; margin-top: -0.3rem; }
+.detail > .tags { margin-top: 0.45rem; }
+.tag {
+  font-size: 0.78rem; font-weight: 500; padding: 0.05rem 0.5rem; border-radius: 99px;
+  background: var(--surface-2); border: 1px solid var(--line); color: var(--muted); line-height: 1.5;
+}
+.tag:hover { color: var(--text); border-color: var(--line-strong); background: var(--surface-2); }
+.tag.on { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.tag .n { opacity: 0.7; font-variant-numeric: tabular-nums; margin-left: 0.1rem; }
+.tagbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; margin: -0.35rem 0 1.1rem; }
+.tagbar-l { font-size: 0.82rem; margin-right: 0.2rem; }
+.tag-reset { font-size: 0.82rem; font-weight: 500; color: var(--accent-2); margin-left: 0.3rem; }
+.tag-suggest { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; font-size: 0.8rem; margin-top: 0.25rem; }
+.tag-suggest[hidden] { display: none; }
+
+/* ---------------------------------------------------------------- */
 /* Detail                                                            */
 /* ---------------------------------------------------------------- */
 

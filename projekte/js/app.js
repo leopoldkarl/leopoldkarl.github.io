@@ -3,6 +3,7 @@
 import {
   STATUS_LABEL, COLORS, WEIGHTS, newProject, newMilestone, newTask, parseDateInput,
   formatDate, todayIso, normalizeState, milestoneComplete,
+  parseTagInput, allTags, cleanTag,
 } from './model.js';
 import { Store, findProject, findMilestone, findTask, touch } from './store.js';
 import {
@@ -24,10 +25,11 @@ let keyCache = null;
 /* ------------------------------------------------------------------ */
 
 const UI_KEY = 'projekte.ui';
-const ui = { filter: 'laufend', sort: 'status', hideDone: false, theme: 'auto' };
+const ui = { filter: 'laufend', sort: 'status', hideDone: false, theme: 'auto', tags: [] };
 try { Object.assign(ui, JSON.parse(localStorage.getItem(UI_KEY)) || {}); } catch { /* egal */ }
 if (!FILTERS.some((f) => f.id === ui.filter)) ui.filter = 'laufend';
 if (!SORTS.some((f) => f.id === ui.sort)) ui.sort = 'status';
+ui.tags = Array.isArray(ui.tags) ? ui.tags.map(cleanTag).filter(Boolean) : [];
 const saveUi = () => { try { const { chartW, ...keep } = ui; localStorage.setItem(UI_KEY, JSON.stringify(keep)); } catch { /* egal */ } };
 
 function applyTheme() {
@@ -133,6 +135,23 @@ function onMainClick(e) {
 
   switch (act) {
     case 'filter': ui.filter = btn.dataset.id; saveUi(); render(); break;
+    case 'tag': {
+      const t = btn.dataset.tag;
+      const k = t.toLocaleLowerCase('de');
+      if (route().view === 'detail') {
+        // Aus dem Projekt heraus: Übersicht mit genau diesem Tag.
+        ui.tags = [t];
+        saveUi();
+        location.hash = '#/';
+      } else {
+        const on = ui.tags.some((x) => x.toLocaleLowerCase('de') === k);
+        ui.tags = on ? ui.tags.filter((x) => x.toLocaleLowerCase('de') !== k) : [...ui.tags, t];
+        saveUi();
+        render();
+      }
+      break;
+    }
+    case 'tags-reset': ui.tags = []; saveUi(); render(); break;
     case 'new-project': openProjectDialog(null); break;
     case 'edit-project': openProjectDialog(pid); break;
     case 'new-milestone': openMilestoneDialog(pid, null); break;
@@ -269,6 +288,8 @@ function openProjectDialog(pid) {
   $('#pd-title').textContent = p ? 'Projekt bearbeiten' : 'Neues Projekt';
   $('#pd-name').value = p ? p.title : '';
   $('#pd-desc').value = p ? p.description : '';
+  $('#pd-tags').value = p ? p.tags.join(', ') : ui.tags.join(', ');
+  renderTagSuggestions();
   $('#pd-start').value = p ? formatDate(p.start) : formatDate(todayIso());
   $('#pd-due').value = p ? formatDate(p.due) : '';
   $('#pd-status').innerHTML = statusOptions(p ? p.status : 'aktiv');
@@ -280,6 +301,24 @@ function openProjectDialog(pid) {
   deleteArmed = false;
   $('#project-dialog').showModal();
   $('#pd-name').focus();
+}
+
+/** Vorhandene Tags zum Anklicken unter dem Eingabefeld; bereits gesetzte ausgeblendet. */
+function renderTagSuggestions() {
+  const have = new Set(parseTagInput($('#pd-tags').value).map((t) => t.toLocaleLowerCase('de')));
+  const rest = allTags(store.state.projects).filter(({ tag }) => !have.has(tag.toLocaleLowerCase('de')));
+  const box = $('#pd-tag-suggest');
+  box.hidden = !rest.length;
+  box.innerHTML = rest.length
+    ? `<span class="muted">Vorhanden:</span> ${rest.map(({ tag }) => `<button type="button" class="tag" data-tag="${tag.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)}">#${tag.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)}</button>`).join('')}`
+    : '';
+}
+
+function addSuggestedTag(tag) {
+  const cur = parseTagInput($('#pd-tags').value);
+  $('#pd-tags').value = [...cur, tag].join(', ');
+  renderTagSuggestions();
+  $('#pd-tags').focus();
 }
 
 function saveProjectDialog() {
@@ -295,6 +334,7 @@ function saveProjectDialog() {
   const fields = {
     title, description: $('#pd-desc').value.trim(), start: start || null, due: due || null,
     status: $('#pd-status').value, color: pdColor,
+    tags: parseTagInput($('#pd-tags').value),
   };
   if (editingProject) {
     change(editingProject, (p) => Object.assign(p, fields), 'Projekt geändert');
@@ -618,6 +658,20 @@ function init() {
     if (saveProjectDialog()) $('#project-dialog').close();
   });
   $('#pd-cancel').addEventListener('click', () => $('#project-dialog').close());
+  $('#pd-tags').addEventListener('input', renderTagSuggestions);
+  $('#pd-tags').addEventListener('blur', () => {
+    const v = parseTagInput($('#pd-tags').value);
+    $('#pd-tags').value = v.join(', ');
+  });
+  $('#pd-tag-suggest').addEventListener('mousedown', (e) => {
+    // mousedown statt click: sonst normalisiert der blur des Eingabefelds zuerst.
+    const b = e.target.closest('[data-tag]');
+    if (b) { e.preventDefault(); addSuggestedTag(b.dataset.tag); }
+  });
+  $('#pd-tag-suggest').addEventListener('keydown', (e) => {
+    const b = e.target.closest('[data-tag]');
+    if (b && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); addSuggestedTag(b.dataset.tag); }
+  });
   $('#pd-delete').addEventListener('click', deleteProjectFromDialog);
   $('#pd-colors').addEventListener('click', (e) => {
     const b = e.target.closest('[data-color]');

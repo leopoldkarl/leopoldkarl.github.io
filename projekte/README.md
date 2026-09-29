@@ -47,6 +47,22 @@ Erledigt-Datum auf heute; wer nachträglich abhakt, verschiebt also den
 Ist-Verlauf auf heute. Erledigte Einheiten ohne Datum (etwa aus einem
 Import) zählen ab Projektbeginn.
 
+## Tags
+
+Jedes Projekt kann bis zu 20 Tags tragen (je höchstens 40 Zeichen),
+eingegeben im Projektdialog, durch Komma oder Semikolon getrennt; ein
+führendes `#` wird weggelassen. Groß-/Kleinschreibung zählt beim Vergleich
+nicht („Lehre“ = „lehre“), gespeichert wird die zuerst genannte
+Schreibweise. Unter dem Feld stehen die schon vorhandenen Tags zum
+Anklicken.
+
+Über Übersicht und Zeitleiste liegt eine Tag-Leiste mit Häufigkeiten
+(gezählt innerhalb des Statusfilters). Mehrere gewählte Tags werden
+geschnitten: gezeigt wird, was **alle** trägt. Ein Tag im Projektdetail
+führt zur Übersicht, gefiltert auf genau diesen Tag. Die Auswahl ist eine
+Ansichtseinstellung je Gerät (`projekte.ui`), nicht Teil des Datenblocks;
+ein neues Projekt übernimmt die gerade gewählten Tags als Vorschlag.
+
 ## Bedienung
 
 `N` neues Projekt, `Strg+Z` rückgängig (außerhalb von Textfeldern),
@@ -88,15 +104,15 @@ Primärschlüssel.
 
 ## Tests
 
-Nicht Teil des Repos. 11 Modelltests (Datumseingabe, Normalisierung,
+Nicht Teil des Repos. 12 Modelltests (Datumseingabe, Normalisierung, Tags,
 Gewichtung, Soll-Kurve samt Umkehrung, Abstand, Ampel, Ist-Verlauf,
 Prognose, Sortierung), 21 Worker-Prüfungen (Namensraum getrennt vom
 Kalender, 409, unbekannte Namensräume und Pfadvarianten → 404, und der
-alte Worker liefert auf `/s/projekte` 404 statt des Kalenderblocks), 39
+alte Worker liefert auf `/s/projekte` 404 statt des Kalenderblocks), 51
 Browserprüfungen in Chromium (Anlegen, Dialogfehler, Aufgaben mit Fokus,
 Gewichte, Umbenennen, Löschen + Rückgängig, Meilenstein ohne Aufgaben,
 Diagramm, Filter, Zeitleiste, Reload, zweites Fenster, Einrichtung des
 Abgleichs mit Vorbefüllung aus dem Kalender, falsche Passphrase, Abgleich
 über zwei Browser-Kontexte, Konflikt, alter Worker, dunkel bei 375 px ohne
-Querscrollen). „Server“ ist dabei der echte Worker-Code mit einer
+Querscrollen, Tags: Normalisierung, Vorschläge, Filter mit UND, Sprung aus dem Detail, Zeitleiste). „Server“ ist dabei der echte Worker-Code mit einer
 D1-Attrappe.

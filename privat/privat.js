@@ -47,6 +47,8 @@ async function entschluesseln(key, blob) {
 function zeigen(html) {
   $('sperre').hidden = true;
   $('inhalt').innerHTML = html;   // authentifiziert durch GCM-Tag, stammt von build.py
+  const grid = $('inhalt').querySelector('.tile-grid');
+  if (grid) grid.append($('extra-kacheln').content.cloneNode(true));
   $('inhalt').hidden = false;
   $('sperren-wrap').hidden = false;
 }

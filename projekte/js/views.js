@@ -4,6 +4,7 @@
 import {
   STATUS, STATUS_LABEL, COLORS, dayNum, fromDayNum, todayIso, formatDate,
   summarize, milestoneProgress, milestoneComplete, actualSeries, plannedAt, sortProjects,
+  allTags, matchesTags,
 } from './model.js';
 
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({
@@ -42,6 +43,38 @@ function statusChip(status) {
   return `<span class="chip st-${esc(status)}">${esc(STATUS_LABEL[status] || status)}</span>`;
 }
 
+/* ------------------------------------------------------------------ */
+/* Tags                                                                */
+/* ------------------------------------------------------------------ */
+
+/** Tags eines Projekts als Knöpfe; ein Klick filtert die Übersicht danach. */
+function tagChips(p, selected = []) {
+  if (!p.tags.length) return '';
+  return `<div class="tags">${p.tags.map((t) => {
+    const on = selected.some((x) => x.toLocaleLowerCase('de') === t.toLocaleLowerCase('de'));
+    return `<button type="button" class="tag${on ? ' on' : ''}" data-act="tag" data-tag="${esc(t)}" title="Nur Projekte mit „${esc(t)}“ zeigen">#${esc(t)}</button>`;
+  }).join('')}</div>`;
+}
+
+/**
+ * Tag-Leiste über Übersicht und Zeitleiste. Gezählt wird innerhalb des
+ * Statusfilters, damit die Zahlen zu dem passen, was man sieht. Mehrere
+ * gewählte Tags schneiden (UND).
+ */
+function tagBar(projects, selected) {
+  const tags = allTags(projects);
+  const known = new Set(tags.map((t) => t.tag.toLocaleLowerCase('de')));
+  const stale = selected.filter((t) => !known.has(t.toLocaleLowerCase('de')));
+  if (!tags.length && !stale.length) return '';
+  const isOn = (t) => selected.some((x) => x.toLocaleLowerCase('de') === t.toLocaleLowerCase('de'));
+  return `<div class="tagbar" role="group" aria-label="Nach Tags filtern">
+    <span class="muted tagbar-l">Tags</span>
+    ${tags.map(({ tag, count }) => `<button type="button" class="tag${isOn(tag) ? ' on' : ''}" data-act="tag" data-tag="${esc(tag)}" aria-pressed="${isOn(tag)}">#${esc(tag)} <span class="n">${count}</span></button>`).join('')}
+    ${stale.map((t) => `<button type="button" class="tag on" data-act="tag" data-tag="${esc(t)}" aria-pressed="true" title="Kein Projekt in dieser Auswahl trägt diesen Tag">#${esc(t)} <span class="n">0</span></button>`).join('')}
+    ${selected.length ? `<button type="button" class="linklike tag-reset" data-act="tags-reset">Auswahl aufheben${selected.length > 1 ? ' (alle gewählten Tags müssen passen)' : ''}</button>` : ''}
+  </div>`;
+}
+
 function progressBar(s, { big = false } = {}) {
   const ist = s.ist == null ? 0 : clamp01(s.ist);
   const soll = s.soll == null ? null : clamp01(s.soll);
@@ -73,7 +106,8 @@ export const SORTS = [
 export function renderOverview(state, ui) {
   const today = dayNum(todayIso());
   const filter = FILTERS.find((f) => f.id === ui.filter) || FILTERS[0];
-  const list = sortProjects(state.projects.filter(filter.test), ui.sort, today);
+  const byStatus = state.projects.filter(filter.test);
+  const list = sortProjects(byStatus.filter((p) => matchesTags(p, ui.tags)), ui.sort, today);
 
   const laufend = state.projects.filter(FILTERS[0].test);
   const sums = laufend.map((p) => summarize(p, today));
@@ -88,7 +122,7 @@ export function renderOverview(state, ui) {
       <select data-act="sort">${SORTS.map((o) => `<option value="${o.id}"${o.id === ui.sort ? ' selected' : ''}>${o.label}</option>`).join('')}</select>
     </label>
     <p class="summary muted">${laufend.length} laufend${verzug ? ` · <span class="h-verzug">${verzug} im Verzug</span>` : ''}${msOver ? ` · ${msOver} Meilenstein${msOver === 1 ? '' : 'e'} überfällig` : ''}</p>
-  </div>`;
+  </div>${tagBar(byStatus, ui.tags)}`;
 
   if (!state.projects.length) {
     return `${head}<div class="empty">
@@ -99,10 +133,10 @@ export function renderOverview(state, ui) {
   }
   if (!list.length) return `${head}<p class="muted empty-small">Keine Projekte in dieser Auswahl.</p>`;
 
-  return `${head}<div class="cards">${list.map((p) => projectCard(p, summarize(p, today), today)).join('')}</div>`;
+  return `${head}<div class="cards">${list.map((p) => projectCard(p, summarize(p, today), today, ui.tags)).join('')}</div>`;
 }
 
-function projectCard(p, s, today) {
+function projectCard(p, s, today, selectedTags) {
   const lag = lagText(s);
   const next = s.next;
   let nextText = '—';
@@ -130,6 +164,7 @@ function projectCard(p, s, today) {
         <div><dt>Ziel</dt><dd>${p.due ? `${shortDate(p.due)}${s.ist !== 1 && Number.isFinite(dueD) ? ` <span class="muted">(${relDays(dueD - today)})</span>` : ''}` : '—'}</dd></div>
       </dl>
     </a>
+    ${tagChips(p, selectedTags)}
   </article>`;
 }
 
@@ -167,6 +202,7 @@ export function renderDetail(p, ui) {
       <button type="button" data-act="edit-project">Bearbeiten</button>
     </div>
     ${p.description ? `<p class="desc">${esc(p.description)}</p>` : ''}
+    ${tagChips(p)}
     <p class="muted dates">${dates}</p>
 
     <div class="stats">
@@ -344,7 +380,8 @@ function burnupChart(p, s, today, width) {
 export function renderTimeline(state, ui) {
   const today = dayNum(todayIso());
   const filter = FILTERS.find((f) => f.id === ui.filter) || FILTERS[0];
-  const all = sortProjects(state.projects.filter(filter.test), 'faellig', today);
+  const byStatus = state.projects.filter(filter.test);
+  const all = sortProjects(byStatus.filter((p) => matchesTags(p, ui.tags)), 'faellig', today);
   const dated = all.filter((p) => Number.isFinite(dayNum(p.start)) && Number.isFinite(dayNum(p.due)));
   const undated = all.filter((p) => !dated.includes(p));
 
@@ -352,10 +389,10 @@ export function renderTimeline(state, ui) {
     <div class="segmented small" role="group" aria-label="Filter">
       ${FILTERS.map((f) => `<button type="button" data-act="filter" data-id="${f.id}" aria-pressed="${f.id === filter.id}">${f.label}</button>`).join('')}
     </div>
-  </div>`;
+  </div>${tagBar(byStatus, ui.tags)}`;
 
   if (!dated.length) {
-    return `${head}<p class="muted empty-small">Für die Zeitleiste braucht ein Projekt Beginn und Ziel.</p>${undatedList(undated)}`;
+    return `${head}<p class="muted empty-small">${all.length ? 'Für die Zeitleiste braucht ein Projekt Beginn und Ziel.' : 'Keine Projekte in dieser Auswahl.'}</p>${undatedList(undated)}`;
   }
 
   let x0 = Math.min(today, ...dated.map((p) => dayNum(p.start)));
@@ -379,7 +416,7 @@ export function renderTimeline(state, ui) {
     }).join('');
     const lag = lagText(s);
     return `<div class="tl-row" style="--pc:${esc(p.color)}">
-      <a class="tl-label" href="#/p/${esc(p.id)}"><strong>${esc(p.title)}</strong><span class="muted">${pct(s.ist)}${lag ? ` · <span class="${lag.cls}">${lag.text}</span>` : ''}</span></a>
+      <a class="tl-label" href="#/p/${esc(p.id)}" title="${esc(p.tags.map((t) => `#${t}`).join(' '))}"><strong>${esc(p.title)}</strong><span class="muted">${pct(s.ist)}${lag ? ` · <span class="${lag.cls}">${lag.text}</span>` : ''}</span></a>
       <div class="tl-track">
         <span class="tl-bar" style="left:${P(a)};width:calc(${P(b)} - ${P(a)})" title="${formatDate(p.start)} – ${formatDate(p.due)}">
           <span class="tl-fill" style="width:${(ist * 100).toFixed(2)}%"></span>

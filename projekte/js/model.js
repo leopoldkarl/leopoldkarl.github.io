@@ -145,6 +145,65 @@ export function normalizeMilestone(m) {
   };
 }
 
+/* ------------------------------------------------------------------ */
+/* Tags                                                                */
+/* ------------------------------------------------------------------ */
+
+export const TAG_MAX_LEN = 40;
+export const TAGS_PER_PROJECT = 20;
+
+/** Ein Tag säubern: '#' vorn weg, Leerraum zusammenfassen, Länge begrenzen. */
+export function cleanTag(t) {
+  return String(t ?? '').replace(/\s+/g, ' ').trim().replace(/^#+\s*/, '').slice(0, TAG_MAX_LEN).trim();
+}
+
+const tagKey = (t) => t.toLocaleLowerCase('de');
+
+/**
+ * Liste säubern und entdoppeln. Groß-/Kleinschreibung zählt beim Vergleich
+ * nicht („Lehre“ = „lehre“); es gilt die zuerst genannte Schreibweise.
+ */
+export function normalizeTags(list) {
+  const out = [];
+  const seen = new Set();
+  for (const raw of Array.isArray(list) ? list : []) {
+    const t = cleanTag(raw);
+    if (!t || seen.has(tagKey(t))) continue;
+    seen.add(tagKey(t));
+    out.push(t);
+    if (out.length >= TAGS_PER_PROJECT) break;
+  }
+  return out;
+}
+
+/** Eingabe „Lehre, Forschung; #Graz“ -> ['Lehre', 'Forschung', 'Graz']. */
+export const parseTagInput = (text) => normalizeTags(String(text || '').split(/[,;]/));
+
+export const hasTag = (p, t) => p.tags.some((x) => tagKey(x) === tagKey(t));
+
+/**
+ * Alle Tags über alle Projekte mit Häufigkeit, alphabetisch. Weichen die
+ * Schreibweisen zwischen Projekten ab, gewinnt die häufigste.
+ */
+export function allTags(projects) {
+  const by = new Map();
+  for (const p of projects) {
+    for (const t of p.tags) {
+      const k = tagKey(t);
+      if (!by.has(k)) by.set(k, { count: 0, spellings: new Map() });
+      const e = by.get(k);
+      e.count += 1;
+      e.spellings.set(t, (e.spellings.get(t) || 0) + 1);
+    }
+  }
+  return [...by.values()]
+    .map((e) => ({ tag: [...e.spellings].sort((a, b) => b[1] - a[1])[0][0], count: e.count }))
+    .sort((a, b) => a.tag.localeCompare(b.tag, 'de'));
+}
+
+/** Projekte, die ALLE gewählten Tags tragen (leere Auswahl: alle). */
+export const matchesTags = (p, selected) => !selected || !selected.length || selected.every((t) => hasTag(p, t));
+
 export function normalizeProject(p) {
   const status = STATUS_LABEL[p && p.status] ? p.status : 'aktiv';
   return {
@@ -158,6 +217,7 @@ export function normalizeProject(p) {
     created: str(p && p.created, 40) || new Date().toISOString(),
     updated: str(p && p.updated, 40) || new Date().toISOString(),
     notes: str(p && p.notes, 100000),
+    tags: normalizeTags(p && p.tags),
     milestones: Array.isArray(p && p.milestones) ? p.milestones.map(normalizeMilestone) : [],
   };
 }
