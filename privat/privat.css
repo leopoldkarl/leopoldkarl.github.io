@@ -17,6 +17,9 @@
 #inhalt a.tile:hover{text-decoration:none; border-color:var(--accent-2); box-shadow:0 6px 18px rgba(16,24,40,0.06)}
 #inhalt a.tile strong{display:block; font-size:1.05rem}
 #inhalt a.tile span{color:var(--muted); font-size:0.95rem}
+#inhalt a.tile span .pz{display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+#inhalt a.tile span .pz b{font-weight:600; color:var(--text)}
+#inhalt a.tile span .pz.ueber{color:#b91c1c}
 .sperren{margin-top:2rem}
 .sperren .btn{cursor:pointer}
 
@@ -27,4 +30,5 @@
   main .btn.primary{color:#0f1115}
   .sperre input[type=password]{background:#0f1115; border-color:#374151}
   .meldung{color:#f87171}
+  #inhalt a.tile span .pz.ueber{color:#f87171}
 }

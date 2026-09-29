@@ -50,6 +50,7 @@ function zeigen(html) {
   const grid = $('inhalt').querySelector('.tile-grid');
   if (grid) grid.append($('extra-kacheln').content.cloneNode(true));
   $('inhalt').hidden = false;
+  import('./projekte-top.js').then((m) => m.fuellen($('inhalt'))).catch(() => {});
   $('sperren-wrap').hidden = false;
 }
 
