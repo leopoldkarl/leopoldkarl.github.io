@@ -4,7 +4,12 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Unternehmungen — Leopold Karl</title>
-  <meta name="robots" content="noindex, nofollow" />
+
+  <!-- Nicht verlinkt, nicht indexiert. Der Inhalt liegt nur als
+       AES-256-GCM-Chiffrat in inhalt.enc.json; ohne Passphrase liefert
+       diese Seite nichts ausser dem Formular. -->
+  <meta name="robots" content="noindex,nofollow,noarchive,nosnippet" />
+  <meta name="referrer" content="no-referrer" />
   <meta name="color-scheme" content="light dark" />
 
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Merriweather:wght@700&display=swap" rel="stylesheet">
@@ -22,20 +27,20 @@
   <main role="main">
     <h1 class="page-title">Unternehmungen</h1>
 
-    <!--
-      Neue Unternehmung: ein <li> in die Liste einfügen (Position egal).
-      data-von / data-bis im Format JJJJ-MM-TT; sortiert und in
-      „Bevorstehend“ / „Vergangen“ aufgeteilt wird per unternehmungen.js
-      anhand von data-bis (fehlt es, gilt data-von).
-    -->
-    <ul id="liste" class="u-liste">
-      <li data-von="2027-06-24" data-bis="2027-06-28">
-        <a class="tile" href="/radWEandermatt/">
-          <strong>Rad Wochenende Andermatt</strong>
-          <span class="u-datum">Do 24.6. – Mo 28.6.2027</span>
-        </a>
-      </li>
-    </ul>
+    <section id="sperre" class="sperre" hidden>
+      <form id="form" class="card" autocomplete="on">
+        <!-- verstecktes Benutzerfeld, damit Passwortmanager die Seite zuordnen -->
+        <input type="text" name="username" value="leopoldkarl.com/unternehmungen" autocomplete="username" hidden />
+        <label for="pw">Passphrase</label>
+        <input id="pw" name="password" type="password" autocomplete="current-password" required autofocus />
+        <label class="merken"><input id="merken" type="checkbox" /> Auf diesem Gerät merken</label>
+        <button class="btn primary" type="submit" id="go">Entsperren</button>
+        <p id="meldung" class="meldung" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+
+    <section id="inhalt" hidden></section>
+    <p id="sperren-wrap" class="sperren" hidden><button id="sperren" class="btn" type="button">Sperren</button></p>
   </main>
 
   <footer>
@@ -43,6 +48,6 @@
   </footer>
 
   <script src="/script.js"></script>
-  <script src="unternehmungen.js"></script>
+  <script type="module" src="./unlock.js"></script>
 </body>
 </html>

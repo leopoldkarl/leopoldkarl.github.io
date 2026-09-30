@@ -13,3 +13,25 @@
   header{background:rgba(15,17,21,0.85); border-bottom-color:#262b35}
   .tile{background:#171a21; border-color:#262b35}
 }
+
+/* Passwortsperre (gleiche Optik wie /privat) */
+.sperre{max-width:26rem; margin:2rem auto 0 auto}
+.sperre form{display:flex; flex-direction:column; gap:0.6rem; padding:1.25rem}
+.sperre label{font-weight:600}
+.sperre input[type=password]{
+  font:inherit; padding:0.55rem 0.7rem; border-radius:8px;
+  border:1px solid #d1d5db; background:white; color:var(--text);
+}
+.sperre input[type=password]:focus{outline:2px solid var(--accent-2); outline-offset:1px}
+.sperre .merken{font-weight:400; color:var(--muted); display:flex; gap:0.5rem; align-items:center}
+.sperre .btn{justify-content:center; cursor:pointer}
+.sperre .btn:disabled{opacity:0.6; cursor:progress}
+.meldung{min-height:1.5em; margin:0; color:#b91c1c; font-size:0.95rem}
+.meldung.info{color:var(--muted)}
+.sperren{margin-top:2rem}
+.sperren .btn{cursor:pointer}
+
+@media (prefers-color-scheme: dark){
+  .sperre input[type=password]{background:#0f1115; border-color:#374151}
+  .meldung{color:#f87171}
+}
