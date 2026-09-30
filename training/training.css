@@ -371,3 +371,54 @@ details.more summary { cursor: pointer; color: var(--accent-2); font-weight: 600
 
 .pace-legend { display: flex; align-items: center; gap: 4px; justify-content: flex-end; font-size: 0.78rem; color: var(--muted); margin-top: 0.35rem; }
 .pace-legend .sw { width: 14px; height: 10px; border-radius: 2px; display: inline-block; }
+
+/* ------------------------------------------------------------------ Eigene Bestleistungen */
+
+.rk-list { display: flex; flex-direction: column; }
+.rk-cat { border-top: 1px solid var(--line); padding: 0.7rem 0; }
+.rk-cat:first-child { border-top: 0; padding-top: 0.2rem; }
+.rk-head { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto; gap: 0.5rem 1rem; align-items: center; }
+.rk-name { display: flex; flex-direction: column; min-width: 0; }
+.rk-title { font-weight: 700; overflow-wrap: anywhere; }
+.rk-name .muted, .rk-best .muted { font-size: 0.82rem; }
+.rk-best { display: flex; flex-direction: column; }
+.rk-best b { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.rk-actions { display: flex; flex-wrap: wrap; gap: 0.3rem; justify-content: flex-end; }
+.rk-last { margin: 0.3rem 0 0; font-size: 0.82rem; }
+.rk-cat .table-wrap { margin-top: 0.5rem; }
+.rk-empty { margin: 0.2rem 0 0.8rem; }
+.rk-form { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin-top: 0.6rem; }
+.rk-form .input { flex: 1 1 140px; }
+.rk-form input[type="date"] { flex: 0 1 150px; }
+.rk-form .rk-unit { flex: 0 1 90px; }
+.rk-new { border-top: 1px dashed var(--line-strong); padding-top: 0.8rem; margin-top: 0.8rem; }
+.rk-new-label { font-weight: 600; font-size: 0.9rem; flex-basis: 100%; }
+.rk-form .form-error { flex-basis: 100%; min-height: 0; }
+.mini-btn {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 6px;
+  padding: 0.2rem 0.55rem; font-size: 0.82rem; font-weight: 600; cursor: pointer; color: var(--text);
+}
+.mini-btn:hover { background: var(--surface-2); }
+.mini-btn.primary { border-color: var(--text); }
+.mini-btn.danger { color: #c02f2f; }
+.mini-btn:disabled { opacity: 0.45; cursor: default; }
+.mini-btn.small { padding: 0.1rem 0.45rem; }
+.sync-badge[data-state="ok"]::before { content: "● "; color: #0ca30c; }
+.sync-badge[data-state="fehler"]::before, .sync-badge[data-state="konflikt"]::before { content: "● "; color: #d03b3b; }
+.sync-badge[data-state="offline"]::before, .sync-badge[data-state="gesperrt"]::before { content: "● "; color: #c98500; }
+@media (max-width: 720px) {
+  .rk-head { grid-template-columns: minmax(0, 1fr) auto; }
+  .rk-actions { grid-column: 1 / -1; justify-content: flex-start; }
+}
+
+.dlg {
+  border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--surface); color: var(--text);
+  padding: 1.2rem; width: min(480px, calc(100vw - 32px)); box-shadow: 0 12px 40px rgba(0,0,0,.25);
+}
+.dlg::backdrop { background: rgba(0,0,0,.35); }
+.dlg h2 { margin: 0 0 0.5rem; font-size: 1.1rem; }
+.dlg .fld { display: flex; flex-direction: column; gap: 0.2rem; margin-top: 0.7rem; font-size: 0.88rem; font-weight: 600; }
+.dlg .fld .input { font-weight: 400; }
+.dlg-foot { display: flex; gap: 0.5rem; align-items: center; margin-top: 1rem; flex-wrap: wrap; }
+.dlg-foot .spacer { flex: 1; }
+.view-head .segmented { flex-wrap: wrap; max-width: 100%; }

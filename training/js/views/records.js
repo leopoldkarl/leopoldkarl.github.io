@@ -1,10 +1,12 @@
 // Bestleistungen: Leistungskurve (Rad), Bestzeiten und Pace-Kurve (Laufen),
-// Bestzeiten Schwimmen.
+// Bestzeiten Schwimmen; dazu je Sportart eigene, von Hand gepflegte Kategorien
+// (auch Kraft und Sonstiges).
 
 import { h, curveChart } from '../charts.js';
 import * as F from '../format.js';
 import * as M from '../model.js';
 import { card, segmented, table, emptyNote } from '../ui.js';
+import { rekordeStore, rekordeCard } from './rekorde-view.js';
 
 const RUN_D = ['400', '1000', '1609', '3000', '5000', '10000', '15000', '21097', '30000', '42195'];
 const RIDE_D = ['5000', '10000', '20000', '40000', '50000', '100000', '160934'];
@@ -14,10 +16,12 @@ const KEY_DUR = [5, 15, 60, 300, 1200, 3600];
 export function renderRecords(root, ctx) {
   const { acts, prefs } = ctx;
   const has = c => acts.some(a => a.cat === c);
-  const sports = [['ride', 'Rad'], ['run', 'Laufen'], ['swim', 'Schwimmen']].filter(([c]) => has(c));
-  if (!sports.length) { root.append(emptyNote('Für diese Auswahl gibt es keine Bestleistungen.')); return; }
+  const manual = new Set(rekordeStore().state.categories.map(c => c.sport));
+  const ALL = [['ride', 'Rad'], ['run', 'Laufen'], ['swim', 'Schwimmen'], ['strength', 'Kraft'], ['other', 'Sonstiges']];
+  const sports = ALL.filter(([c]) => has(c) || manual.has(c) || c === 'strength' || c === 'other');
+  const label = Object.fromEntries(ALL);
   let sport = prefs.get('rec.sport', sports[0][0]);
-  if (!has(sport)) sport = sports[0][0];
+  if (!sports.some(([c]) => c === sport)) sport = sports[0][0];
   const body = h('div');
   root.append(h('div', { class: 'view-head' },
     segmented(sports, sport, v => { prefs.set('rec.sport', v); draw(v); }, 'Sportart')), body);
@@ -90,6 +94,7 @@ export function renderRecords(root, ctx) {
       const est = ctx.model.est.swim_v;
       if (est) body.append(h('p', { class: 'note', text: `Aus den Bestzeiten über 200 m und 400 m geschätzte CSS: ${F.pace(est, 100)}.` }));
     }
+    body.append(rekordeCard(sp, label[sp]));
   }
   draw(sport);
 }
