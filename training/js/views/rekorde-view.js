@@ -55,7 +55,7 @@ const today = () => {
 // ------------------------------------------------------------------ Karte je Sportart
 
 const KIND_OPTIONS = [
-  ['time', 'Zeit (kürzer ist besser)'],
+  ['time', 'Zeit'],
   ['weight', 'Gewicht in kg'],
   ['reps', 'Wiederholungen'],
   ['distance', 'Distanz'],
@@ -144,9 +144,12 @@ export function rekordeCard(sport, sportLabel) {
   }
 
   function newCategoryForm() {
-    const name = h('input', { type: 'text', class: 'input', placeholder: sport === 'strength' ? 'z. B. Kniebeuge 1RM' : 'Name der Kategorie', maxlength: 80, 'aria-label': 'Name', required: true });
-    const kind = h('select', { class: 'input', 'aria-label': 'Art' }, KIND_OPTIONS.map(([v, t]) => h('option', { value: v, text: t })));
-    if (sport === 'strength') kind.value = 'weight';
+    const PH = { run: 'z. B. Parkrun 5 km', ride: 'z. B. Zeitfahren 20 km', swim: 'z. B. 1500 m Freiwasser', strength: 'z. B. Kniebeuge 1RM', other: 'z. B. Plank' };
+    const name = h('input', { type: 'text', class: 'input', placeholder: PH[sport] || 'Name der Kategorie', maxlength: 80, 'aria-label': 'Name', required: true });
+    const allowed = R.KINDS_BY_SPORT[sport] || Object.keys(R.KINDS);
+    const kind = h('select', { class: 'input', 'aria-label': 'Art' },
+      KIND_OPTIONS.filter(([v]) => allowed.includes(v)).map(([v, t]) => h('option', { value: v, text: t })));
+    kind.value = allowed[0];
     const unit = h('input', { type: 'text', class: 'input rk-unit', placeholder: 'Einheit', maxlength: 20, 'aria-label': 'Einheit' });
     const dunit = h('select', { class: 'input rk-unit', 'aria-label': 'Einheit' }, h('option', { value: 'km', text: 'km' }), h('option', { value: 'm', text: 'm' }));
     const better = h('select', { class: 'input', 'aria-label': 'Besser ist' },

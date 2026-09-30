@@ -422,3 +422,4 @@ details.more summary { cursor: pointer; color: var(--accent-2); font-weight: 600
 .dlg-foot { display: flex; gap: 0.5rem; align-items: center; margin-top: 1rem; flex-wrap: wrap; }
 .dlg-foot .spacer { flex: 1; }
 .view-head .segmented { flex-wrap: wrap; max-width: 100%; }
+.ignore-bar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; justify-content: flex-end; font-size: 0.85rem; margin: -0.5rem 0 1rem; }

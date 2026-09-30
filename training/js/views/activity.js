@@ -5,6 +5,7 @@ import { h, lineChart, curveChart, zoneBars, lapChart } from '../charts.js';
 import * as F from '../format.js';
 import * as M from '../model.js';
 import { loadDetail } from '../source.js';
+import { activityIgnored, toggleActivityIgnored } from './records.js';
 import { routeMap } from '../map.js';
 import { card, stat, segmented, sportTag, table, speedOf, emptyNote, zoneColor } from '../ui.js';
 
@@ -38,6 +39,20 @@ export async function renderActivity(root, ctx, id) {
       a.device ? h('span', { class: 'muted', text: a.device.replace(/^fr/, 'Forerunner ').replace(/^fenix/, 'fēnix ') }) : null)));
 
   root.append(statsGrid(a, th));
+
+  // Bestleistungen: ganze Aktivitaet ignorieren (GPS-Fehler)
+  if (a.cat === 'run' || a.cat === 'ride' || a.cat === 'swim') {
+    const note = h('div', { class: 'ignore-bar' });
+    const paint = () => {
+      const ign = activityIgnored(a.id);
+      note.replaceChildren(
+        h('span', { class: 'muted', text: ign ? 'Diese Aktivität zählt nicht für Bestleistungen.' : 'Unplausible Werte durch GPS-Fehler?' }),
+        h('button', { type: 'button', class: `mini-btn ${ign ? '' : 'danger'}`, text: ign ? 'Wieder berücksichtigen' : 'Für Bestleistungen ignorieren',
+          onclick: () => { toggleActivityIgnored(a.id); paint(); } }));
+    };
+    paint();
+    root.append(note);
+  }
 
   const holder = h('div', { class: 'act-body' }, h('p', { class: 'muted', text: 'Lade Details …' }));
   root.append(holder);

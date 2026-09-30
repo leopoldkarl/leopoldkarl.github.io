@@ -17,7 +17,16 @@ export const KINDS = {
 
 export const SPORTS = ['ride', 'run', 'swim', 'strength', 'other'];
 
-export function emptyState() { return { v: 1, categories: [] }; }
+// Welche Arten je Sportart angelegt werden koennen
+export const KINDS_BY_SPORT = {
+  run: ['time', 'distance'],
+  ride: ['time', 'distance', 'number'],
+  swim: ['time', 'distance'],
+  strength: ['weight', 'reps', 'time', 'number'],
+  other: ['time', 'distance', 'weight', 'reps', 'number'],
+};
+
+export function emptyState() { return { v: 1, categories: [], excluded: [] }; }
 
 const uid = () => (globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`);
 
@@ -48,7 +57,37 @@ export function normalizeState(raw) {
     cat.entries.sort((a, b) => a.date.localeCompare(b.date));
     out.categories.push(cat);
   }
+  // Verworfene automatische Bestwerte (GPS-Fehler): {aid, metric, at}
+  // metric: 'best:<m>' | 'mm_pw:<s>' | 'mm_v:<s>' | '*' (ganze Aktivitaet)
+  const seen = new Set();
+  for (const x of Array.isArray(raw?.excluded) ? raw.excluded : []) {
+    const aid = str(x?.aid, 40), metric = str(x?.metric, 40);
+    if (!aid || !/^(\*|best:\d+|mm_pw:\d+|mm_v:\d+)$/.test(metric)) continue;
+    const k = `${aid}|${metric}`;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.excluded.push({ aid, metric, at: str(x.at, 40) || new Date().toISOString() });
+  }
   return out;
+}
+
+// ------------------------------------------------------------------ Verworfene Bestwerte
+
+/** Test-Funktion (aid, metric) -> bool, schnell fuer viele Abfragen. */
+export function exclusionTest(s) {
+  const set = new Set((s.excluded || []).map(x => `${x.aid}|${x.metric}`));
+  return (aid, metric) => set.has(`${aid}|*`) || set.has(`${aid}|${metric}`);
+}
+
+export function exclude(s, aid, metric) {
+  s.excluded = s.excluded || [];
+  if (metric === '*') s.excluded = s.excluded.filter(x => x.aid !== aid);   // umfasst alles
+  else if (s.excluded.some(x => x.aid === aid && (x.metric === metric || x.metric === '*'))) return;
+  s.excluded.push({ aid, metric, at: new Date().toISOString() });
+}
+
+export function restore(s, aid, metric) {
+  s.excluded = (s.excluded || []).filter(x => !(x.aid === aid && x.metric === metric));
 }
 
 // ------------------------------------------------------------------ Werte
