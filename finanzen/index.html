@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Finanzen</title>
+
+  <!-- Nur über /privat verlinkt. noindex, kein Analytics-Skript. Die Datei
+       enthält nur das Programm; die Daten liegen ausschließlich als
+       AES-256-GCM-Chiffrat im Browser (finanzen.vault) und beim Worker. -->
+  <meta name="robots" content="noindex,nofollow,noarchive,nosnippet" />
+  <meta name="referrer" content="no-referrer" />
+  <meta name="color-scheme" content="light dark" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./finanzen.css" />
+</head>
+<body>
+
+<div id="storage-warning" class="banner" hidden>
+  Der Browser erlaubt keinen lokalen Speicher. Änderungen gehen beim Schließen des Tabs verloren — Abgleich einrichten oder exportieren.
+</div>
+
+<header class="topbar">
+  <a class="brand" href="#/" id="brand">Finanzen</a>
+  <nav class="segmented" aria-label="Ansicht" id="nav" hidden>
+    <a href="#/" data-view="uebersicht">Übersicht</a>
+    <a href="#/buchungen" data-view="buchungen">Buchungen</a>
+    <a href="#/auswertung" data-view="auswertung">Auswertung</a>
+    <a href="#/konten" data-view="konten">Konten</a>
+  </nav>
+  <span class="grow"></span>
+  <span id="unlocked-tools" hidden>
+    <button id="btn-new" class="primary" title="Neuer Eintrag (N)">+ Eintrag</button>
+    <button id="btn-sync-badge" class="icon sync-badge" data-state="aus" aria-label="Abgleich" title="Abgleich: aus">○</button>
+  </span>
+  <div class="menu-wrap">
+    <button id="btn-menu" class="icon" aria-haspopup="true" aria-expanded="false" aria-label="Menü">⋯</button>
+    <div id="menu" class="menu" role="menu" hidden>
+      <button role="menuitem" data-act="sync" data-need="unlocked">Abgleich zwischen Geräten…</button>
+      <button role="menuitem" data-act="export" data-need="unlocked">Export (.json, unverschlüsselt)</button>
+      <button role="menuitem" data-act="import" data-need="unlocked">Import (.json)…</button>
+      <button role="menuitem" data-act="lock" data-need="unlocked">Sperren</button>
+      <hr />
+      <button role="menuitem" data-act="theme">Design: <span id="theme-label">automatisch</span></button>
+      <hr />
+      <a role="menuitem" href="/privat/">← Privat</a>
+    </div>
+  </div>
+  <input type="file" id="import-file" accept="application/json,.json" hidden />
+</header>
+
+<!-- ------------------------------------------------------------------ -->
+<section id="lock" class="lock" hidden>
+  <h1>Finanzen</h1>
+
+  <form id="unlock-form" class="card lock-card" autocomplete="on" hidden>
+    <input type="text" name="username" value="leopoldkarl.com/finanzen" autocomplete="username" hidden />
+    <label for="unlock-pass">Passphrase</label>
+    <input id="unlock-pass" name="password" type="password" autocomplete="current-password" required />
+    <label class="check"><input id="unlock-remember" type="checkbox" /> Auf diesem Gerät merken</label>
+    <button class="primary" type="submit" id="unlock-go">Entsperren</button>
+    <p id="unlock-msg" class="note" role="status" aria-live="polite"></p>
+  </form>
+
+  <div id="setup" class="card lock-card" hidden>
+    <nav class="segmented small" aria-label="Einrichten">
+      <button type="button" data-setup="neu" aria-pressed="true">Neu anlegen</button>
+      <button type="button" data-setup="server" aria-pressed="false">Vom Server holen</button>
+    </nav>
+
+    <form id="setup-new" autocomplete="on">
+      <input type="text" name="username" value="leopoldkarl.com/finanzen" autocomplete="username" hidden />
+      <p class="hint">Auf diesem Gerät gibt es noch keine Finanzdaten. Die Passphrase verschlüsselt alles, auch lokal. <strong>Vergessen heißt weg.</strong></p>
+      <label for="new-pass">Passphrase (mind. 12 Zeichen, besser 5 zufällige Wörter)</label>
+      <input id="new-pass" name="password" type="password" autocomplete="new-password" required />
+      <label for="new-pass2">Wiederholen</label>
+      <input id="new-pass2" type="password" autocomplete="new-password" required />
+      <label class="check"><input id="new-remember" type="checkbox" /> Auf diesem Gerät merken</label>
+      <button class="primary" type="submit">Anlegen</button>
+      <p id="new-msg" class="note" role="status" aria-live="polite"></p>
+    </form>
+
+    <form id="setup-server" autocomplete="on" hidden>
+      <input type="text" name="username" value="leopoldkarl.com/finanzen" autocomplete="username" hidden />
+      <p class="hint">Für ein weiteres Gerät: holt den verschlüsselten Stand vom Worker. Adresse und Token wie im Kalender.</p>
+      <label for="srv-url">Adresse des Workers</label>
+      <input id="srv-url" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://kalender.dein-name.workers.dev" />
+      <label for="srv-token">Token</label>
+      <input id="srv-token" type="password" autocomplete="off" spellcheck="false" />
+      <p class="hint" id="srv-from" hidden></p>
+      <label for="srv-pass">Passphrase</label>
+      <input id="srv-pass" name="password" type="password" autocomplete="current-password" />
+      <label class="check"><input id="srv-remember" type="checkbox" /> Auf diesem Gerät merken</label>
+      <button class="primary" type="submit">Verbinden</button>
+      <p id="srv-msg" class="note" role="status" aria-live="polite"></p>
+    </form>
+  </div>
+
+  <p id="lock-fatal" class="err" hidden></p>
+</section>
+
+<main id="main" tabindex="-1" hidden></main>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<datalist id="titles"></datalist>
+
+<!-- ------------------------------------------------------------------ -->
+<dialog id="entry-dialog" aria-labelledby="ed-title">
+  <form method="dialog" id="entry-form">
+    <div class="dlg-head">
+      <h2 id="ed-title">Eintrag</h2>
+      <nav class="segmented small" aria-label="Art" id="ed-types">
+        <button type="button" data-type="buchung">Buchung</button>
+        <button type="button" data-type="umbuchung">Umbuchung</button>
+        <button type="button" data-type="stand">Kontostand</button>
+      </nav>
+    </div>
+    <div class="dlg-body">
+      <div class="row2">
+        <div class="field">
+          <label for="ed-date">Datum</label>
+          <input id="ed-date" type="text" inputmode="numeric" autocomplete="off" placeholder="TT.MM.JJJJ" />
+        </div>
+        <div class="field">
+          <label for="ed-name">Titel</label>
+          <input id="ed-name" type="text" autocomplete="off" list="titles" maxlength="120" placeholder="z. B. Essen" />
+        </div>
+      </div>
+
+      <div class="t-buchung">
+        <div class="row2">
+          <div class="field">
+            <label for="ed-acc">Konto</label>
+            <select id="ed-acc"></select>
+          </div>
+          <div class="field">
+            <label for="ed-amt">Betrag</label>
+            <div class="amt-in">
+              <nav class="segmented small" aria-label="Richtung">
+                <button type="button" data-dir="-1" aria-pressed="true">Ausgabe</button>
+                <button type="button" data-dir="1" aria-pressed="false">Einnahme</button>
+              </nav>
+              <input id="ed-amt" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="t-umbuchung">
+        <div class="row2">
+          <div class="field">
+            <label for="ed-from">Von</label>
+            <select id="ed-from"></select>
+          </div>
+          <div class="field">
+            <label for="ed-to">Nach</label>
+            <select id="ed-to"></select>
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label for="ed-out">Betrag abgebucht</label>
+            <input id="ed-out" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" />
+          </div>
+          <div class="field" id="ed-in-wrap">
+            <label for="ed-in">Betrag angekommen</label>
+            <input id="ed-in" type="text" inputmode="decimal" autocomplete="off" />
+          </div>
+        </div>
+      </div>
+
+      <div class="t-stand">
+        <p class="hint">Festgestellter Kontostand (z. B. laut Bank-App oder Depotauszug). Nur ausfüllen, was du geprüft hast; leer = unverändert. Die Differenz zum fortgeschriebenen Stand erscheint als Abweichung bzw. beim Depot als Kursentwicklung.</p>
+        <div id="ed-stand" class="stand-list"></div>
+      </div>
+
+      <div class="field">
+        <label for="ed-details">Details</label>
+        <input id="ed-details" type="text" autocomplete="off" maxlength="1000" />
+      </div>
+      <p class="hint">Datum: <code>h</code>, <code>g</code> (gestern), <code>3009</code>, <code>30.9.26</code>, <code>-2</code>. Betrag: <code>1.234,50</code>, <code>12,40+3,10</code>.</p>
+      <p id="ed-msg" class="err" role="alert"></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" id="ed-delete" class="danger">Löschen</button>
+      <span class="grow"></span>
+      <button type="button" id="ed-cancel">Abbrechen</button>
+      <button type="submit" id="ed-save" class="primary">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ------------------------------------------------------------------ -->
+<dialog id="account-dialog" aria-labelledby="ad-title">
+  <form method="dialog" id="account-form">
+    <div class="dlg-head"><h2 id="ad-title">Konto</h2></div>
+    <div class="dlg-body">
+      <div class="field">
+        <label for="ad-name">Name</label>
+        <input id="ad-name" type="text" autocomplete="off" maxlength="80" required />
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label for="ad-kind">Art</label>
+          <select id="ad-kind"></select>
+        </div>
+        <div class="field">
+          <label for="ad-cur">Währung</label>
+          <select id="ad-cur"><option>EUR</option><option>CHF</option></select>
+        </div>
+      </div>
+      <label class="check"><input id="ad-archived" type="checkbox" /> Archiviert (aus Auswahllisten ausblenden)</label>
+      <p class="hint" id="ad-hint"></p>
+      <p id="ad-msg" class="err" role="alert"></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" id="ad-delete" class="danger">Löschen</button>
+      <span class="grow"></span>
+      <button type="button" id="ad-cancel">Abbrechen</button>
+      <button type="submit" class="primary">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ------------------------------------------------------------------ -->
+<dialog id="rate-dialog" aria-labelledby="rd-title">
+  <form method="dialog" id="rate-form">
+    <div class="dlg-head"><h2 id="rd-title">Wechselkurs</h2></div>
+    <div class="dlg-body">
+      <div class="row2">
+        <div class="field">
+          <label for="rd-date">Datum</label>
+          <input id="rd-date" type="text" inputmode="numeric" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="rd-rate">1 EUR = … CHF</label>
+          <input id="rd-rate" type="text" inputmode="decimal" autocomplete="off" placeholder="0,9364" />
+        </div>
+      </div>
+      <p class="hint"><button type="button" class="linklike" id="rd-fetch">Referenzkurs der EZB holen</button> — fragt frankfurter.dev nach dem Kurs zum Datum; übertragen wird nur das Datum.</p>
+      <p id="rd-msg" class="err" role="alert"></p>
+    </div>
+    <div class="dlg-foot">
+      <span class="grow"></span>
+      <button type="button" id="rd-cancel">Abbrechen</button>
+      <button type="submit" class="primary">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ------------------------------------------------------------------ -->
+<dialog id="sync-dialog" aria-labelledby="sync-title">
+  <form method="dialog">
+    <div class="dlg-head">
+      <h2 id="sync-title">Abgleich zwischen Geräten</h2>
+      <p class="hint">
+        Derselbe Worker wie Kalender und Projekte, aber ein eigener verschlüsselter Block.
+        Verschlüsselt wird hier im Browser; Passphrase und Klartext verlassen das Gerät nicht.
+      </p>
+    </div>
+    <div class="dlg-body">
+      <div class="field">
+        <label for="sync-url">Adresse des Workers</label>
+        <input id="sync-url" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://kalender.dein-name.workers.dev" />
+      </div>
+      <div class="field">
+        <label for="sync-token">Token</label>
+        <input id="sync-token" type="password" autocomplete="off" spellcheck="false" />
+        <p class="hint" id="sync-from" hidden></p>
+      </div>
+      <div class="field">
+        <label for="sync-pass">Passphrase</label>
+        <input id="sync-pass" type="password" autocomplete="off" spellcheck="false" />
+        <p class="hint">Nur nötig, wenn auf dem Server schon Finanzdaten liegen (dann gilt deren Passphrase, und dieses Gerät übernimmt den Serverstand; der bisherige lokale Stand bleibt verschlüsselt als Sicherung liegen). Ist der Server leer, wird der Stand dieses Geräts hochgeladen.</p>
+      </div>
+      <p id="sync-msg" class="note" role="status"></p>
+      <div class="field">
+        <label>Sicherungen aus Konflikten</label>
+        <div id="sync-conflicts" class="hint">keine</div>
+      </div>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" id="sync-off">Abgleich ausschalten</button>
+      <span class="grow"></span>
+      <button type="button" id="sync-cancel">Abbrechen</button>
+      <button type="button" id="sync-save" class="primary">Verbinden</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module" src="./js/app.js"></script>
+</body>
+</html>

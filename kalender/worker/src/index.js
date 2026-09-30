@@ -15,7 +15,7 @@
 //   GET  /health -> 200 { ok: true }
 //
 // Namensraeume: dieselben Endpunkte gibt es zusaetzlich unter /s/<name>/…
-// (z. B. /s/projekte/state) — je Namensraum eine eigene Zeile, eigene Version,
+// (z. B. /s/projekte/state, /s/finanzen/state) — je Namensraum eine eigene Zeile, eigene Version,
 // eigenes Chiffrat. Die Pfade ohne Praefix bleiben der Kalender (Zeile
 // 'default'). Bewusst ein Pfad und kein Query-Parameter: ein aelterer Worker
 // ohne diese Stelle antwortet auf /s/… mit 404, statt einen fremden Block
@@ -29,7 +29,7 @@
 const ROW_ID = 'default';
 // Erlaubte Namensraeume. Eine feste Liste statt eines Musters: mit einem
 // abgegriffenen Token soll niemand beliebig viele Zeilen anlegen koennen.
-const SPACES = new Set(['projekte']);
+const SPACES = new Set(['projekte', 'finanzen', 'training']);
 const MAX_BLOB_BYTES = 1_500_000;   // D1: 2 MB je Zeile, mit Sicherheitsabstand
 
 const ALLOWED_ORIGINS = [
