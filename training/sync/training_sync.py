@@ -654,24 +654,37 @@ def cmd_status(cfg: Config):
           f"Dateien {len(list((cfg.out / 'a').glob('*.bin'))) if (cfg.out / 'a').exists() else 0}")
 
 
+def _git(out: str, *args, check=True):
+    """git im Ausgabeordner ausfuehren; Ausgabe mitschneiden, damit Fehler
+    auch unter pythonw (Aufgabenplanung, keine Konsole) im Protokoll landen."""
+    kw = {"creationflags": 0x08000000} if os.name == "nt" else {}   # kein Konsolenfenster
+    r = subprocess.run(["git", "-C", out, *args], capture_output=True, text=True,
+                       encoding="utf-8", errors="replace", **kw)
+    if check and r.returncode != 0:
+        msg = (r.stderr or r.stdout or "").strip().replace("\n", " | ")
+        raise SystemExit(f"git {args[0]} fehlgeschlagen ({r.returncode}): {msg[:600]}")
+    return r
+
+
 def git_push(cfg: Config):
     # Alles relativ zu out_dir ausfuehren: so muss kein Pfad aus git-Ausgaben
     # dekodiert werden (Umlaute im Pfad scheitern unter Windows an der Codepage).
     out = str(cfg.out)
-    # unter pythonw (Aufgabenplanung) kein Konsolenfenster fuer git aufpoppen lassen
-    kw = {"creationflags": 0x08000000} if os.name == "nt" else {}
-    if subprocess.run(["git", "-C", out, "rev-parse", "--is-inside-work-tree"],
-                      capture_output=True, **kw).returncode != 0:
+    if _git(out, "rev-parse", "--is-inside-work-tree", check=False).returncode != 0:
         raise SystemExit("out_dir liegt in keinem git-Repo.")
-    subprocess.run(["git", "-C", out, "add", "-A", "--", "."], check=True, **kw)
-    if subprocess.run(["git", "-C", out, "diff", "--cached", "--quiet", "--", "."], **kw).returncode == 0:
-        print("git: keine Aenderungen.")
+    _git(out, "add", "-A", "--", ".")
+    if _git(out, "diff", "--cached", "--quiet", "--", ".", check=False).returncode != 0:
+        _git(out, "commit", "-m", "Trainingsdaten aktualisieren", "--", ".")
+    # Auch frueher liegengebliebene Commits hochladen (ahead > 0)
+    ahead = _git(out, "rev-list", "--count", "@{u}..HEAD", check=False)
+    if ahead.returncode == 0 and ahead.stdout.strip() == "0":
+        print("git: nichts hochzuladen.")
         return
-    subprocess.run(["git", "-C", out, "commit", "-m", "Trainingsdaten aktualisieren", "--", "."], check=True, **kw)
-    if subprocess.run(["git", "-C", out, "push"], **kw).returncode != 0:
+    first = _git(out, "push", check=False)
+    if first.returncode != 0:
         # Remote hat neuere Commits (z.B. vom Laptop): einholen und erneut pushen
-        subprocess.run(["git", "-C", out, "pull", "--rebase", "--autostash"], check=True, **kw)
-        subprocess.run(["git", "-C", out, "push"], check=True, **kw)
+        _git(out, "pull", "--rebase", "--autostash")
+        _git(out, "push")
 
 
 def cmd_passphrase(cfg: Config):
@@ -715,12 +728,21 @@ def cmd_auto(cfg: Config):
         raise SystemExit(1)
     if block_p.exists():
         _dump_json(block_p, {})
-    if n == 0:
-        log.info("keine neuen Aktivitaeten")
-        return
-    cmd_build(cfg)
-    git_push(cfg)
-    log.info("%d neue Aktivitaet(en) hochgeladen", n)
+    try:
+        if n == 0:
+            log.info("keine neuen Aktivitaeten")
+        else:
+            cmd_build(cfg)
+        # auch ohne Neues: liegengebliebene Commits nachschieben
+        git_push(cfg)
+        if n:
+            log.info("%d neue Aktivitaet(en) hochgeladen", n)
+    except SystemExit as e:
+        log.error("%s", str(e).replace("\n", " ")[:800])
+        raise
+    except Exception as e:                                       # noqa: BLE001
+        log.exception("Bauen/Hochladen fehlgeschlagen: %s", e)
+        raise SystemExit(1)
 
 
 def main(argv=None):
