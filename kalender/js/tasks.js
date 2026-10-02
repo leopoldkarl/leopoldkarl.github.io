@@ -106,6 +106,11 @@ function dayColumn(dateYmd, tasks, { heading = null, today = false, selected = f
 /* Ansichten                                                           */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Tagesansicht. `ctx.planNode` ist, falls vorhanden, die fertige Anzeige des
+ * Tagesplans; sie wird nur danebengestellt. Diese Datei kennt die Planung
+ * nicht und soll sie nicht kennen — deshalb ein fertiger Knoten statt Daten.
+ */
 export function renderTaskDay(ctx) {
   const { dateYmd, tasksFor, today } = ctx;
   const root = el('div', 'tk-page day');
@@ -118,6 +123,7 @@ export function renderTaskDay(ctx) {
     ? `${open} offen von ${tasks.length}`
     : 'keine Aufgaben'));
   root.append(dayColumn(dateYmd, tasks, { heading: head, today: sameDay(d, today) }));
+  if (ctx.planNode) root.append(ctx.planNode);
   return root;
 }
 

@@ -19,7 +19,7 @@ import {
 import { renderTaskDay, renderTaskWeek, attachTaskInteractions } from './tasks.js';
 import { renderJournal, computeField, formatHours } from './journal.js';
 import {
-  renderWeekPlan, renderDayPlan, attachPlanInteractions, eventItemsByDate,
+  renderWeekPlan, renderDayPlan, renderPlanPreview, attachPlanInteractions, eventItemsByDate,
 } from './plan.js';
 import { initTooltips, hideTip } from './tooltip.js';
 import {
@@ -450,6 +450,14 @@ function renderTaskPage() {
     tasksFor: (d) => store.tasksFor(d),
     days: Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(ui.cursor), i)),
   };
+  if (ui.taskView === 'day') {
+    // Nur lesen: `dayPlanView` legt keinen eigenstaendigen Tagesplan an, und
+    // die Anzeige hier darf das auch nicht ausloesen.
+    const v = dayPlanView(ui.selected);
+    ctx.planNode = renderPlanPreview({
+      dateYmd: ui.selected, items: v.items, detached: v.detached, colorOf,
+    });
+  }
   root.replaceChildren(ui.taskView === 'week' ? renderTaskWeek(ctx) : renderTaskDay(ctx));
   renderCommonChrome();
 }

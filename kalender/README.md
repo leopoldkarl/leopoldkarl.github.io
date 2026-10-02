@@ -251,6 +251,26 @@ Sortierung beim Zeichnen (`(a.done - b.done) || (a.order - b.order)`), nicht
 die abgelegte Reihenfolge — abhaken und wieder freigeben lässt eine Aufgabe
 also an ihren alten Platz zurückkehren.
 
+**Mehr Aufgaben als Platz:** die Liste scrollt, die Blöcke behalten ihre
+Höhe. Das ist nicht selbstverständlich — in einem Spalten-Flexbereich ist
+`flex-shrink: 1` die Voreinstellung, und damit wurden bisher alle Blöcke
+zusammengedrückt, bis der Titel unter `overflow: hidden` verschwand. Jetzt
+gilt `.tk-list > .tk { flex: 0 0 auto }`, die Liste läuft über, und
+`overflow-y: auto` fängt den Überlauf ab. Zusätzlich hat jeder Block eine
+CSS-Untergrenze von 34 px (= `MIN_TASK_HEIGHT`), damit auch ein von Hand
+kleingezogener Block eine Titelzeile trägt. Die Tagesüberschrift klebt beim
+Scrollen oben (`position: sticky`), das Eingabefeld für neue Aufgaben bleibt
+unten stehen.
+
+**Tagesansicht:** rechts neben den Aufgaben steht der **Tagesplan** als
+reine Anzeige — dieselben Einträge wie auf der Tagesplanung (TP), ohne
+Eingabefeld, ohne Löschknopf, ohne Ziehgriff, mit `readOnly` und
+`tabindex="-1"`, damit die Felder nicht den Fokus nehmen und die
+Tastenkürzel schlucken. Wichtig für die Kopier-Regel unten: das Anzeigen
+*liest* nur (`dayPlanView`) und legt keinen eigenständigen Tagesplan an —
+Hinsehen ist keine Änderung. In der Wochenansicht erscheint der Kasten
+nicht; auf schmalen Fenstern rutscht er unter die Aufgaben.
+
 ## Planung: drei Ebenen, jede eine Kopie
 
     Vorlage  --kopieren-->  Wochenplan  --kopieren-->  Tagesplan
@@ -379,12 +399,13 @@ Nicht Teil des Repos. Geprüft wurden 166 Einheitentests (Wiederholungsregeln,
 ics-Roundtrip inklusive Zeilenfaltung und Maskierung, RECURRENCE-ID-Auflösung,
 CSV-/vCard-Parser, Tastatureingabe von Datum und Uhrzeit, Schaltjahr-Rückfall,
 ISO-Wochenschlüssel, Vorlagen-Versionierung, Kopier-Isolation, Kontrastwahl)
-und 121 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
+und 135 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
 Geburtstags-Import, Kategorien-Editor, Tab-Reihenfolge, Scrollbalken,
 Seitenwechsel, Aufgaben-Reihenfolge und -Höhe, Tagebuch-Summen und
 -Speicherung, Vorlagen-Versionierung und Kopier-Isolation, Seitenleisten-Schalter und
 Spaltenbreiten, schmale Fenster, Zwei-Fenster-Abgleich, Titel-Einblendung,
-Einrichtung und Abgleich über zwei Browser-Kontexte).
+Einrichtung und Abgleich über zwei Browser-Kontexte, Überlauf der
+Aufgabenliste, Tagesplan-Anzeige).
 Der „Server" ist in allen Abgleich-Tests der echte Worker-Code mit einer
 D1-Attrappe, geprüft wird also die Kette Verschlüsseln → Schnittstelle →
 Entschlüsseln und nicht eine nachgebaute Vorstellung davon.

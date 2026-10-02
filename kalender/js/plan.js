@@ -268,6 +268,40 @@ export function renderDayPlan(ctx) {
   return root;
 }
 
+/**
+ * Der Tagesplan als reine Anzeige, zum Danebenstellen auf der Aufgabenseite.
+ *
+ * Bewusst ohne Eingabefeld, ohne Loeschknopf und ohne Ziehgriff: wer hier
+ * etwas aendern will, geht auf die Tagesplanung. Der Aufruf *liest* nur —
+ * er legt keinen eigenstaendigen Tagesplan an, sonst waere die
+ * Kopieren-beim-Schreiben-Regel schon durch das blosse Hinsehen verletzt.
+ */
+export function renderPlanPreview({ dateYmd, items, detached, colorOf, title = 'Tagesplan' }) {
+  const box = el('aside', 'pl-preview');
+  box.dataset.plpreview = dateYmd;
+
+  const head = el('div', 'pl-preview-head');
+  head.append(el('div', 'pl-preview-title', title));
+  head.append(el('div', 'pl-count', items.length ? `${items.length} Einträge` : ''));
+  box.append(head);
+
+  const list = el('div', 'pl-list pl-readonly');
+  for (const it of items) {
+    const node = planItem(it, colorOf, { readonly: true });
+    // Nicht anspringbar: ein schreibgeschuetztes Feld nimmt sonst den Fokus
+    // und schluckt die Tastenkuerzel der Seite.
+    for (const i of node.querySelectorAll('input')) i.tabIndex = -1;
+    list.append(node);
+  }
+  if (!items.length) list.append(el('p', 'empty', 'Nichts geplant.'));
+  box.append(list);
+
+  box.append(el('p', 'pl-preview-foot', detached
+    ? 'eigenständiger Tagesplan — Änderungen auf der Tagesplanung (TP)'
+    : 'aus dem Wochenplan übernommen — Änderungen auf der Tagesplanung (TP)'));
+  return box;
+}
+
 /* ------------------------------------------------------------------ */
 /* Ziehen: Reihenfolge und Spaltenwechsel                              */
 /* ------------------------------------------------------------------ */

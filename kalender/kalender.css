@@ -549,8 +549,12 @@ kbd {
 /* ---------------------------------------------------------------- */
 
 .tk-page { display: flex; height: 100%; min-height: 0; overflow-x: auto; }
-.tk-page.day { justify-content: center; padding: 1rem; }
-.tk-page.day .tk-col { max-width: 46rem; width: 100%; }
+/* Kein Umbruch: eine umbrechende Flex-Zeile bemisst ihre Hoehe am Inhalt,
+   damit waere die Hoehenbegrenzung weg und die Aufgabenliste wuerde nicht
+   mehr scrollen, sondern die Seite aufblaehen. Auf schmalen Fenstern wird
+   stattdessen weiter unten auf Spaltenrichtung umgestellt. */
+.tk-page.day { justify-content: center; gap: 1rem; padding: 1rem; flex-wrap: nowrap; align-items: stretch; }
+.tk-page.day .tk-col { flex: 1 1 32rem; max-width: 46rem; }
 /* Alle sieben Tage muessen hineinpassen; beim Einblenden der Seitenleiste
    werden sie schmaeler, nicht abgeschnitten. Eine Mindestbreite gilt erst
    auf schmalen Fenstern, wo sieben Spalten sonst unleserlich wuerden. */
@@ -580,6 +584,13 @@ kbd {
 .tk-count { font-size: 0.74rem; color: var(--muted); white-space: nowrap; }
 
 .tk-list { flex: 1; min-height: 0; overflow-y: auto; padding: 0.45rem; display: flex; flex-direction: column; gap: 0.35rem; }
+/* Entscheidend: Aufgabenbloecke duerfen NICHT schrumpfen. In einem
+   Spalten-Flexbereich ist `flex-shrink: 1` die Voreinstellung, also wurden
+   bei vielen Aufgaben alle Bloecke zusammengedrueckt, bis der Titel unter
+   `overflow: hidden` verschwand — statt dass die Liste scrollt. Mit
+   `flex: 0 0 auto` behaelt jeder Block seine eingestellte Hoehe und die
+   Liste laeuft ueber, was `overflow-y: auto` dann abfaengt. */
+.tk-list > .tk { flex: 0 0 auto; }
 
 .tk {
   display: grid;
@@ -597,6 +608,10 @@ kbd {
   touch-action: none;
   cursor: grab;
 }
+/* Untergrenze als zweite Sicherung: auch ein von Hand kleingezogener oder
+   aus einer alten Fassung stammender Block bleibt hoch genug fuer eine
+   Titelzeile. Entspricht MIN_TASK_HEIGHT in store.js. */
+.tk { min-height: 34px; }
 .tk.done { border-left-color: var(--muted); opacity: 0.62; }
 .tk.tk-dragging { box-shadow: var(--shadow); cursor: grabbing; opacity: 0.92; }
 .tk.tk-resizing { border-left-color: var(--accent-2); }
@@ -873,3 +888,35 @@ kbd {
 
 #sync-msg:empty { display: none; }
 #sync-msg.good { color: #16a34a; }
+
+/* Tagesplan als reine Anzeige neben den Aufgaben (Aufgabenseite, Tagesansicht). */
+.pl-preview {
+  flex: 1 1 22rem; max-width: 30rem; min-width: 0;
+  display: flex; flex-direction: column; min-height: 0;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); overflow: hidden;
+}
+.pl-preview-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem;
+  padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--line);
+}
+.pl-preview-title { font-family: var(--font-serif); font-weight: 700; font-size: 1rem; }
+.pl-preview-foot {
+  margin: 0; padding: 0.4rem 0.6rem; border-top: 1px solid var(--line);
+  font-size: 0.72rem; color: var(--muted);
+}
+.pl-preview .pl-list { flex: 1; min-height: 0; overflow-y: auto; }
+/* Nichts hier ist anfassbar: kein Ziehgriff, kein Greifzeiger, keine
+   Feldanmutung in den Zeiten. */
+.pl-readonly .pl { cursor: default; }
+.pl-readonly .pl-handle { display: none; }
+.pl-readonly input { cursor: default; }
+
+/* Schmales Fenster: Aufgaben oben, Tagesplan darunter; dann scrollt die
+   Seite statt der einzelnen Liste. */
+@media (max-width: 900px) {
+  .tk-page.day { flex-direction: column; overflow-y: auto; flex-wrap: nowrap; }
+  .tk-page.day .tk-col { flex: 0 0 auto; max-width: none; }
+  .tk-page.day .tk-list { overflow-y: visible; }
+  .pl-preview { flex: 0 0 auto; max-width: none; }
+}
