@@ -1,0 +1,115 @@
+{
+ "source": "OeNB-Webservice, Referenzkurse der EZB EUR-CHF (VDBKUREFEURCHF), letzter Kurs je Woche",
+ "unit": "CHF je 1 EUR",
+ "updated": "2026-10-03T16:08:32+00:00",
+ "rates": [
+  {
+   "date": "2026-04-02",
+   "chfPerEur": 0.9213
+  },
+  {
+   "date": "2026-04-10",
+   "chfPerEur": 0.9241
+  },
+  {
+   "date": "2026-04-17",
+   "chfPerEur": 0.9231
+  },
+  {
+   "date": "2026-04-24",
+   "chfPerEur": 0.9199
+  },
+  {
+   "date": "2026-04-30",
+   "chfPerEur": 0.919
+  },
+  {
+   "date": "2026-05-08",
+   "chfPerEur": 0.9156
+  },
+  {
+   "date": "2026-05-15",
+   "chfPerEur": 0.9144
+  },
+  {
+   "date": "2026-05-22",
+   "chfPerEur": 0.9119
+  },
+  {
+   "date": "2026-05-29",
+   "chfPerEur": 0.9111
+  },
+  {
+   "date": "2026-06-05",
+   "chfPerEur": 0.9175
+  },
+  {
+   "date": "2026-06-12",
+   "chfPerEur": 0.9217
+  },
+  {
+   "date": "2026-06-19",
+   "chfPerEur": 0.9248
+  },
+  {
+   "date": "2026-06-26",
+   "chfPerEur": 0.9218
+  },
+  {
+   "date": "2026-07-03",
+   "chfPerEur": 0.919
+  },
+  {
+   "date": "2026-07-10",
+   "chfPerEur": 0.9223
+  },
+  {
+   "date": "2026-07-17",
+   "chfPerEur": 0.9228
+  },
+  {
+   "date": "2026-07-24",
+   "chfPerEur": 0.9302
+  },
+  {
+   "date": "2026-07-31",
+   "chfPerEur": 0.9304
+  },
+  {
+   "date": "2026-08-07",
+   "chfPerEur": 0.9347
+  },
+  {
+   "date": "2026-08-14",
+   "chfPerEur": 0.939
+  },
+  {
+   "date": "2026-08-21",
+   "chfPerEur": 0.9353
+  },
+  {
+   "date": "2026-08-28",
+   "chfPerEur": 0.9364
+  },
+  {
+   "date": "2026-09-04",
+   "chfPerEur": 0.9405
+  },
+  {
+   "date": "2026-09-11",
+   "chfPerEur": 0.9451
+  },
+  {
+   "date": "2026-09-18",
+   "chfPerEur": 0.9462
+  },
+  {
+   "date": "2026-09-25",
+   "chfPerEur": 0.9445
+  },
+  {
+   "date": "2026-10-02",
+   "chfPerEur": 0.9279
+  }
+ ]
+}
