@@ -17,6 +17,8 @@ const RUN_D = ['100', '200', '300', '400', '800', '1000', '1500', '1609', '2000'
 const RIDE_D = ['5000', '10000', '20000', '40000', '50000', '100000', '160934'];
 const SWIM_D = ['100', '200', '400', '800', '1000', '1500', '1900', '3800'];
 const KEY_DUR = [5, 15, 60, 300, 1200, 3600];
+// Ab wann eine Sportart fuer Bestwerte zaehlt (lokale Startzeit, ISO); aeltere Aktivitaeten bleiben unberuecksichtigt
+const BEST_SINCE = { swim: '2026-10-03T17:30' };
 const NONE = { run: 'noch nicht gelaufen', ride: 'noch nicht gefahren', swim: 'noch nicht geschwommen' };
 
 // Mean-Max-Huelle ohne verworfene Werte
@@ -79,7 +81,8 @@ export function renderRecords(root, ctx) {
   function draw(sp) {
     body.replaceChildren();
     const ex = R.exclusionTest(st.state);
-    const list = acts.filter(a => a.cat === sp);
+    const since = BEST_SINCE[sp];
+    const list = acts.filter(a => a.cat === sp && (!since || String(a.start) >= since));
     const recent = list.filter(a => a.day >= d90);
     const thisYear = list.filter(a => a.day >= y0);
 
@@ -137,9 +140,7 @@ export function renderRecords(root, ctx) {
     }
 
     if (sp === 'swim') {
-      body.append(distanceTable('Bestzeiten', list, SWIM_D, recent, thisYear, (t, d) => F.pace(d / t, 100), sp));
-      const est = ctx.model.est.swim_v;
-      if (est) body.append(h('p', { class: 'note', text: `Aus den Bestzeiten über 200 m und 400 m geschätzte CSS: ${F.pace(est, 100)}.` }));
+      body.append(distanceTable('Bestzeiten', list, SWIM_D, recent, thisYear, (t, d) => F.pace(d / t, 100), sp, true));
     }
 
     body.append(rekordeCard(sp, label[sp]));
@@ -190,7 +191,7 @@ export function renderRecords(root, ctx) {
     return wrap;
   }
 
-  function distanceTable(title, list, dists, recent, thisYear, paceFmt, sp) {
+  function distanceTable(title, list, dists, recent, thisYear, paceFmt, sp, allRows = false) {
     const ex = R.exclusionTest(st.state);
     const rows = dists.map(d => {
       const all = bestTimesEx(list, d, 3, ex);
@@ -203,7 +204,7 @@ export function renderRecords(root, ctx) {
         r90: bestTimesEx(recent, d, 1, ex)[0],
         hadData: list.some(a => a.best?.[d] != null),
       };
-    }).filter(r => r.all.length || r.hadData || r.official != null || r.goal != null);
+    }).filter(r => allRows || r.all.length || r.hadData || r.official != null || r.goal != null);
     if (!rows.length) return card(title, emptyNote('Noch keine Daten.'));
     const none = NONE[sp] || '–';
     const delta = r => {
@@ -213,7 +214,7 @@ export function renderRecords(root, ctx) {
     };
     const tbl = table(rows, [
       { label: 'Distanz', value: r => F.distLabel(r.d) },
-      { label: 'GPS-Bestzeit', value: r => r.all[0] ? h('b', { text: F.duration(r.all[0].t) }) : h('span', { class: 'muted', text: r.hadData ? none : F.DASH }), num: true },
+      { label: sp === 'swim' ? 'Uhr-Bestzeit' : 'GPS-Bestzeit', value: r => r.all[0] ? h('b', { text: F.duration(r.all[0].t) }) : h('span', { class: 'muted', text: r.hadData ? none : F.DASH }), num: true },
       { label: 'am', value: r => r.all[0] ? link(r.all[0].a) : F.DASH },
       { label: 'Offiziell', value: r => editCell(sp, 'official', r.d, 'Offizielle Zeit'), num: true },
       { label: 'Ziel', value: r => editCell(sp, 'goal', r.d, 'Ziel'), num: true },
@@ -224,7 +225,11 @@ export function renderRecords(root, ctx) {
       { label: '2. / 3.', value: r => r.all.slice(1).map(x => F.duration(x.t)).join(' · ') || F.DASH, num: true },
       { label: '', value: r => r.all[0] ? xBtn(r.all[0].a, `best:${r.d}`, `${F.distLabel(r.d)} in ${F.duration(r.all[0].t)}`) : '' },
     ]);
-    return card(title, tbl, { sub: 'GPS: schnellster Abschnitt innerhalb einer Aktivität. „Offiziell“ und „Ziel“ per Klick eintragen (z. B. 13" · 2\'40" · 1:13:30; leer = löschen). Δ vergleicht das Ziel mit der besseren aus GPS und offiziell. ✕ verwirft einen GPS-Wert dauerhaft.' });
+    const since = BEST_SINCE[sp];
+    const from = since ? `Gewertet werden nur Aktivitäten ab ${F.dateShort(since)}. ` : '';
+    const pace = sp === 'swim' ? 'Zielpace je 100 m. ' : '';
+    const src = sp === 'swim' ? 'Uhr' : 'GPS';
+    return card(title, tbl, { sub: from + pace + `${src}: schnellster Abschnitt innerhalb einer Aktivität. „Offiziell“ (eigener Wert) und „Ziel“ per Klick eintragen (z. B. 13" · 2'40" · 1:13:30; leer = löschen). Δ vergleicht das Ziel mit der besseren Zeit aus ${src} und offiziell. ✕ verwirft einen ${src}-Wert dauerhaft.` });
   }
 
   function excludedCard(sp) {
