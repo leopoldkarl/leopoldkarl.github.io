@@ -13,7 +13,7 @@ import * as R from '../rekorde.js';
 import { card, segmented, table, emptyNote } from '../ui.js';
 import { rekordeStore, rekordeCard } from './rekorde-view.js';
 
-const RUN_D = ['400', '1000', '1609', '3000', '5000', '10000', '15000', '21097', '30000', '42195'];
+const RUN_D = ['100', '200', '300', '400', '800', '1000', '1500', '1609', '2000', '3000', '5000', '10000', '15000', '21097', '30000', '42195'];
 const RIDE_D = ['5000', '10000', '20000', '40000', '50000', '100000', '160934'];
 const SWIM_D = ['100', '200', '400', '800', '1000', '1500', '1900', '3800'];
 const KEY_DUR = [5, 15, 60, 300, 1200, 3600];
@@ -58,10 +58,11 @@ export function renderRecords(root, ctx) {
   const link = a => h('a', { href: `#/a/${encodeURIComponent(a.id)}`, text: F.dateShort(a.start) });
 
   // Neu zeichnen, wenn sich die Verwerfungen aendern (auch vom anderen Geraet)
-  let lastEx = JSON.stringify(st.state.excluded || []);
+  const sig = () => JSON.stringify([st.state.excluded || [], st.state.marks || []]);
+  let lastEx = sig();
   const unsub = st.subscribe(() => {
     if (!body.isConnected) { unsub(); return; }
-    const now = JSON.stringify(st.state.excluded || []);
+    const now = sig();
     if (now !== lastEx) { lastEx = now; const y = window.scrollY; draw(sport); window.scrollTo(0, y); }
   });
 
@@ -146,32 +147,89 @@ export function renderRecords(root, ctx) {
     if (exCard) body.append(exCard);
   }
 
+  // Offizielle Werte/Ziele: Eintrag im Store, sonst Vorgabe aus der config (index.athlete.marks)
+  function markValue(sp, kind, d) {
+    const v = R.markOf(st.state, sp, kind, d);
+    if (v !== undefined) return v;
+    const def = ctx.model.marks?.[sp]?.[kind]?.[String(d)];
+    return Number.isFinite(def) && def > 0 ? def : null;
+  }
+
+  function editCell(sp, kind, d, label) {
+    const v = markValue(sp, kind, d);
+    const wrap = h('span', { class: 'mark-cell' });
+    const show = () => {
+      wrap.replaceChildren(h('button', {
+        type: 'button', class: `mark-btn${v == null ? ' empty' : ''}${kind === 'official' ? ' strong' : ''}`,
+        text: v == null ? '＋' : F.duration(v), title: `${label} für ${F.distLabel(d)} ${v == null ? 'eintragen' : 'ändern (leer lassen = löschen)'}`,
+        onclick: edit,
+      }));
+    };
+    const edit = () => {
+      const inp = h('input', { type: 'text', class: 'input mark-input', value: v == null ? '' : F.duration(v),
+        placeholder: kind === 'goal' ? 'z. B. 2\'40"' : 'z. B. 1:13:30', 'aria-label': `${label} ${F.distLabel(d)}` });
+      let done = false;
+      const save = () => {
+        if (done) return; done = true;
+        const t = inp.value.trim();
+        if (!t) { if (v != null) st.commit(s => R.setMark(s, sp, kind, d, null), 'mark'); else show(); return; }
+        const sec = R.parseTime(t);
+        if (sec == null) { done = false; inp.classList.add('bad'); inp.title = 'Nicht lesbar: z. B. 13" · 2\'40" · 73\'30" · 1:13:30'; return; }
+        if (sec === v) { show(); return; }
+        st.commit(s => R.setMark(s, sp, kind, d, sec), 'mark');
+      };
+      inp.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); save(); }
+        if (e.key === 'Escape') { done = true; show(); }
+      });
+      inp.addEventListener('blur', save);
+      wrap.replaceChildren(inp);
+      inp.focus(); inp.select();
+    };
+    show();
+    return wrap;
+  }
+
   function distanceTable(title, list, dists, recent, thisYear, paceFmt, sp) {
     const ex = R.exclusionTest(st.state);
-    const rows = dists.map(d => ({
-      d: +d,
-      all: bestTimesEx(list, d, 3, ex),
-      yr: bestTimesEx(thisYear, d, 1, ex)[0],
-      r90: bestTimesEx(recent, d, 1, ex)[0],
-      hadData: list.some(a => a.best?.[d] != null),
-    })).filter(r => r.all.length || r.hadData);        // verworfen -> Zeile bleibt, „noch nicht …“
+    const rows = dists.map(d => {
+      const all = bestTimesEx(list, d, 3, ex);
+      const official = markValue(sp, 'official', +d), goal = markValue(sp, 'goal', +d);
+      const known = [all[0]?.t, official].filter(x => x != null);
+      return {
+        d: +d, all, official, goal,
+        best: known.length ? Math.min(...known) : null,
+        yr: bestTimesEx(thisYear, d, 1, ex)[0],
+        r90: bestTimesEx(recent, d, 1, ex)[0],
+        hadData: list.some(a => a.best?.[d] != null),
+      };
+    }).filter(r => r.all.length || r.hadData || r.official != null || r.goal != null);
     if (!rows.length) return card(title, emptyNote('Noch keine Daten.'));
     const none = NONE[sp] || '–';
-    return card(title, table(rows, [
+    const delta = r => {
+      if (r.goal == null || r.best == null) return F.DASH;
+      const dlt = r.best - r.goal;
+      return dlt <= 0 ? h('span', { class: 'goal-ok', text: '✓ erreicht' }) : h('span', { class: 'goal-gap', text: `+${F.duration(dlt)}` });
+    };
+    const tbl = table(rows, [
       { label: 'Distanz', value: r => F.distLabel(r.d) },
-      { label: 'Bestzeit', value: r => r.all[0] ? h('b', { text: F.duration(r.all[0].t) }) : h('span', { class: 'muted', text: none }), num: true },
-      { label: 'Tempo', value: r => r.all[0] ? paceFmt(r.all[0].t, r.d) : F.DASH, num: true },
+      { label: 'GPS-Bestzeit', value: r => r.all[0] ? h('b', { text: F.duration(r.all[0].t) }) : h('span', { class: 'muted', text: r.hadData ? none : F.DASH }), num: true },
       { label: 'am', value: r => r.all[0] ? link(r.all[0].a) : F.DASH },
+      { label: 'Offiziell', value: r => editCell(sp, 'official', r.d, 'Offizielle Zeit'), num: true },
+      { label: 'Ziel', value: r => editCell(sp, 'goal', r.d, 'Ziel'), num: true },
+      { label: 'Zielpace', value: r => r.goal != null ? paceFmt(r.goal, r.d) : F.DASH, num: true },
+      { label: 'Δ zum Ziel', value: delta, num: true },
       { label: String(t0.getFullYear()), value: r => r.yr ? F.duration(r.yr.t) : F.DASH, num: true },
       { label: '90 Tage', value: r => r.r90 ? F.duration(r.r90.t) : F.DASH, num: true },
       { label: '2. / 3.', value: r => r.all.slice(1).map(x => F.duration(x.t)).join(' · ') || F.DASH, num: true },
       { label: '', value: r => r.all[0] ? xBtn(r.all[0].a, `best:${r.d}`, `${F.distLabel(r.d)} in ${F.duration(r.all[0].t)}`) : '' },
-    ]), { sub: 'Schnellster zusammenhängender Abschnitt innerhalb einer Aktivität (Bewegungszeit). ✕ verwirft einen Wert, danach gilt der nächstbeste.' });
+    ]);
+    return card(title, tbl, { sub: 'GPS: schnellster Abschnitt innerhalb einer Aktivität. „Offiziell“ und „Ziel“ per Klick eintragen (z. B. 13" · 2\'40" · 1:13:30; leer = löschen). Δ vergleicht das Ziel mit der besseren aus GPS und offiziell. ✕ verwirft einen GPS-Wert dauerhaft.' });
   }
 
   function excludedCard(sp) {
     const byId = ctx.model.byId;
-    const items = (st.state.excluded || [])
+    const items = R.activeExclusions(st.state)
       .map(x => ({ ...x, a: byId.get(x.aid) }))
       .filter(x => x.a && x.a.cat === sp)
       .sort((p, q) => q.at.localeCompare(p.at));
@@ -223,7 +281,7 @@ function askDiscard(a, what, done) {
 // Fuer die Aktivitaetsseite: ignoriert? / umschalten
 export function activityIgnored(aid) {
   const st = rekordeStore();
-  return (st.state.excluded || []).some(x => x.aid === aid && x.metric === '*');
+  return R.activeExclusions(st.state).some(x => x.aid === aid && x.metric === '*');
 }
 
 export function toggleActivityIgnored(aid) {

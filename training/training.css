@@ -423,3 +423,11 @@ details.more summary { cursor: pointer; color: var(--accent-2); font-weight: 600
 .dlg-foot .spacer { flex: 1; }
 .view-head .segmented { flex-wrap: wrap; max-width: 100%; }
 .ignore-bar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; justify-content: flex-end; font-size: 0.85rem; margin: -0.5rem 0 1rem; }
+.mark-btn { border: 1px dashed transparent; background: none; padding: 0.1rem 0.35rem; border-radius: 5px; cursor: pointer; font: inherit; color: var(--text); font-variant-numeric: tabular-nums; }
+.mark-btn:hover, .mark-btn:focus-visible { border-color: var(--line-strong); background: var(--surface-2); }
+.mark-btn.empty { color: var(--muted); }
+.mark-btn.strong { font-weight: 700; }
+.mark-input { width: 6.5rem; padding: 0.15rem 0.4rem; text-align: right; }
+.mark-input.bad { outline: 2px solid #d03b3b; }
+.goal-ok { color: #0b8a0b; font-weight: 600; }
+.goal-gap { color: var(--muted); }

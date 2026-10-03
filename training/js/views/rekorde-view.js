@@ -30,7 +30,12 @@ function buildSync() {
   sync = new SyncClient({
     store,
     getKey: currentKey,
-    onRemoteState: st => store.adoptExternal(st),
+    onRemoteState: st => {
+      // Verwerfungen, offizielle Werte und Ziele zusammenfuehren statt ueberschreiben
+      const m = R.mergeStates(store.state, st);
+      store.adoptExternal(m.state);
+      if (m.localNewer) sync.schedulePush();
+    },
     onStatus: st => { syncStatus = st; for (const fn of statusListeners) fn(st); },
   });
 }
@@ -304,8 +309,9 @@ function buildDialog() {
 // hinzufügen (statt sie zu verwerfen). Danach lädt der nächste Abgleich hoch.
 function mergeLocalInto(remote) {
   const local = store.state;
-  const merged = R.normalizeState(remote);
-  let added = false;
+  const mm = R.mergeStates(local, remote);
+  const merged = mm.state;
+  let added = mm.localNewer;
   for (const lc of local.categories) {
     const rc = merged.categories.find(c => c.id === lc.id);
     if (!rc) { merged.categories.push(lc); added = true; continue; }

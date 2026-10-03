@@ -62,9 +62,9 @@ Einmalig, in `training\sync`:
     py training_sync.py garmin                  einmal interaktiv bei Garmin anmelden (legt Tokens an)
     powershell -ExecutionPolicy Bypass -File .\aufgabe_einrichten.ps1
 
-Die Aufgabe „Trainingsdaten synchronisieren“ läuft täglich um 15:00 und
-10 Minuten nach jeder Anmeldung (war der Rechner um 15:00 aus, wird der
-Lauf beim nächsten Start nachgeholt) und ruft `training_sync.py auto` auf: neue Aktivitäten holen, nur wenn es
+Die Aufgabe „Trainingsdaten synchronisieren“ läuft täglich um 10:00, 12:00
+und 15:00 sowie 10 Minuten nach jeder Anmeldung (war der Rechner zu einem
+Termin aus, wird der Lauf beim nächsten Start nachgeholt) und ruft `training_sync.py auto` auf: neue Aktivitäten holen, nur wenn es
 welche gibt bauen, committen und pushen. Protokoll:
 `%USERPROFILE%\garmin-training\sync.log`. Blockiert Garmin die Anmeldung
 (429/Cloudflare), pausiert `auto` 24 Stunden, statt die Sperre durch

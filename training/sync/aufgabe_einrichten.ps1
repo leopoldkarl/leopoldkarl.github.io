@@ -1,6 +1,6 @@
 # Richtet die Windows-Aufgabe "Trainingsdaten synchronisieren" ein.
-#   - taeglich um 15:00 und 10 Minuten nach jeder Anmeldung
-#   - war der Rechner um 15:00 aus, wird der Lauf beim naechsten Start nachgeholt
+#   - taeglich um 10:00, 12:00 und 15:00 und 10 Minuten nach jeder Anmeldung
+#   - war der Rechner zu einem Termin aus, wird der Lauf beim naechsten Start nachgeholt
 #   - laeuft unsichtbar (pythonw), Protokoll: %USERPROFILE%\garmin-training\sync.log
 # Aufruf in PowerShell im Ordner training\sync:
 #   powershell -ExecutionPolicy Bypass -File .\aufgabe_einrichten.ps1
@@ -13,7 +13,9 @@ $py = (Get-Command pythonw.exe -ErrorAction SilentlyContinue).Source
 if (-not $py) { $py = (Get-Command python.exe).Source }
 
 $action = New-ScheduledTaskAction -Execute $py -Argument '"training_sync.py" auto' -WorkingDirectory $dir
-$daily = New-ScheduledTaskTrigger -Daily -At '15:00'
+$t10 = New-ScheduledTaskTrigger -Daily -At '10:00'
+$t12 = New-ScheduledTaskTrigger -Daily -At '12:00'
+$t15 = New-ScheduledTaskTrigger -Daily -At '15:00'
 $logon = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
 $logon.Delay = 'PT10M'
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries `
@@ -22,7 +24,7 @@ $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatt
 $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
 
 Register-ScheduledTask -TaskName 'Trainingsdaten synchronisieren' -Action $action `
-    -Trigger $daily, $logon -Settings $settings -Principal $principal -Force `
+    -Trigger $t10, $t12, $t15, $logon -Settings $settings -Principal $principal -Force `
     -Description 'Holt neue Garmin-Aktivitaeten und laedt sie verschluesselt auf leopoldkarl.com/training' | Out-Null
 
 Write-Host "Aufgabe eingerichtet. Python: $py"

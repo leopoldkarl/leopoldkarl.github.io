@@ -183,7 +183,7 @@ export function buildModel(index) {
     a.ef = efficiency(a);
   }
   const byId = new Map(acts.map(a => [a.id, a]));
-  return { acts, byId, est, configured, thAt, generated: index.generated };
+  return { acts, byId, est, configured, thAt, generated: index.generated, marks: index.athlete?.marks || {} };
 }
 
 // ------------------------------------------------------------------ Aggregate

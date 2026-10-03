@@ -26,7 +26,7 @@ export const KINDS_BY_SPORT = {
   other: ['time', 'distance', 'weight', 'reps', 'number'],
 };
 
-export function emptyState() { return { v: 1, categories: [], excluded: [] }; }
+export function emptyState() { return { v: 1, categories: [], excluded: [], marks: [] }; }
 
 const uid = () => (globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`);
 
@@ -57,17 +57,29 @@ export function normalizeState(raw) {
     cat.entries.sort((a, b) => a.date.localeCompare(b.date));
     out.categories.push(cat);
   }
-  // Verworfene automatische Bestwerte (GPS-Fehler): {aid, metric, at}
+  // Verworfene automatische Bestwerte (GPS-Fehler): {aid, metric, at, off}
   // metric: 'best:<m>' | 'mm_pw:<s>' | 'mm_v:<s>' | '*' (ganze Aktivitaet)
-  const seen = new Set();
+  // off = true: wiederhergestellt (Grabstein, damit ein Abgleich mit einem
+  // aelteren Stand die Entscheidung nicht rueckgaengig macht)
+  const ex = new Map();
   for (const x of Array.isArray(raw?.excluded) ? raw.excluded : []) {
     const aid = str(x?.aid, 40), metric = str(x?.metric, 40);
     if (!aid || !/^(\*|best:\d+|mm_pw:\d+|mm_v:\d+)$/.test(metric)) continue;
+    const e = { aid, metric, at: str(x.at, 40) || '1970-01-01T00:00:00.000Z', off: x.off === true };
     const k = `${aid}|${metric}`;
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.excluded.push({ aid, metric, at: str(x.at, 40) || new Date().toISOString() });
+    if (!ex.has(k) || ex.get(k).at < e.at) ex.set(k, e);
   }
+  out.excluded = [...ex.values()];
+  // Offizielle Werte und Ziele je Distanz: {key: '<sport>|<official|goal>|<m>', value: s|null, at}
+  const mk = new Map();
+  for (const m of Array.isArray(raw?.marks) ? raw.marks : []) {
+    const key = str(m?.key, 60);
+    if (!/^(run|ride|swim)\|(official|goal)\|\d+$/.test(key)) continue;
+    const v = m.value == null ? null : Number(m.value);
+    const e = { key, value: Number.isFinite(v) && v > 0 ? v : null, at: str(m.at, 40) || '1970-01-01T00:00:00.000Z' };
+    if (!mk.has(key) || mk.get(key).at < e.at) mk.set(key, e);
+  }
+  out.marks = [...mk.values()];
   return out;
 }
 
@@ -75,19 +87,84 @@ export function normalizeState(raw) {
 
 /** Test-Funktion (aid, metric) -> bool, schnell fuer viele Abfragen. */
 export function exclusionTest(s) {
-  const set = new Set((s.excluded || []).map(x => `${x.aid}|${x.metric}`));
+  const set = new Set((s.excluded || []).filter(x => !x.off).map(x => `${x.aid}|${x.metric}`));
   return (aid, metric) => set.has(`${aid}|*`) || set.has(`${aid}|${metric}`);
 }
 
-export function exclude(s, aid, metric) {
+export const activeExclusions = s => (s.excluded || []).filter(x => !x.off);
+
+const nowIso = () => new Date().toISOString();
+
+function setEx(s, aid, metric, off) {
   s.excluded = s.excluded || [];
-  if (metric === '*') s.excluded = s.excluded.filter(x => x.aid !== aid);   // umfasst alles
-  else if (s.excluded.some(x => x.aid === aid && (x.metric === metric || x.metric === '*'))) return;
-  s.excluded.push({ aid, metric, at: new Date().toISOString() });
+  const e = s.excluded.find(x => x.aid === aid && x.metric === metric);
+  if (e) { e.off = off; e.at = nowIso(); } else s.excluded.push({ aid, metric, at: nowIso(), off });
+}
+
+export function exclude(s, aid, metric) {
+  if (metric === '*') {
+    // Einzelverwerfungen dieser Aktivitaet sind damit umfasst
+    for (const x of s.excluded || []) if (x.aid === aid && x.metric !== '*' && !x.off) { x.off = true; x.at = nowIso(); }
+  } else if (exclusionTest(s)(aid, metric)) return;
+  setEx(s, aid, metric, false);
 }
 
 export function restore(s, aid, metric) {
-  s.excluded = (s.excluded || []).filter(x => !(x.aid === aid && x.metric === metric));
+  setEx(s, aid, metric, true);
+}
+
+// ------------------------------------------------------------------ Offizielle Werte und Ziele
+
+export const markKey = (sport, kind, dist) => `${sport}|${kind}|${dist}`;
+
+/** Wert aus dem Store; undefined = nie gesetzt (dann gilt ggf. der Vorgabewert aus der config). */
+export function markOf(s, sport, kind, dist) {
+  const m = (s.marks || []).find(x => x.key === markKey(sport, kind, dist));
+  return m ? m.value : undefined;
+}
+
+export function setMark(s, sport, kind, dist, value) {
+  s.marks = s.marks || [];
+  const key = markKey(sport, kind, dist);
+  const m = s.marks.find(x => x.key === key);
+  const v = value == null ? null : value;
+  if (m) { m.value = v; m.at = nowIso(); } else s.marks.push({ key, value: v, at: nowIso() });
+}
+
+/** Zeit-Eingabe wie in der Tabelle: 13" · 2'40" · 73'30" · 1:13:30 · 4:05 · 13,5 */
+export function parseTime(text) {
+  let t = String(text ?? '').trim().replace(/[’´`′]/g, "'").replace(/[″“”]/g, '"').replace(/''/g, '"').replace(',', '.');
+  if (!t) return null;
+  let m = /^(?:(\d+)\s*h\s*)?(?:(\d+(?:\.\d+)?)\s*')?\s*(?:(\d+(?:\.\d+)?)\s*"?)?$/.exec(t);
+  if (m && (t.includes("'") || t.includes('"') || /h/.test(t))) {
+    const h = Number(m[1] || 0), mi = Number(m[2] || 0), se = Number(m[3] || 0);
+    if (m[2] == null && m[3] == null && m[1] == null) return null;
+    if (m[3] != null && se >= 60 && (m[2] != null || m[1] != null)) return null;
+    const v = h * 3600 + mi * 60 + se;
+    return v > 0 ? v : null;
+  }
+  return parseValue({ kind: 'time' }, t);
+}
+
+/** Zusammenfuehren: fremder Stand (Server, anderes Fenster) mit dem eigenen.
+ *  Kategorien und Eintraege: fremder Stand gilt (wie bisher). Verwerfungen und
+ *  offizielle Werte/Ziele: je Schluessel gewinnt die juengere Aenderung, damit
+ *  ein aelterer Stand (z. B. von einem Geraet mit altem Programm) sie nicht
+ *  loescht. Rueckgabe {state, localNewer}. */
+export function mergeStates(local, remote) {
+  const r = normalizeState(remote), l = normalizeState(local);
+  let localNewer = false;
+  const mergeBy = (la, ra, keyOf) => {
+    const map = new Map(ra.map(x => [keyOf(x), x]));
+    for (const x of la) {
+      const k = keyOf(x), y = map.get(k);
+      if (!y || y.at < x.at) { map.set(k, x); localNewer = true; }
+    }
+    return [...map.values()];
+  };
+  r.excluded = mergeBy(l.excluded, r.excluded, x => `${x.aid}|${x.metric}`);
+  r.marks = mergeBy(l.marks, r.marks, x => x.key);
+  return { state: r, localNewer };
 }
 
 // ------------------------------------------------------------------ Werte
@@ -255,7 +332,7 @@ export class RekordeStore {
     const check = raw => {
       if (raw == null || raw === this.lastRaw) return;
       this.lastRaw = raw;
-      try { this.adoptExternal(JSON.parse(raw), { write: false }); } catch { /* ignorieren */ }
+      try { this.adoptExternal(mergeStates(this.state, JSON.parse(raw)).state, { write: false }); } catch { /* ignorieren */ }
     };
     window.addEventListener('storage', e => { if (e.key === STORAGE_KEY) check(e.newValue); });
     document.addEventListener('visibilitychange', () => {

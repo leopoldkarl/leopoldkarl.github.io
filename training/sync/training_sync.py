@@ -85,6 +85,7 @@ class Config:
         self.zones = data.get("privacy_zones") or []
         self.exclude = set(data.get("exclude") or [])
         self.thresholds = [_threshold(t) for t in data.get("thresholds") or []]
+        self.marks = _marks(data.get("marks") or {})
         self.garmin = {**DEFAULT_CONFIG["garmin"], **(data.get("garmin") or {})}
 
     @property
@@ -104,6 +105,46 @@ def _pace_to_speed(s, per_m):
         parts = [float(p) for p in str(s).split(":")]
         sec = parts[0] * 60 + parts[1] if len(parts) == 2 else parts[0]
     return round(per_m / sec, 4) if sec > 0 else None
+
+
+def parse_time(text) -> float | None:
+    """13\" | 2'40\" | 73'30\" | 147'30\" | 15' | 1:13:30 | 4:05 | 13,5 -> Sekunden."""
+    import re
+    if isinstance(text, (int, float)):
+        return float(text) if text > 0 else None
+    t = str(text).strip().replace(",", ".").replace("’", "'").replace("′", "'").replace("''", '"')
+    if not t:
+        return None
+    m = re.fullmatch(r"(?:(\d+)\s*h\s*)?(?:(\d+(?:\.\d+)?)\s*')?\s*(?:(\d+(?:\.\d+)?)\s*\"?)?", t)
+    if m and ("'" in t or '"' in t or "h" in t) and any(m.groups()):
+        h, mi, se = (float(x) if x else 0.0 for x in m.groups())
+        v = h * 3600 + mi * 60 + se
+        return v if v > 0 else None
+    parts = t.split(":")
+    try:
+        nums = [float(p) for p in parts]
+    except ValueError:
+        raise SystemExit(f"Zeit nicht lesbar: {text!r}")
+    v = 0.0
+    for n in nums:
+        v = v * 60 + n
+    return v if v > 0 else None
+
+
+def _marks(raw: dict) -> dict:
+    """{"run": {"goal": {"5000": "15'"}, "official": {...}}} -> Sekunden."""
+    out = {}
+    for sport, kinds in (raw or {}).items():
+        if sport not in ("run", "ride", "swim") or not isinstance(kinds, dict):
+            continue
+        for kind, vals in kinds.items():
+            if kind not in ("goal", "official") or not isinstance(vals, dict):
+                continue
+            for dist, val in vals.items():
+                sec = parse_time(val)
+                if sec:
+                    out.setdefault(sport, {}).setdefault(kind, {})[str(int(float(dist)))] = round(sec, 1)
+    return out
 
 
 def _threshold(t: dict) -> dict:
@@ -624,7 +665,7 @@ def cmd_build(cfg: Config, allow_public_plain=False):
     index = {
         "v": FORMAT_VERSION,
         "generated": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "athlete": {"thresholds": sorted(cfg.thresholds, key=lambda t: t["from"])},
+        "athlete": {"thresholds": sorted(cfg.thresholds, key=lambda t: t["from"]), "marks": cfg.marks},
         "activities": summaries,
     }
     idx_cmp = dict(index, generated=None)
