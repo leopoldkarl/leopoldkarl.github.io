@@ -3,6 +3,7 @@
 import {
   emptyState, normalizeState, newId, nextSeq, freeSlot, todayIso, parseDateInput, formatDate,
   parseAmount, plain, parseRate, ledger, balancesAt, rateAt, titleSuggestions, CURRENCIES,
+  newPublishedRates,
 } from './model.js';
 import { Store, findAccount, findEntry } from './store.js';
 import {
@@ -271,7 +272,12 @@ function onMainClick(e) {
     case 'rate-new': openRateDialog(); break;
     case 'rate-del': {
       const d = btn.closest('[data-date]').dataset.date;
-      store.commit((s) => { s.rates = s.rates.filter((r) => r.date !== d); }, 'Kurs gelöscht');
+      store.commit((s) => {
+        const r = s.rates.find((x) => x.date === d);
+        // Ein gelöschter OeNB-Kurs soll beim nächsten Abruf nicht wiederkommen.
+        if (r && r.src === 'oenb') s.rateSkips = [...(s.rateSkips || []), d];
+        s.rates = s.rates.filter((x) => x.date !== d);
+      }, 'Kurs gelöscht');
       toast('Kurs gelöscht — Strg+Z holt ihn zurück.');
       break;
     }
@@ -584,8 +590,54 @@ function buildSync() {
 
 function startSync() {
   buildSync();
-  if (!sync.enabled) { renderSyncBadge({ state: 'aus' }); return; }
+  if (!sync.enabled) { renderSyncBadge({ state: 'aus' }); adoptPublishedRates(); return; }
   sync.start();
+  // Erst den Serverstand abwarten, dann Kurse ergänzen — sonst schreiben zwei
+  // Geräte dieselben Kurse gleichzeitig und erzeugen einen Schein-Konflikt.
+  Promise.resolve(sync._busy).catch(() => {}).finally(() => adoptPublishedRates());
+}
+
+/* ------------------------------------------------------------------ */
+/* Wöchentliche OeNB-Kurse (öffentlich, aus kurse.json)                */
+/* ------------------------------------------------------------------ */
+
+// kurse.json schreibt die GitHub-Action .github/workflows/wechselkurs.yml
+// (Referenzkurs der EZB EUR-CHF aus dem OeNB-Webservice, einmal je Woche).
+// Doppelt abgefragt: die Pages-Kopie und raw.githubusercontent.com, falls
+// GitHub Pages nach dem Commit der Action (noch) nicht neu gebaut hat.
+const KURS_QUELLEN = [
+  './kurse.json',
+  'https://raw.githubusercontent.com/leopoldkarl/leopoldkarl.github.io/main/finanzen/kurse.json',
+];
+const KURS_ABSTAND = 3600e3;   // höchstens einmal je Stunde nachsehen
+let kurseZuletzt = 0;
+
+async function fetchPublishedRates() {
+  const all = await Promise.all(KURS_QUELLEN.map(async (u) => {
+    try {
+      const res = await fetch(u, { cache: 'no-cache', credentials: 'omit', referrerPolicy: 'no-referrer' });
+      if (!res.ok) return [];
+      const body = await res.json();
+      return Array.isArray(body && body.rates) ? body.rates : [];
+    } catch { return []; }
+  }));
+  return all.flat();
+}
+
+async function adoptPublishedRates({ force = false } = {}) {
+  if (!store.unlocked) return 0;
+  if (!force && Date.now() - kurseZuletzt < KURS_ABSTAND) return 0;
+  kurseZuletzt = Date.now();
+  const published = await fetchPublishedRates();
+  if (!store.unlocked) return 0;
+  const add = newPublishedRates(store.state, published);
+  if (!add.length) return 0;
+  store.commit((s) => { s.rates.push(...add); }, 'OeNB-Kurse übernommen');
+  const last = add[add.length - 1];
+  toast(add.length === 1
+    ? `OeNB-Kurs vom ${formatDate(last.date)} übernommen: 1 EUR = ${String(last.chfPerEur).replace('.', ',')} CHF.`
+    : `${add.length} OeNB-Kurse übernommen (bis ${formatDate(last.date)}).`);
+  return add.length;
 }
 
 function openSyncDialog() {
@@ -702,6 +754,7 @@ function init() {
   store.watchOtherWindows({ onForeignKey });
 
   window.addEventListener('hashchange', render);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) adoptPublishedRates(); });
   let resizeTimer = null; let lastW = window.innerWidth;
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
@@ -793,7 +846,7 @@ function init() {
   boot();
 
   // Für Tests und die Konsole; kein Teil der Oberfläche.
-  window.__finanzen = { store, get sync() { return sync; }, lock };
+  window.__finanzen = { store, get sync() { return sync; }, lock, adoptPublishedRates };
 }
 
 init();

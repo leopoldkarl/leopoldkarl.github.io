@@ -55,9 +55,25 @@ verschlüsselte Sicherung. Weiteres Gerät: auf der Sperrseite „Vom Server hol
 
 ## Wechselkurs
 
-„Referenzkurs der EZB holen“ fragt `api.frankfurter.dev/v1/<Datum>?base=EUR&symbols=CHF`
-(übertragen wird nur das Datum). Von der Entwicklungsumgebung aus nicht
-erreichbar gewesen — Funktion im Browser prüfen; bei Fehler Kurs von Hand.
+Wöchentlich automatisch: die GitHub-Action `.github/workflows/wechselkurs.yml`
+(Samstag 07:17 UTC, zusätzlich von Hand über „Run workflow“) ruft
+`finanzen/kurse/oenb_kurs.py` auf. Das Skript holt aus dem OeNB-Webservice die
+Reihe `VDBKUREFEURCHF` (Referenzkurse der EZB EUR-CHF, Hierarchie 2503,
+<https://www.oenb.at/isadataservice/data?lang=DE&hierid=2503&pos=VDBKUREFEURCHF&freq=D&starttime=…>)
+und schreibt je ISO-Woche den letzten Kurs nach `finanzen/kurse.json`
+(öffentlich, nur Marktkurse). Erster Lauf: Wochen ab 1.4.2026.
+Einen eigenen „Mittelkurs“ veröffentlicht die OeNB seit der Euro-Einführung
+nicht mehr; sie gibt den EZB-Referenzkurs weiter.
+
+Die Seite liest `kurse.json` (Pages-Kopie und raw.githubusercontent.com) nach
+dem Entsperren — bei eingerichtetem Abgleich erst nach dem ersten Abruf vom
+Worker — und beim Zurückkehren in den Tab (höchstens stündlich). Neue Kurse
+landen mit `src: 'oenb'` im verschlüsselten Bestand und reisen über den
+Abgleich auf die anderen Geräte. Eigene Kurse am selben Tag haben Vorrang;
+gelöschte OeNB-Kurse stehen in `rateSkips` und kommen nicht wieder.
+
+Zusätzlich im Kursdialog: „Referenzkurs der EZB holen“ über
+`api.frankfurter.dev` (überträgt nur das Datum; nicht verifiziert).
 
 ## Aufbau
 

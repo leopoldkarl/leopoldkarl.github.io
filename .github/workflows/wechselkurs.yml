@@ -1,0 +1,47 @@
+# Wöchentlicher EUR-CHF-Kurs (Referenzkurs der EZB über den OeNB-Webservice)
+# nach finanzen/kurse.json. Die Seite /finanzen übernimmt neue Kurse beim
+# nächsten Öffnen in den verschlüsselten Datenbestand.
+name: Wechselkurs EUR-CHF
+
+on:
+  schedule:
+    - cron: '17 7 * * 6'        # Samstag 07:17 UTC: Freitagsfixing liegt sicher vor
+  workflow_dispatch: {}
+  push:                          # einmal sofort nach dem Einrichten bzw. Ändern
+    branches: [main]
+    paths:
+      - '.github/workflows/wechselkurs.yml'
+      - 'finanzen/kurse/oenb_kurs.py'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: wechselkurs
+  cancel-in-progress: false
+
+jobs:
+  kurs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Kurs holen
+        run: python finanzen/kurse/oenb_kurs.py
+      - name: Committen, falls neu
+        run: |
+          if git diff --quiet -- finanzen/kurse.json && git ls-files --error-unmatch finanzen/kurse.json >/dev/null 2>&1; then
+            echo "Keine Änderung."; exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add finanzen/kurse.json
+          git commit -m "Finanzen: Wechselkurs EUR-CHF (OeNB) aktualisieren"
+          for i in 1 2 3; do
+            git pull --rebase --quiet origin main && git push origin HEAD:main && exit 0
+            sleep 5
+          done
+          exit 1

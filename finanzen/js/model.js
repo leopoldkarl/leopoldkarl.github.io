@@ -7,7 +7,9 @@
 //     type 'buchung'    lines = [{ acc, amt }]            Einnahme > 0, Ausgabe < 0
 //     type 'umbuchung'  lines = [{ acc, amt<0 }, { acc, amt>0 }]   von -> nach
 //     type 'stand'      lines = [{ acc, bal }]            festgestellter Kontostand
-//   Kurs    { date, chfPerEur }                            1 EUR = x CHF (Marktnotierung EUR/CHF)
+//   Kurs    { date, chfPerEur, src? }                      1 EUR = x CHF (Marktnotierung EUR/CHF)
+//           src 'oenb': automatisch aus /finanzen/kurse.json übernommen
+//   rateSkips: [date]  bewusst gelöschte OeNB-Kurse, werden nicht wieder übernommen
 //
 // Alle Beträge sind ganze Cent bzw. Rappen (Number.isSafeInteger), damit
 // Summen exakt bleiben. Umgerechnet wird erst beim Anzeigen.
@@ -178,7 +180,7 @@ export function newId() {
   return Math.random().toString(36).slice(2, 14);
 }
 
-export const emptyState = () => ({ schema: SCHEMA, accounts: [], entries: [], rates: [] });
+export const emptyState = () => ({ schema: SCHEMA, accounts: [], entries: [], rates: [], rateSkips: [] });
 
 const str = (v, max) => String(v ?? '').slice(0, max);
 const cents = (v) => (Number.isSafeInteger(v) ? v : null);
@@ -223,12 +225,14 @@ export function normalizeState(s) {
     .filter((e) => e.lines.length);
   const rates = (Array.isArray(src.rates) ? src.rates : [])
     .filter((r) => r && validIso(r.date) && Number.isFinite(r.chfPerEur) && r.chfPerEur > 0)
-    .map((r) => ({ date: r.date, chfPerEur: r.chfPerEur }));
+    .map((r) => (r.src === 'oenb' ? { date: r.date, chfPerEur: r.chfPerEur, src: 'oenb' } : { date: r.date, chfPerEur: r.chfPerEur }));
   const byDate = new Map(rates.map((r) => [r.date, r]));
+  const rateSkips = [...new Set((Array.isArray(src.rateSkips) ? src.rateSkips : []).filter(validIso))].sort();
   return {
     schema: SCHEMA,
     accounts: uniqAcc.sort((a, b) => a.order - b.order),
     entries,
+    rateSkips,
     rates: [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date)),
   };
 }
@@ -444,3 +448,22 @@ export function titleSuggestions(state, limit = 60) {
 }
 
 export const yearsOf = (state) => [...new Set(state.entries.map((e) => e.date.slice(0, 4)))].sort().reverse();
+
+/**
+ * Veröffentlichte Kurse (kurse.json, von der GitHub-Action aus dem OeNB-Webservice
+ * gezogen) gegen den Bestand: zurück kommen nur Kurse zu Tagen, für die es noch
+ * keinen Kurs gibt und die nicht bewusst gelöscht wurden. Eigene Einträge haben
+ * damit immer Vorrang.
+ */
+export function newPublishedRates(state, published) {
+  const have = new Set(state.rates.map((r) => r.date));
+  const skip = new Set(state.rateSkips || []);
+  const out = [];
+  for (const r of Array.isArray(published) ? published : []) {
+    if (!r || !validIso(r.date) || !Number.isFinite(r.chfPerEur) || r.chfPerEur <= 0 || r.chfPerEur >= 100) continue;
+    if (have.has(r.date) || skip.has(r.date)) continue;
+    have.add(r.date);
+    out.push({ date: r.date, chfPerEur: r.chfPerEur, src: 'oenb' });
+  }
+  return out.sort((a, b) => a.date.localeCompare(b.date));
+}

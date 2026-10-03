@@ -360,7 +360,7 @@ export function renderAccounts(s, led) {
   const rates = s.rates.slice().reverse().map((r) => `
     <li class="rate-row" data-date="${r.date}">
       <span class="date">${formatDate(r.date)}</span>
-      <span class="grow">1 EUR = <strong>${fmtRate(r.chfPerEur)}</strong> CHF <span class="muted small">(1 CHF = ${fmtRate(1 / r.chfPerEur)} EUR)</span></span>
+      <span class="grow">1 EUR = <strong>${fmtRate(r.chfPerEur)}</strong> CHF <span class="muted small">(1 CHF = ${fmtRate(1 / r.chfPerEur)} EUR)</span>${r.src === 'oenb' ? ' <span class="chip" title="Referenzkurs der EZB, automatisch aus dem OeNB-Webservice">OeNB</span>' : ''}</span>
       <button class="icon del" data-act="rate-del" aria-label="Kurs löschen">✕</button>
     </li>`).join('');
   return `
@@ -372,7 +372,7 @@ export function renderAccounts(s, led) {
   <section>
     <div class="sec-head"><h2>Wechselkurse</h2><span class="grow"></span><button data-act="rate-new">+ Kurs</button></div>
     ${s.rates.length ? `<ul class="plain card">${rates}</ul>` : '<p class="muted">Noch kein Kurs. Ohne Kurs werden CHF-Konten nicht in EUR umgerechnet.</p>'}
-    <p class="hint">Es gilt jeweils der letzte Kurs am oder vor dem Tag; vor dem ersten Kurs der erste. Notierung wie am Markt: 1 EUR = x CHF.</p>
+    <p class="hint">Es gilt jeweils der letzte Kurs am oder vor dem Tag; vor dem ersten Kurs der erste. Notierung wie am Markt: 1 EUR = x CHF. Einmal je Woche kommt der Referenzkurs der EZB aus dem OeNB-Webservice automatisch dazu (Kennzeichen „OeNB“); ein eigener Kurs am selben Tag hat Vorrang, ein gelöschter OeNB-Kurs kommt nicht wieder.</p>
   </section>`;
 }
 

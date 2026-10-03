@@ -77,7 +77,7 @@ export class Store {
   replace(next, label = 'Import') {
     this.commit((s) => {
       const n = normalizeState(next);
-      s.accounts = n.accounts; s.entries = n.entries; s.rates = n.rates;
+      s.accounts = n.accounts; s.entries = n.entries; s.rates = n.rates; s.rateSkips = n.rateSkips;
     }, label);
   }
 
