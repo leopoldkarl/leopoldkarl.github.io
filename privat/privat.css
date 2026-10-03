@@ -13,13 +13,23 @@
 .meldung.info{color:var(--muted)}
 
 #inhalt .tile-grid{margin-top:1rem}
-#inhalt a.tile{display:block; color:var(--text); padding:1rem; transition:border-color .15s, box-shadow .15s}
-#inhalt a.tile:hover{text-decoration:none; border-color:var(--accent-2); box-shadow:0 6px 18px rgba(16,24,40,0.06)}
-#inhalt a.tile strong{display:block; font-size:1.05rem}
-#inhalt a.tile span{color:var(--muted); font-size:0.95rem}
-#inhalt a.tile span .pz{display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-#inhalt a.tile span .pz b{font-weight:600; color:var(--text)}
-#inhalt a.tile span .pz.ueber{color:#b91c1c}
+#inhalt .tile-grid > .tile{padding:1rem; min-width:0}
+#inhalt .tile-kopf{display:block; font-weight:700; font-size:1.05rem; color:var(--text)}
+#inhalt .tile-kopf:hover{color:var(--accent-2); text-decoration:none}
+#inhalt .tl-liste{margin-top:0.35rem; display:flex; flex-direction:column; gap:0.2rem; font-size:0.95rem}
+#inhalt .tl-liste:empty{display:none}
+#inhalt .tl-z{display:flex; gap:0.5rem; align-items:baseline; min-width:0}
+#inhalt .tl-z a{font-weight:400; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0}
+#inhalt .tl-m{color:var(--muted); white-space:nowrap; flex-shrink:0; font-size:0.9rem}
+#inhalt .tl-m.ueber{color:#b91c1c}
+#inhalt .tl-hinweis{color:var(--muted)}
+#inhalt .tl-fehler{color:#b91c1c; font-size:0.9rem}
+#inhalt label.tl-check{cursor:pointer; align-items:center}
+#inhalt .tl-check input{margin:0; flex-shrink:0; accent-color:var(--accent-2); width:1rem; height:1rem; cursor:pointer}
+#inhalt .tl-check input:disabled{cursor:not-allowed}
+#inhalt .tl-t{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0}
+#inhalt .tl-check.erledigt .tl-t{text-decoration:line-through; color:var(--muted)}
+#inhalt a.tl-betrag{font-size:1.2rem; color:var(--text); font-variant-numeric:tabular-nums}
 .sperren{margin-top:2rem}
 .sperren .btn{cursor:pointer}
 
@@ -30,5 +40,5 @@
   main .btn.primary{color:#0f1115}
   .sperre input[type=password]{background:#0f1115; border-color:#374151}
   .meldung{color:#f87171}
-  #inhalt a.tile span .pz.ueber{color:#f87171}
+  #inhalt .tl-m.ueber, #inhalt .tl-fehler{color:#f87171}
 }

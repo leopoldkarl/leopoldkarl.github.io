@@ -44,13 +44,13 @@ async function entschluesseln(key, blob) {
   return new TextDecoder().decode(pt);
 }
 
-function zeigen(html) {
+function zeigen(html, ctx = {}) {
   $('sperre').hidden = true;
   $('inhalt').innerHTML = html;   // authentifiziert durch GCM-Tag, stammt von build.py
   const grid = $('inhalt').querySelector('.tile-grid');
   if (grid) grid.append($('extra-kacheln').content.cloneNode(true));
   $('inhalt').hidden = false;
-  import('./projekte-top.js').then((m) => m.fuellen($('inhalt'))).catch(() => {});
+  import('./kacheln.js').then((m) => m.aufbauen($('inhalt'), ctx)).catch(() => {});
   $('sperren-wrap').hidden = false;
 }
 
@@ -99,11 +99,16 @@ async function main() {
     m.className = 'meldung info';
     m.textContent = 'Prüfe …';
     try {
-      const key = await ableiten($('pw').value, blob.kdf);
+      const pass = $('pw').value;
+      const merken = $('merken').checked;
+      const key = await ableiten(pass, blob.kdf);
       const html = await entschluesseln(key, blob);
-      if ($('merken').checked) await keySpeichern(key);
+      if (merken) await keySpeichern(key);
       m.textContent = '';
-      zeigen(html);
+      // Die Passphrase geht nur an die Kacheln (Mit-Entsperren von Seiten mit
+      // derselben Passphrase) und wird nirgends abgelegt.
+      zeigen(html, { pass, merken });
+      $('pw').value = '';
     } catch {
       m.className = 'meldung';
       m.textContent = 'Falsche Passphrase.';

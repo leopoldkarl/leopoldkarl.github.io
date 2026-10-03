@@ -1,4 +1,5 @@
-// projekte-top.js — die drei dringendsten Projekte in der Kachel „Projekte“.
+// projekte-top.js — die drei dringendsten Projekte in der Kachel „Projekte“,
+// je als Link auf /projekte/#/p/<id>.
 //
 // Datenquelle ist dieselbe wie in /projekte (gleiche Herkunft):
 //   1. sofort der lokale Stand aus localStorage `projekte.state`;
@@ -21,9 +22,9 @@ import { STORAGE_KEY } from '/projekte/js/store.js';
 import { loadConfig, SPACE_PATH } from '/projekte/js/sync.js';
 import { loadKey } from '/projekte/js/keystore.js';
 import { decryptState } from '/kalender/js/crypto.js';
+import { N, zeile, hinweis } from './kachel-util.js';
 
 const META_KEY = 'projekte.syncmeta';
-const N = 3;
 
 function lokal() {
   try {
@@ -75,43 +76,35 @@ export function rangfolge(state, today = dayNum(todayIso())) {
   return kand;
 }
 
-function zeile({ p, s, frist }, today) {
-  const el = document.createElement('span');
-  el.className = 'pz';
-  const t = document.createElement('b');
-  t.textContent = p.title;
-  el.append(t);
-  let rest = '';
+function eintrag({ p, s, frist }, today) {
+  let meta = '';
+  let metaCls = '';
   if (frist != null) {
     const d = frist - today;
     const datum = formatDate(fromDayNum(frist), { year: false });
-    if (d < 0) { rest = ` · überfällig seit ${datum}`; el.classList.add('ueber'); }
-    else if (d === 0) rest = ' · heute';
-    else if (d === 1) rest = ' · morgen';
-    else rest = ` · bis ${datum}`;
+    if (d < 0) { meta = `überfällig seit ${datum}`; metaCls = 'ueber'; }
+    else if (d === 0) meta = 'heute';
+    else if (d === 1) meta = 'morgen';
+    else meta = `bis ${datum}`;
   }
-  el.append(rest);
   const ms = s.next ? `Nächster Meilenstein: ${s.next.title}` : '';
-  el.title = [p.title, ms, STATUS_LABEL[p.status]].filter(Boolean).join(' — ');
-  return el;
+  return zeile(`/projekte/#/p/${encodeURIComponent(p.id)}`, p.title, meta, {
+    metaCls, title: [p.title, ms, STATUS_LABEL[p.status]].filter(Boolean).join(' — '),
+  });
 }
 
-function render(ziel, state) {
+function render(liste, state) {
   const today = dayNum(todayIso());
-  ziel.replaceChildren();
-  if (!state) { ziel.textContent = 'Auf diesem Gerät noch keine Projektdaten.'; return; }
+  if (!state) { hinweis(liste, 'Auf diesem Gerät noch keine Projektdaten.'); return; }
   const top = rangfolge(state, today).slice(0, N);
-  if (!top.length) { ziel.textContent = 'Keine offenen aktiven Projekte.'; return; }
-  for (const k of top) ziel.append(zeile(k, today));
+  if (!top.length) { hinweis(liste, 'Keine offenen aktiven Projekte.'); return; }
+  liste.replaceChildren(...top.map((k) => eintrag(k, today)));
 }
 
-export async function fuellen(root) {
-  const ziel = root.querySelector('a.tile[href="/projekte/"] span');
-  if (!ziel) return;
-  ziel.classList.add('projekte-top');
-  render(ziel, lokal());
+export async function fuellen(liste) {
+  render(liste, lokal());
   try {
     const neu = await entfernt();
-    if (neu) render(ziel, neu);
+    if (neu) render(liste, neu);
   } catch { /* offline oder gesperrt: lokaler Stand bleibt stehen */ }
 }
