@@ -262,6 +262,17 @@ kleingezogener Block eine Titelzeile trägt. Die Tagesüberschrift klebt beim
 Scrollen oben (`position: sticky`), das Eingabefeld für neue Aufgaben bleibt
 unten stehen.
 
+**Offene Aufgaben früherer Tage** holt in der Tagesansicht ein Knopf in der
+Kopfzeile auf den angezeigten Tag — beschriftet mit der Anzahl, und nur
+vorhanden, wenn es etwas zu holen gibt; ein Knopf, der meistens nichts tut,
+erzieht dazu, ihn nicht mehr zu lesen. Erledigtes bleibt liegen, Späteres
+auch. Die Geholten landen **hinter** dem, was am Zieltag schon steht, und
+behalten untereinander ihre Reihenfolge (älterer Tag zuerst); ohne das
+Neuvergeben von `order` kämen sie mit ihren alten Nummern an und mischten
+sich willkürlich dazwischen. Rückgängig mit `Strg+Z`. Denselben Griff gibt
+es in der Seitenleiste der Kalenderseite („↑ Offene Aufgaben früherer Tage
+übernehmen"), beide rufen `store.carryOverOpenTasks`.
+
 **Tagesansicht:** rechts neben den Aufgaben steht der **Tagesplan** als
 reine Anzeige — dieselben Einträge wie auf der Tagesplanung (TP), ohne
 Eingabefeld, ohne Löschknopf, ohne Ziehgriff, mit `readOnly` und
@@ -395,17 +406,17 @@ Zwei Entwurfsentscheidungen:
 
 ## Tests
 
-Nicht Teil des Repos. Geprüft wurden 166 Einheitentests (Wiederholungsregeln,
+Nicht Teil des Repos. Geprüft wurden 171 Einheitentests (Wiederholungsregeln,
 ics-Roundtrip inklusive Zeilenfaltung und Maskierung, RECURRENCE-ID-Auflösung,
 CSV-/vCard-Parser, Tastatureingabe von Datum und Uhrzeit, Schaltjahr-Rückfall,
 ISO-Wochenschlüssel, Vorlagen-Versionierung, Kopier-Isolation, Kontrastwahl)
-und 135 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
+und 141 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
 Geburtstags-Import, Kategorien-Editor, Tab-Reihenfolge, Scrollbalken,
 Seitenwechsel, Aufgaben-Reihenfolge und -Höhe, Tagebuch-Summen und
 -Speicherung, Vorlagen-Versionierung und Kopier-Isolation, Seitenleisten-Schalter und
 Spaltenbreiten, schmale Fenster, Zwei-Fenster-Abgleich, Titel-Einblendung,
 Einrichtung und Abgleich über zwei Browser-Kontexte, Überlauf der
-Aufgabenliste, Tagesplan-Anzeige).
+Aufgabenliste, Tagesplan-Anzeige, Übernahme offener Aufgaben).
 Der „Server" ist in allen Abgleich-Tests der echte Worker-Code mit einer
 D1-Attrappe, geprüft wird also die Kette Verschlüsseln → Schnittstelle →
 Entschlüsseln und nicht eine nachgebaute Vorstellung davon.

@@ -506,12 +506,36 @@ export class Store {
     });
   }
 
-  /** Offene Aufgaben aller Tage vor `dateYmd` auf diesen Tag ziehen. */
+  /** Wie viele offene Aufgaben vor `dateYmd` liegen — fuer Knopf und Anzahl. */
+  openTasksBefore(dateYmd) {
+    return this.state.tasks.filter((t) => !t.done && t.date < dateYmd).length;
+  }
+
+  /**
+   * Offene Aufgaben aller Tage vor `dateYmd` auf diesen Tag ziehen.
+   *
+   * Die Verschobenen landen *hinter* dem, was an diesem Tag schon steht, und
+   * behalten untereinander ihre Reihenfolge (aelterer Tag zuerst). Ohne das
+   * Neuvergeben von `order` kaemen sie mit ihren alten Nummern an und
+   * mischten sich willkuerlich zwischen die vorhandenen Aufgaben — die
+   * Reihenfolge ist hier aber die geplante Abarbeitungsfolge und soll nicht
+   * durcheinandergeraten.
+   */
   carryOverOpenTasks(dateYmd) {
     let moved = 0;
     this.mutate((s) => {
-      for (const t of s.tasks) {
-        if (!t.done && t.date < dateYmd) { t.date = dateYmd; moved += 1; }
+      const umziehend = s.tasks
+        .filter((t) => !t.done && t.date < dateYmd)
+        .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.order - b.order));
+      if (!umziehend.length) return;
+      let next = s.tasks
+        .filter((t) => t.date === dateYmd)
+        .reduce((mx, t) => Math.max(mx, t.order), -1);
+      for (const t of umziehend) {
+        t.date = dateYmd;
+        next += 1;
+        t.order = next;
+        moved += 1;
       }
     });
     return moved;

@@ -122,6 +122,16 @@ export function renderTaskDay(ctx) {
   head.append(el('div', 'tk-count', tasks.length
     ? `${open} offen von ${tasks.length}`
     : 'keine Aufgaben'));
+
+  // Nur anbieten, wenn es tatsaechlich etwas zu holen gibt: ein Knopf, der
+  // meistens nichts tut, erzieht dazu, ihn nicht mehr zu lesen.
+  if (ctx.carryCount > 0) {
+    const b = el('button', 'tk-carry', `↑ ${ctx.carryCount} offene von früher holen`);
+    b.type = 'button';
+    b.dataset.tkcarry = dateYmd;
+    b.title = `Alle offenen Aufgaben vor dem ${dateYmd} werden auf diesen Tag verschoben. Rückgängig mit Strg+Z.`;
+    head.append(b);
+  }
   root.append(dayColumn(dateYmd, tasks, { heading: head, today: sameDay(d, today) }));
   if (ctx.planNode) root.append(ctx.planNode);
   return root;

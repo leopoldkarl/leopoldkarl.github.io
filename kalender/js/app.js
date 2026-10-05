@@ -450,6 +450,7 @@ function renderTaskPage() {
     tasksFor: (d) => store.tasksFor(d),
     days: Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(ui.cursor), i)),
   };
+  ctx.carryCount = store.openTasksBefore(ui.selected);
   if (ui.taskView === 'day') {
     // Nur lesen: `dayPlanView` legt keinen eigenstaendigen Tagesplan an, und
     // die Anzeige hier darf das auch nicht ausloesen.
@@ -1485,6 +1486,17 @@ function bind() {
   });
 
   tkRoot.addEventListener('click', (e) => {
+    const carry = e.target.closest('[data-tkcarry]');
+    if (carry) {
+      pushUndo('Offene Aufgaben übernommen');
+      const n = store.carryOverOpenTasks(carry.dataset.tkcarry);
+      if (!n) undoStack.pop();              // nichts passiert, kein Schritt im Stapel
+      toast(n
+        ? `${n} offene Aufgabe${n === 1 ? '' : 'n'} übernommen — rückgängig mit Strg+Z.`
+        : 'Nichts zu übernehmen.');
+      render();
+      return;
+    }
     const del = e.target.closest('[data-tkdel]');
     if (del) {
       pushUndo('Aufgabe gelöscht');

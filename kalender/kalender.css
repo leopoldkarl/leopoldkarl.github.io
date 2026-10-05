@@ -920,3 +920,14 @@ kbd {
   .tk-page.day .tk-list { overflow-y: visible; }
   .pl-preview { flex: 0 0 auto; max-width: none; }
 }
+
+/* „Offene von früher holen" in der Kopfzeile der Aufgaben-Tagesansicht.
+   Erscheint nur, wenn es etwas zu holen gibt (siehe tasks.js). */
+.tk-carry {
+  border: 1px solid var(--line-strong); background: var(--surface-2);
+  color: var(--text); border-radius: 999px;
+  padding: 0.15rem 0.55rem; font-size: 0.74rem; font-weight: 600;
+  white-space: nowrap; cursor: pointer;
+}
+.tk-carry:hover { background: var(--surface); border-color: var(--accent-2); }
+.tk-carry:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 1px; }
