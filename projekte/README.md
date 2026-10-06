@@ -47,6 +47,17 @@ Erledigt-Datum auf heute; wer nachträglich abhakt, verschiebt also den
 Ist-Verlauf auf heute. Erledigte Einheiten ohne Datum (etwa aus einem
 Import) zählen ab Projektbeginn.
 
+## Abschluss
+
+Der Status wird nie von selbst umgestellt. Erreicht ein laufendes Projekt
+100 % (alle Aufgaben bzw. aufgabenlosen Meilensteine erledigt), erscheinen
+ein Hinweis und der Knopf **„Projekt abschließen“** — im Detail unter dem
+Fortschrittsbalken und auf der Karte in der Übersicht. Der Knopf setzt den
+Status auf „Abgeschlossen“ und `closedAt` auf heute; `Strg+Z` nimmt es
+zurück. Derselbe Effekt über den Projektdialog: Wechsel nach
+„Abgeschlossen“/„Verworfen“ setzt `closedAt` (falls noch keins da ist),
+Wechsel zurück löscht es. Das Datum steht im Detail neben Beginn und Ziel.
+
 ## Tags
 
 Jedes Projekt kann bis zu 20 Tags tragen (je höchstens 40 Zeichen),
@@ -104,15 +115,15 @@ Primärschlüssel.
 
 ## Tests
 
-Nicht Teil des Repos. 12 Modelltests (Datumseingabe, Normalisierung, Tags,
+Nicht Teil des Repos. 13 Modelltests (Datumseingabe, Normalisierung, Tags, Abschluss,
 Gewichtung, Soll-Kurve samt Umkehrung, Abstand, Ampel, Ist-Verlauf,
 Prognose, Sortierung), 21 Worker-Prüfungen (Namensraum getrennt vom
 Kalender, 409, unbekannte Namensräume und Pfadvarianten → 404, und der
-alte Worker liefert auf `/s/projekte` 404 statt des Kalenderblocks), 51
+alte Worker liefert auf `/s/projekte` 404 statt des Kalenderblocks), 63
 Browserprüfungen in Chromium (Anlegen, Dialogfehler, Aufgaben mit Fokus,
 Gewichte, Umbenennen, Löschen + Rückgängig, Meilenstein ohne Aufgaben,
 Diagramm, Filter, Zeitleiste, Reload, zweites Fenster, Einrichtung des
 Abgleichs mit Vorbefüllung aus dem Kalender, falsche Passphrase, Abgleich
 über zwei Browser-Kontexte, Konflikt, alter Worker, dunkel bei 375 px ohne
-Querscrollen, Tags: Normalisierung, Vorschläge, Filter mit UND, Sprung aus dem Detail, Zeitleiste). „Server“ ist dabei der echte Worker-Code mit einer
+Querscrollen, Tags: Normalisierung, Vorschläge, Filter mit UND, Sprung aus dem Detail, Zeitleiste; Abschluss: Angebot erst bei 100 %, kein automatischer Statuswechsel, Knopf in Detail und Karte, Strg+Z, Datum folgt dem Status). „Server“ ist dabei der echte Worker-Code mit einer
 D1-Attrappe.

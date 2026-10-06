@@ -5,6 +5,7 @@ import {
   STATUS, STATUS_LABEL, COLORS, dayNum, fromDayNum, todayIso, formatDate,
   summarize, milestoneProgress, milestoneComplete, actualSeries, plannedAt, sortProjects,
   allTags, matchesTags,
+  offerClose,
 } from './model.js';
 
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({
@@ -165,6 +166,7 @@ function projectCard(p, s, today, selectedTags) {
       </dl>
     </a>
     ${tagChips(p, selectedTags)}
+    ${offerClose(p, s) ? `<div class="card-actions"><span class="h-fertig">Alle Aufgaben erledigt</span><button type="button" class="primary small" data-act="close-project" data-pid="${esc(p.id)}">Projekt abschließen</button></div>` : ''}
   </article>`;
 }
 
@@ -190,8 +192,9 @@ export function renderDetail(p, ui) {
 
   const dates = [
     p.start ? `Beginn ${formatDate(p.start)}` : 'ohne Beginn',
-    p.due ? `Ziel ${formatDate(p.due)}${s.ist !== 1 ? ` (${relDays(dueD - today)})` : ''}` : 'ohne Ziel',
-  ].join(' · ');
+    p.due ? `Ziel ${formatDate(p.due)}${s.ist !== 1 && !p.closedAt ? ` (${relDays(dueD - today)})` : ''}` : 'ohne Ziel',
+    p.closedAt ? `${p.status === 'verworfen' ? 'verworfen' : 'abgeschlossen'} am ${formatDate(p.closedAt)}` : '',
+  ].filter(Boolean).join(' · ');
 
   return `<div class="detail" style="--pc:${esc(p.color)}">
     <a href="#/" class="back">← Übersicht</a>
@@ -213,6 +216,10 @@ export function renderDetail(p, ui) {
       <div><span class="k">Aufgaben</span><span class="v">${s.tasks.done} / ${s.tasks.total}</span></div>
     </div>
     ${progressBar(s, { big: true })}
+    ${offerClose(p, s) ? `<div class="close-offer" role="status">
+      <span><strong>Alle Aufgaben erledigt.</strong> Das Projekt ist noch „${esc(STATUS_LABEL[p.status])}“.</span>
+      <button type="button" class="primary" data-act="close-project">Projekt abschließen</button>
+    </div>` : ''}
 
     ${burnupChart(p, s, today, ui.chartW)}
 

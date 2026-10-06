@@ -3,7 +3,7 @@
 import {
   STATUS_LABEL, COLORS, WEIGHTS, newProject, newMilestone, newTask, parseDateInput,
   formatDate, todayIso, normalizeState, milestoneComplete,
-  parseTagInput, allTags, cleanTag,
+  parseTagInput, allTags, cleanTag, CLOSED, offerClose, summarize,
 } from './model.js';
 import { Store, findProject, findMilestone, findTask, touch } from './store.js';
 import {
@@ -123,6 +123,12 @@ function setTaskDone(t, done) {
   t.doneAt = done ? todayIso() : null;
 }
 
+/** Nach dem Abhaken: war das die letzte offene Einheit, auf den Abschluss hinweisen. */
+function hintIfComplete(pid) {
+  const p = findProject(store.state, pid);
+  if (p && offerClose(p, summarize(p))) toast('Alles erledigt — oben lässt sich das Projekt jetzt abschließen.');
+}
+
 function onMainClick(e) {
   const btn = e.target.closest('[data-act]');
   if (!btn) return;
@@ -162,6 +168,7 @@ function onMainClick(e) {
         const m = p.milestones.find((x) => x.id === mid);
         if (m) { m.done = btn.checked; m.doneAt = btn.checked ? todayIso() : null; }
       }, btn.checked ? 'Meilenstein erledigt' : 'Meilenstein wieder offen');
+      if (btn.checked) hintIfComplete(pid);
       break;
     case 'toggle-task':
       change(pid, (p) => {
@@ -169,7 +176,16 @@ function onMainClick(e) {
         const t = m && m.tasks.find((x) => x.id === tid);
         if (t) setTaskDone(t, btn.checked);
       }, btn.checked ? 'Aufgabe erledigt' : 'Aufgabe wieder offen');
+      if (btn.checked) hintIfComplete(pid);
       break;
+    case 'close-project': {
+      const id = btn.dataset.pid || pid;
+      const p = findProject(store.state, id);
+      if (!p) break;
+      change(id, (x) => { x.status = 'abgeschlossen'; x.closedAt = todayIso(); }, 'Projekt abgeschlossen');
+      toast(`„${p.title}“ abgeschlossen — steht jetzt unter „Abgeschlossen“. Strg+Z macht es rückgängig.`);
+      break;
+    }
     case 'weight':
       change(pid, (p) => {
         const t = findTask({ projects: [p] }, pid, mid, tid);
@@ -337,9 +353,16 @@ function saveProjectDialog() {
     tags: parseTagInput($('#pd-tags').value),
   };
   if (editingProject) {
-    change(editingProject, (p) => Object.assign(p, fields), 'Projekt geändert');
+    change(editingProject, (p) => {
+      // Abschlussdatum folgt dem Status: beim Wechsel in „abgeschlossen“/
+      // „verworfen“ heute, beim Wechsel zurück gelöscht; sonst unverändert.
+      if (CLOSED.includes(fields.status)) {
+        if (!CLOSED.includes(p.status) || !p.closedAt) p.closedAt = todayIso();
+      } else p.closedAt = null;
+      Object.assign(p, fields);
+    }, 'Projekt geändert');
   } else {
-    const p = newProject(fields);
+    const p = newProject({ ...fields, closedAt: CLOSED.includes(fields.status) ? todayIso() : null });
     store.commit((s) => { s.projects.push(p); }, 'Projekt angelegt');
     location.hash = `#/p/${p.id}`;
   }

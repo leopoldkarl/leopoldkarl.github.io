@@ -33,6 +33,15 @@ export const COLORS = [
 
 export const WEIGHTS = [1, 2, 3, 5, 8];
 
+/** Status, mit denen ein Projekt nicht mehr läuft. */
+export const CLOSED = ['abgeschlossen', 'verworfen'];
+
+/**
+ * Abschluss anbieten? Nur wenn alles erledigt ist (Ist = 100 %) und das
+ * Projekt noch läuft. Umgestellt wird der Status nie von selbst.
+ */
+export const offerClose = (p, s) => s.ist === 1 && !CLOSED.includes(p.status);
+
 /* ------------------------------------------------------------------ */
 /* Datum                                                               */
 /* ------------------------------------------------------------------ */
@@ -218,6 +227,8 @@ export function normalizeProject(p) {
     updated: str(p && p.updated, 40) || new Date().toISOString(),
     notes: str(p && p.notes, 100000),
     tags: normalizeTags(p && p.tags),
+    // Tag des Abschlusses; nur bei abgeschlossenen/verworfenen Projekten.
+    closedAt: CLOSED.includes(status) ? dateOrNull(p && p.closedAt) : null,
     milestones: Array.isArray(p && p.milestones) ? p.milestones.map(normalizeMilestone) : [],
   };
 }
