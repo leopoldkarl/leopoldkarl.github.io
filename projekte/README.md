@@ -68,8 +68,11 @@ Schreibweise. Unter dem Feld stehen die schon vorhandenen Tags zum
 Anklicken.
 
 Über Übersicht und Zeitleiste liegt eine Tag-Leiste mit Häufigkeiten
-(gezählt innerhalb des Statusfilters). Mehrere gewählte Tags werden
-geschnitten: gezeigt wird, was **alle** trägt. Ein Tag im Projektdetail
+(gezählt innerhalb des Statusfilters). Ein Klick auf ein Tag zeigt genau
+die Projekte mit diesem Tag — ein vorher gewähltes Tag wird ersetzt, nicht
+ergänzt (die meisten Projekte haben nur eines). Ein zweiter Klick auf das
+allein gewählte Tag hebt den Filter auf. Mit Strg/⌘-Klick lassen sich Tags
+kombinieren; dann wird geschnitten: gezeigt wird, was **alle** trägt. Ein Tag im Projektdetail
 führt zur Übersicht, gefiltert auf genau diesen Tag. Die Auswahl ist eine
 Ansichtseinstellung je Gerät (`projekte.ui`), nicht Teil des Datenblocks;
 ein neues Projekt übernimmt die gerade gewählten Tags als Vorschlag.
@@ -125,5 +128,5 @@ Gewichte, Umbenennen, Löschen + Rückgängig, Meilenstein ohne Aufgaben,
 Diagramm, Filter, Zeitleiste, Reload, zweites Fenster, Einrichtung des
 Abgleichs mit Vorbefüllung aus dem Kalender, falsche Passphrase, Abgleich
 über zwei Browser-Kontexte, Konflikt, alter Worker, dunkel bei 375 px ohne
-Querscrollen, Tags: Normalisierung, Vorschläge, Filter mit UND, Sprung aus dem Detail, Zeitleiste; Abschluss: Angebot erst bei 100 %, kein automatischer Statuswechsel, Knopf in Detail und Karte, Strg+Z, Datum folgt dem Status). „Server“ ist dabei der echte Worker-Code mit einer
+Querscrollen, Tags: Normalisierung, Vorschläge, Klick ersetzt die Auswahl, Strg-Klick kombiniert (UND), Sprung aus dem Detail, Zeitleiste; Abschluss: Angebot erst bei 100 %, kein automatischer Statuswechsel, Knopf in Detail und Karte, Strg+Z, Datum folgt dem Status). „Server“ ist dabei der echte Worker-Code mit einer
 D1-Attrappe.

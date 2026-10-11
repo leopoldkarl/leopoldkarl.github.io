@@ -60,7 +60,8 @@ function tagChips(p, selected = []) {
 /**
  * Tag-Leiste über Übersicht und Zeitleiste. Gezählt wird innerhalb des
  * Statusfilters, damit die Zahlen zu dem passen, was man sieht. Mehrere
- * gewählte Tags schneiden (UND).
+ * gewählte Tags (nur per Strg/⌘-Klick) schneiden (UND). Ein normaler Klick
+ * wählt genau dieses Tag.
  */
 function tagBar(projects, selected) {
   const tags = allTags(projects);
@@ -70,7 +71,7 @@ function tagBar(projects, selected) {
   const isOn = (t) => selected.some((x) => x.toLocaleLowerCase('de') === t.toLocaleLowerCase('de'));
   return `<div class="tagbar" role="group" aria-label="Nach Tags filtern">
     <span class="muted tagbar-l">Tags</span>
-    ${tags.map(({ tag, count }) => `<button type="button" class="tag${isOn(tag) ? ' on' : ''}" data-act="tag" data-tag="${esc(tag)}" aria-pressed="${isOn(tag)}">#${esc(tag)} <span class="n">${count}</span></button>`).join('')}
+    ${tags.map(({ tag, count }) => `<button type="button" class="tag${isOn(tag) ? ' on' : ''}" data-act="tag" data-tag="${esc(tag)}" aria-pressed="${isOn(tag)}" title="Nur „${esc(tag)}“ zeigen · Strg/⌘-Klick: zusätzlich (UND)">#${esc(tag)} <span class="n">${count}</span></button>`).join('')}
     ${stale.map((t) => `<button type="button" class="tag on" data-act="tag" data-tag="${esc(t)}" aria-pressed="true" title="Kein Projekt in dieser Auswahl trägt diesen Tag">#${esc(t)} <span class="n">0</span></button>`).join('')}
     ${selected.length ? `<button type="button" class="linklike tag-reset" data-act="tags-reset">Auswahl aufheben${selected.length > 1 ? ' (alle gewählten Tags müssen passen)' : ''}</button>` : ''}
   </div>`;

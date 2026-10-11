@@ -150,8 +150,15 @@ function onMainClick(e) {
         saveUi();
         location.hash = '#/';
       } else {
+        // Klick = genau dieses Tag (die meisten Projekte haben nur eines);
+        // nochmal auf das allein gewählte Tag hebt den Filter auf.
+        // Strg/⌘-Klick kombiniert wie bisher (UND).
         const on = ui.tags.some((x) => x.toLocaleLowerCase('de') === k);
-        ui.tags = on ? ui.tags.filter((x) => x.toLocaleLowerCase('de') !== k) : [...ui.tags, t];
+        if (e.ctrlKey || e.metaKey) {
+          ui.tags = on ? ui.tags.filter((x) => x.toLocaleLowerCase('de') !== k) : [...ui.tags, t];
+        } else {
+          ui.tags = on && ui.tags.length === 1 ? [] : [t];
+        }
         saveUi();
         render();
       }
