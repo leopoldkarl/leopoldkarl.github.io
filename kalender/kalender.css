@@ -594,7 +594,8 @@ kbd {
 
 .tk {
   display: grid;
-  grid-template-columns: auto auto 1fr auto;
+  /* Griff · Haken · Titel · Weiterschieben · Loeschen */
+  grid-template-columns: auto auto 1fr auto auto;
   align-items: start;
   gap: 0.4rem;
   position: relative;
@@ -633,9 +634,19 @@ kbd {
 .tk input.tk-title:hover { background: var(--surface-2); }
 .tk input.tk-title:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 0; background: var(--surface); }
 .tk.done .tk-title { text-decoration: line-through; color: var(--muted); }
-.tk-del { border: 0; background: transparent; color: var(--muted); font-size: 1.05rem; line-height: 1; padding: 0 0.2rem; opacity: 0; }
-.tk:hover .tk-del, .tk-del:focus-visible { opacity: 1; }
+.tk-del, .tk-next {
+  border: 0; background: transparent; color: var(--muted);
+  font-size: 1.05rem; line-height: 1; padding: 0 0.2rem; opacity: 0;
+}
+.tk:hover .tk-del, .tk-del:focus-visible,
+.tk:hover .tk-next, .tk-next:focus-visible { opacity: 1; }
 .tk-del:hover { color: #b91c1c; }
+.tk-next { font-size: 0.95rem; }
+.tk-next:hover { color: var(--accent-2); }
+/* Ohne Hover (Touch) gibt es kein Einblenden — dort stehen beide dauerhaft. */
+@media (hover: none) {
+  .tk-del, .tk-next { opacity: 1; }
+}
 .tk-grip {
   position: absolute; left: 0; right: 0; bottom: 0; height: 8px;
   cursor: ns-resize;

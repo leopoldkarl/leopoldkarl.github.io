@@ -48,6 +48,14 @@ function taskItem(t) {
   title.dataset.tktitle = t.id;
   title.setAttribute('aria-label', 'Aufgabentext');
 
+  // Einen Tag weiterschieben. Steht links vom Loeschkreuz, weil die
+  // haeufigere und harmlosere Handlung naeher am Text liegen soll.
+  const next = el('button', 'tk-next', '→');
+  next.type = 'button';
+  next.dataset.tknext = t.id;
+  next.title = 'Auf den nächsten Tag verschieben (Strg+Z macht es rückgängig)';
+  next.setAttribute('aria-label', `Aufgabe „${t.title}“ auf den nächsten Tag verschieben`);
+
   const del = el('button', 'tk-del', '×');
   del.type = 'button';
   del.dataset.tkdel = t.id;
@@ -57,7 +65,7 @@ function taskItem(t) {
   grip.dataset.tkgrip = t.id;
   grip.title = 'Ziehen ändert die Höhe';
 
-  item.append(handle, cb, title, del, grip);
+  item.append(handle, cb, title, next, del, grip);
   return item;
 }
 

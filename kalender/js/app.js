@@ -1497,6 +1497,19 @@ function bind() {
       render();
       return;
     }
+    const next = e.target.closest('[data-tknext]');
+    if (next) {
+      const t = store.state.tasks.find((x) => x.id === next.dataset.tknext);
+      if (t) {
+        pushUndo('Aufgabe auf den nächsten Tag');
+        // Ans Ende des Zieltages, nicht an die alte Stelle: Number.MAX_SAFE_INTEGER
+        // wird in moveTask auf die Laenge geklemmt.
+        store.moveTask(t.id, ymd(addDays(parseYmd(t.date), 1)), Number.MAX_SAFE_INTEGER);
+        render();
+        toast('Auf den nächsten Tag verschoben — rückgängig mit Strg+Z.');
+      }
+      return;
+    }
     const del = e.target.closest('[data-tkdel]');
     if (del) {
       pushUndo('Aufgabe gelöscht');

@@ -262,6 +262,16 @@ kleingezogener Block eine Titelzeile trägt. Die Tagesüberschrift klebt beim
 Scrollen oben (`position: sticky`), das Eingabefeld für neue Aufgaben bleibt
 unten stehen.
 
+**Einen Tag weiterschieben:** jeder Aufgabenblock trägt rechts ein `→`,
+links vom Löschkreuz — die häufigere und harmlosere Handlung liegt näher am
+Text. Die Aufgabe wandert auf den Folgetag und landet dort **am Ende**, nicht
+an ihrer alten Stelle (`moveTask` mit `Number.MAX_SAFE_INTEGER`, das in der
+Methode auf die Länge geklemmt wird). Beide Knöpfe erscheinen erst, wenn der
+Zeiger über dem Block steht; auf Geräten ohne Hover (`@media (hover: none)`)
+stehen sie dauerhaft. Rückgängig mit `Strg+Z`. Dass ein Klick darauf keine
+Ziehbewegung auslöst, sorgt die Abfrage `e.target.closest('input, button')`
+in `attachTaskInteractions`.
+
 **Offene Aufgaben früherer Tage** holt in der Tagesansicht ein Knopf in der
 Kopfzeile auf den angezeigten Tag — beschriftet mit der Anzahl, und nur
 vorhanden, wenn es etwas zu holen gibt; ein Knopf, der meistens nichts tut,
@@ -410,13 +420,14 @@ Nicht Teil des Repos. Geprüft wurden 171 Einheitentests (Wiederholungsregeln,
 ics-Roundtrip inklusive Zeilenfaltung und Maskierung, RECURRENCE-ID-Auflösung,
 CSV-/vCard-Parser, Tastatureingabe von Datum und Uhrzeit, Schaltjahr-Rückfall,
 ISO-Wochenschlüssel, Vorlagen-Versionierung, Kopier-Isolation, Kontrastwahl)
-und 141 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
+und 147 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
 Geburtstags-Import, Kategorien-Editor, Tab-Reihenfolge, Scrollbalken,
 Seitenwechsel, Aufgaben-Reihenfolge und -Höhe, Tagebuch-Summen und
 -Speicherung, Vorlagen-Versionierung und Kopier-Isolation, Seitenleisten-Schalter und
 Spaltenbreiten, schmale Fenster, Zwei-Fenster-Abgleich, Titel-Einblendung,
 Einrichtung und Abgleich über zwei Browser-Kontexte, Überlauf der
-Aufgabenliste, Tagesplan-Anzeige, Übernahme offener Aufgaben).
+Aufgabenliste, Tagesplan-Anzeige, Übernahme offener Aufgaben, Weiterschieben
+einzelner Aufgaben).
 Der „Server" ist in allen Abgleich-Tests der echte Worker-Code mit einer
 D1-Attrappe, geprüft wird also die Kette Verschlüsseln → Schnittstelle →
 Entschlüsseln und nicht eine nachgebaute Vorstellung davon.
