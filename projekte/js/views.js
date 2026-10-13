@@ -182,10 +182,18 @@ export function renderDetail(p, ui) {
   const dueD = dayNum(p.due);
 
   let fc = '—';
+  let fcTitle = 'Lineare Fortschreibung des Tempos der letzten 28 Tage (bei jüngeren Projekten: seit Beginn). Der Soll-Plan ist dagegen stückweise linear — liegt viel Gewicht auf späten Meilensteinen, kann man im Soll sein und die Prognose trotzdem nach dem Ziel liegen.';
   if (s.forecast) {
-    if (s.forecast.finished) fc = 'fertig';
-    else if (s.forecast.day == null) fc = '<span class="muted">kein Tempo (28 T.)</span>';
-    else {
+    const f = s.forecast;
+    if (f.finished) fc = 'fertig';
+    else if (f.day == null) {
+      fc = '<span class="muted">noch zu wenig Daten</span>';
+      fcTitle = f.reason === 'jung' && f.age < 1 ? 'Das Projekt hat noch nicht begonnen.'
+        : f.reason === 'jung'
+        ? `Das Projekt läuft erst ${f.window} Tag${f.window === 1 ? '' : 'e'}; eine Prognose gibt es ab 7 Tagen.`
+        : `In den letzten ${f.window} Tagen ${f.units === 1 ? 'ist erst eine Einheit' : 'ist keine Einheit'} erledigt worden; eine Prognose braucht mindestens zwei.`;
+    } else {
+      fcTitle = `Tempo ${f.rate.toFixed(2).replace('.', ',')} Gewichtseinheiten/Tag über die letzten ${f.window} Tage. ${fcTitle}`;
       const late = Number.isFinite(dueD) && s.forecast.day > dueD;
       fc = `<span class="${late ? 'h-verzug' : ''}">${shortDate(fromDayNum(s.forecast.day))}</span>`;
     }
@@ -213,7 +221,7 @@ export function renderDetail(p, ui) {
       <div><span class="k">Ist</span><span class="v">${pct(s.ist)}</span></div>
       <div><span class="k">Soll heute</span><span class="v">${pct(s.soll)}</span></div>
       <div><span class="k">Abstand</span><span class="v ${lag ? lag.cls : ''}">${lag ? lag.text : '—'}</span></div>
-      <div><span class="k" title="Lineare Fortschreibung des Tempos der letzten 28 Tage">Prognose</span><span class="v">${fc}</span></div>
+      <div title="${esc(fcTitle)}"><span class="k">Prognose</span><span class="v">${fc}</span></div>
       <div><span class="k">Aufgaben</span><span class="v">${s.tasks.done} / ${s.tasks.total}</span></div>
     </div>
     ${progressBar(s, { big: true })}

@@ -382,22 +382,43 @@ export function actualSeries(p, fromDay, toDay) {
   return out;
 }
 
+export const FORECAST_WINDOW = 28;      // Tage, höchstens
+export const FORECAST_MIN_DAYS = 7;     // kürzeres Fenster: keine Prognose
+export const FORECAST_MIN_UNITS = 2;    // weniger erledigte Einheiten im Fenster: keine Prognose
+
 /**
- * Prognose des Fertigstellungstags aus dem Tempo der letzten `window` Tage.
- * Rein lineare Fortschreibung — eine Faustzahl, keine Vorhersage.
+ * Prognose des Fertigstellungstags aus dem Tempo der letzten w Tage,
+ *   w = min(28, heute − Beginn + 1),
+ * damit ein junges Projekt nicht durch Tage verdünnt wird, an denen es noch
+ * gar nicht existierte. Beginn = Projektbeginn, ersatzweise Anlagedatum.
+ * Rein lineare Fortschreibung des Tempos — der Soll-Plan ist stückweise
+ * linear; liegt viel Gewicht auf späten Meilensteinen, kann man im Soll sein
+ * und die Prognose trotzdem nach dem Ziel liegen (dann zu Recht).
+ *
+ * Rückgabe: null (nichts zu zählen) | { finished: true } |
+ *   { finished: false, day, rate, window, units } mit day = null und
+ *   reason ∈ {'jung', 'wenig'} wenn zu wenig Daten vorliegen.
  */
-export function forecast(p, today = dayNum(todayIso()), window = 28) {
+export function forecast(p, today = dayNum(todayIso()), maxWindow = FORECAST_WINDOW) {
   const { total, done } = projectProgress(p);
   if (!total) return null;
   if (done >= total) return { finished: true };
+
+  let start = dayNum(p.start);
+  if (!Number.isFinite(start)) start = dayNum(String(p.created || '').slice(0, 10));
+  const age = Number.isFinite(start) ? today - start + 1 : maxWindow;
+  const window = Math.max(1, Math.min(maxWindow, age));
+
   let recent = 0;
+  let units = 0;
   for (const u of projectUnits(p)) {
     const d = dayNum(u.doneAt);
-    if (u.done && Number.isFinite(d) && d > today - window && d <= today) recent += u.weight;
+    if (u.done && Number.isFinite(d) && d > today - window && d <= today) { recent += u.weight; units += 1; }
   }
-  if (recent === 0) return { finished: false, day: null, rate: 0 };
-  const rate = recent / window;                        // Gewicht je Tag
-  return { finished: false, day: today + Math.ceil((total - done) / rate), rate };
+  const base = { finished: false, day: null, rate: recent / window, window, units, age };
+  if (window < FORECAST_MIN_DAYS) return { ...base, reason: 'jung' };
+  if (units < FORECAST_MIN_UNITS) return { ...base, reason: 'wenig' };
+  return { ...base, day: today + Math.ceil((total - done) / base.rate) };
 }
 
 /**

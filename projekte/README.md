@@ -37,9 +37,17 @@ heutigen Ist-Wert erreicht. Positiv = Rückstand. Ampel (nur bei Status
 „aktiv“): bis 3 Tage im Plan, bis 14 Tage knapp, darüber Verzug; nach dem
 Projektziel „Ziel überschritten“.
 
-**Prognose**: lineare Fortschreibung des in den letzten 28 Tagen
-erledigten Gewichts. Eine Faustzahl, keine Vorhersage; ohne Erledigtes in
-dem Fenster keine Prognose.
+**Prognose**: lineare Fortschreibung des Tempos über ein Fenster von
+w = min(28, heute − Beginn + 1) Tagen (Beginn = Projektbeginn, ersatzweise
+Anlagedatum): Tempo = im Fenster erledigtes Gewicht / w, Fertig = heute +
+⌈offenes Gewicht / Tempo⌉. Das Fenster wächst mit dem Projekt, sonst würde
+ein junges Projekt durch Tage verdünnt, an denen es noch nicht existierte
+(bis 13.10.2026 war w fest 28 — Prognosen junger Projekte lagen dadurch um
+den Faktor 28/Alter zu spät). Unter 7 Tagen Fenster oder mit weniger als
+zwei erledigten Einheiten im Fenster steht „noch zu wenig Daten“. Eine
+Faustzahl, keine Vorhersage; da das Soll stückweise linear ist, kann man im
+Soll sein und die Prognose trotzdem nach dem Ziel liegen (viel Gewicht auf
+späten Meilensteinen) — dann zu Recht. Der Tooltip nennt Tempo und Fenster.
 
 Das Burn-up-Diagramm zeigt Ist als Treppe (aus den Erledigt-Daten der
 Aufgaben), Soll gestrichelt, Meilensteine als Rauten. Abhaken setzt das
@@ -118,11 +126,11 @@ Primärschlüssel.
 
 ## Tests
 
-Nicht Teil des Repos. 13 Modelltests (Datumseingabe, Normalisierung, Tags, Abschluss,
+Nicht Teil des Repos. 14 Modelltests (Datumseingabe, Normalisierung, Tags, Abschluss,
 Gewichtung, Soll-Kurve samt Umkehrung, Abstand, Ampel, Ist-Verlauf,
-Prognose, Sortierung), 21 Worker-Prüfungen (Namensraum getrennt vom
+Prognose samt Fenster, Sortierung), 21 Worker-Prüfungen (Namensraum getrennt vom
 Kalender, 409, unbekannte Namensräume und Pfadvarianten → 404, und der
-alte Worker liefert auf `/s/projekte` 404 statt des Kalenderblocks), 63
+alte Worker liefert auf `/s/projekte` 404 statt des Kalenderblocks), 68
 Browserprüfungen in Chromium (Anlegen, Dialogfehler, Aufgaben mit Fokus,
 Gewichte, Umbenennen, Löschen + Rückgängig, Meilenstein ohne Aufgaben,
 Diagramm, Filter, Zeitleiste, Reload, zweites Fenster, Einrichtung des
