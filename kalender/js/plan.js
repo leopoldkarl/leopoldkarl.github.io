@@ -12,6 +12,7 @@
 // Ebene eigenstaendig: Aenderungen wirken nie nach oben.
 
 import { WEEKDAY_SHORT, WEEKDAY_LONG, ymd, isoDow, sameDay, fmtDateLong, hm } from './dates.js';
+import { createEdgeScroller } from './dragscroll.js';
 
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -314,7 +315,28 @@ export function renderPlanPreview({ dateYmd, items, detached, colorOf, title = '
 export function attachPlanInteractions(root, { onReorder }) {
   let drag = null;
 
+  // Wie auf der Aufgabenseite: am Rand der Spalte mitscrollen, damit man
+  // einen Eintrag auch unterhalb des Sichtbaren ablegen kann.
+  const scroller = createEdgeScroller({ onScroll: (x, y) => placeAt(x, y) });
+
+  function placeAt(x, y) {
+    if (!drag) return;
+    const under = document.elementFromPoint(x, y);
+    const list = under && under.closest ? under.closest('.pl-list') : null;
+    scroller.update(list, x, y);
+    if (!list) return;
+    const siblings = [...list.querySelectorAll('.pl')].filter((n) => n !== drag.item);
+    let before = null;
+    for (const n of siblings) {
+      const r = n.getBoundingClientRect();
+      if (y < r.top + r.height / 2) { before = n; break; }
+    }
+    if (before) list.insertBefore(drag.placeholder, before);
+    else list.append(drag.placeholder);
+  }
+
   const cleanup = () => {
+    scroller.stop();
     if (!drag) return;
     const { item, placeholder } = drag;
     item.classList.remove('pl-dragging');
@@ -359,21 +381,11 @@ export function attachPlanInteractions(root, { onReorder }) {
     }
     drag.item.style.left = `${e.clientX - drag.dx}px`;
     drag.item.style.top = `${e.clientY - drag.dy}px`;
-
-    const under = document.elementFromPoint(e.clientX, e.clientY);
-    const list = under?.closest?.('.pl-list');
-    if (!list) return;
-    const siblings = [...list.querySelectorAll('.pl')].filter((n) => n !== drag.item);
-    let before = null;
-    for (const n of siblings) {
-      const r = n.getBoundingClientRect();
-      if (e.clientY < r.top + r.height / 2) { before = n; break; }
-    }
-    if (before) list.insertBefore(drag.placeholder, before);
-    else list.append(drag.placeholder);
+    placeAt(e.clientX, e.clientY);
   });
 
   const finish = () => {
+    scroller.stop();
     if (!drag) return;
     const { id, placeholder, moved } = drag;
     const list = placeholder.closest('.pl-list');

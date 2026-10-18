@@ -69,6 +69,7 @@ Voraussetzung, nicht zur Option.
     js/journal.js     Tagebuchseite: Feldtypen, Summen, Layout
     js/plan.js        Tages- und Wochenplanung, Vorlagen
     js/tooltip.js     voller Titel beim Verweilen mit dem Zeiger
+    js/dragscroll.js  Mitscrollen am Rand, während etwas gezogen wird
     js/crypto.js      AES-GCM + PBKDF2, Verschlüsselung im Browser
     js/keystore.js    abgeleiteter Schlüssel in IndexedDB
     js/sync.js        Abgleich mit dem Worker, Konfliktregel
@@ -262,6 +263,14 @@ kleingezogener Block eine Titelzeile trägt. Die Tagesüberschrift klebt beim
 Scrollen oben (`position: sticky`), das Eingabefeld für neue Aufgaben bleibt
 unten stehen.
 
+**Ziehen über den sichtbaren Rand hinaus:** nähert sich der Zeiger mit einem
+Block in der Hand dem oberen oder unteren Rand der Liste, scrollt sie mit
+(`js/dragscroll.js`). Die Geschwindigkeit wächst linear mit der Tiefe in der
+56-px-Randzone — ein fester Wert fühlt sich entweder träge oder
+unkontrollierbar an. Nach jedem wirksamen Scrollschritt wird der Platzhalter
+neu einsortiert, obwohl sich der Zeiger nicht bewegt hat; am Listenende hört
+die Animation von selbst auf. Dieselbe Mechanik hängt an der Planung.
+
 **Einen Tag weiterschieben:** jeder Aufgabenblock trägt rechts ein `→`,
 links vom Löschkreuz — die häufigere und harmlosere Handlung liegt näher am
 Text. Die Aufgabe wandert auf den Folgetag und landet dort **am Ende**, nicht
@@ -318,10 +327,12 @@ zurück — dasselbe Feld desselben Eintrags, auch wenn der inzwischen an einer
 anderen Stelle steht.
 
 Aus demselben Grund behalten die Spalten ihren Scrollstand: sie scrollen
-einzeln (`.pl-list`), und beim Neuzeichnen entstehen sie neu und stünden
-wieder ganz oben — wer in einer langen Spalte einen Eintrag löscht, landete
-sonst am Spaltenanfang. `renderPlan` merkt sich die Stände je `plkey` und
-setzt sie danach zurück; alle drei Mutatoren der Planung zeichnen darüber.
+einzeln (`.pl-list`, auf der Aufgabenseite `.tk-list`), und beim Neuzeichnen
+entstehen sie neu und stünden wieder ganz oben — wer in einer langen Spalte
+etwas löscht oder abhakt, landete sonst am Spaltenanfang. `renderKeepScroll`
+merkt sich die Stände je Spaltenschlüssel und setzt sie danach zurück; die
+drei Mutatoren der Planung und die Handler der Aufgabenseite zeichnen
+darüber.
 
 Denn sobald eine Zeit dasteht, rückt der Eintrag an seinen Platz im
 Tagesablauf: `sortItems` sortiert die Liste, in der er liegt, nach Beginn
@@ -467,7 +478,7 @@ Nicht Teil des Repos. Geprüft wurden 171 Einheitentests (Wiederholungsregeln,
 ics-Roundtrip inklusive Zeilenfaltung und Maskierung, RECURRENCE-ID-Auflösung,
 CSV-/vCard-Parser, Tastatureingabe von Datum und Uhrzeit, Schaltjahr-Rückfall,
 ISO-Wochenschlüssel, Vorlagen-Versionierung, Kopier-Isolation, Kontrastwahl)
-und 163 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
+und 168 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
 Geburtstags-Import, Kategorien-Editor, Tab-Reihenfolge, Scrollbalken,
 Seitenwechsel, Aufgaben-Reihenfolge und -Höhe, Tagebuch-Summen und
 -Speicherung, Vorlagen-Versionierung und Kopier-Isolation, Seitenleisten-Schalter und

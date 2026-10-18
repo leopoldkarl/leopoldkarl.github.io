@@ -176,28 +176,41 @@ function applyExternal(raw, { quelle = 'fenster' } = {}) {
  * Zeichnen merken, danach zuruecksetzen. Die Anzeige auf der Aufgabenseite
  * hat keinen `plkey` und bleibt aussen vor.
  */
-function planScrollSnapshot() {
+const SCROLL_SELECTORS = [
+  ['#wp-root .pl-list', 'plkey'],
+  ['#tp-root .pl-list', 'plkey'],
+  ['#tk-root .tk-list', 'date'],
+];
+
+function scrollSnapshot() {
   const out = [];
-  for (const n of document.querySelectorAll('#wp-root .pl-list, #tp-root .pl-list')) {
-    if (n.dataset.plkey) out.push([n.dataset.plkey, n.scrollTop]);
+  for (const [sel, attr] of SCROLL_SELECTORS) {
+    for (const n of document.querySelectorAll(sel)) {
+      const key = n.dataset[attr];
+      if (key) out.push([sel, attr, key, n.scrollTop]);
+    }
   }
   return out;
 }
 
-function restorePlanScroll(snap) {
-  for (const [key, top] of snap) {
-    const n = document.querySelector(
-      `#wp-root .pl-list[data-plkey="${CSS.escape(key)}"], #tp-root .pl-list[data-plkey="${CSS.escape(key)}"]`,
-    );
+function restoreScroll(snap) {
+  for (const [sel, attr, key, top] of snap) {
+    const dash = attr === 'plkey' ? 'plkey' : 'date';
+    const n = document.querySelector(`${sel}[data-${dash}="${CSS.escape(key)}"]`);
     if (n) n.scrollTop = top;
   }
 }
 
-/** Zeichnen und dabei die Scrollstaende der Planungsspalten behalten. */
-function renderPlan() {
-  const snap = planScrollSnapshot();
+/**
+ * Zeichnen und dabei die Scrollstaende der Spalten behalten — in der Planung
+ * wie auf der Aufgabenseite. Die Listen scrollen einzeln; beim Neuzeichnen
+ * entstehen sie neu und stuenden wieder ganz oben. Wer in einer langen
+ * Spalte etwas loescht oder abhakt, landete sonst am Spaltenanfang.
+ */
+function renderKeepScroll() {
+  const snap = scrollSnapshot();
   render();
-  restorePlanScroll(snap);
+  restoreScroll(snap);
 }
 
 /**
@@ -219,7 +232,7 @@ function renderKeepingPlanFocus() {
     const keep = (ae && ae.dataset && ae.dataset.plitem)
       ? { id: ae.dataset.plitem, part: ae.dataset.plpart, s: ae.selectionStart, e: ae.selectionEnd }
       : null;
-    renderPlan();
+    renderKeepScroll();
     if (!keep) return;
     const next = document.querySelector(
       `[data-plitem="${CSS.escape(keep.id)}"][data-plpart="${keep.part}"]`,
@@ -653,7 +666,7 @@ function mutateDayPlan(fn, label, { redraw = true } = {}) {
     store.ensureDayPlan(ui.selected, v.items);
   }
   store.mutate((s) => { fn(s.dayPlans[ui.selected]); });
-  if (redraw) renderPlan();
+  if (redraw) renderKeepScroll();
 }
 
 /** Dasselbe fuer die Wochenplanung: erst anlegen, dann aendern. */
@@ -663,7 +676,7 @@ function mutateWeekPlan(fn, label, { redraw = true } = {}) {
   void plan;
   const key = isoWeekKey(ui.cursor);
   store.mutate((s) => { fn(s.weekPlans[key]); });
-  if (redraw) renderPlan();
+  if (redraw) renderKeepScroll();
 }
 
 /** Und fuer die Vorlage — dort erzeugt eine Aenderung ggf. eine neue Fassung. */
@@ -679,7 +692,7 @@ function mutateTemplate(fn, label, { redraw = true } = {}) {
   const effective = store.editTemplate(id, today, fn);
   if (effective !== id) toast('Neue Fassung der Vorlage angelegt.');
   ui.templateId = effective;
-  if (redraw) renderPlan();
+  if (redraw) renderKeepScroll();
 }
 
 /* ---- Tagebuchseite ---- */
@@ -1522,7 +1535,7 @@ function bind() {
     onReorder: (id, targetDate, index) => {
       pushUndo('Aufgabe verschoben');
       store.moveTask(id, targetDate, index);
-      render();
+      renderKeepScroll();
     },
     onResize: (id, height) => {
       pushUndo('Aufgabenhöhe geändert');
@@ -1551,13 +1564,13 @@ function bind() {
     if (cb) {
       pushUndo('Aufgabe umgeschaltet');
       store.updateTask(cb.dataset.tktoggle, { done: cb.checked });
-      render();
+      renderKeepScroll();
       return;
     }
     const title = e.target.closest('[data-tktitle]');
     if (title) {
       const text = title.value.trim();
-      if (!text) { render(); return; }      // leerer Titel wird verworfen
+      if (!text) { renderKeepScroll(); return; }   // leerer Titel wird verworfen
       pushUndo('Aufgabe umbenannt');
       // Mit der ersten Aenderung ist der Titel kein Vorschlag mehr. Die Marke
       // muss auch am Feld selbst weg: hier wird bewusst nicht neu gezeichnet
@@ -1577,7 +1590,7 @@ function bind() {
       toast(n
         ? `${n} offene Aufgabe${n === 1 ? '' : 'n'} übernommen — rückgängig mit Strg+Z.`
         : 'Nichts zu übernehmen.');
-      render();
+      renderKeepScroll();
       return;
     }
     const fromPlan = e.target.closest('[data-tkfromplan]');
@@ -1591,7 +1604,7 @@ function bind() {
       toast(n
         ? `${n} Aufgabe${n === 1 ? '' : 'n'} aus dem Tagesplan angelegt — rückgängig mit Strg+Z.`
         : 'Alle Einträge stehen schon als Aufgabe.');
-      render();
+      renderKeepScroll();
       return;
     }
     const next = e.target.closest('[data-tknext]');
@@ -1602,7 +1615,7 @@ function bind() {
         // Ans Ende des Zieltages, nicht an die alte Stelle: Number.MAX_SAFE_INTEGER
         // wird in moveTask auf die Laenge geklemmt.
         store.moveTask(t.id, ymd(addDays(parseYmd(t.date), 1)), Number.MAX_SAFE_INTEGER);
-        render();
+        renderKeepScroll();
         toast('Auf den nächsten Tag verschoben — rückgängig mit Strg+Z.');
       }
       return;
@@ -1611,7 +1624,7 @@ function bind() {
     if (del) {
       pushUndo('Aufgabe gelöscht');
       store.deleteTask(del.dataset.tkdel);
-      render();
+      renderKeepScroll();
       return;
     }
     const goto = e.target.closest('[data-gotoday]');
@@ -1620,7 +1633,7 @@ function bind() {
       ui.cursor = parseYmd(ui.selected);
       ui.taskView = 'day';
       localStorage_set('kalender.taskview', 'day');
-      render();
+      renderKeepScroll();
     }
   });
 
@@ -1634,7 +1647,7 @@ function bind() {
     pushUndo('Aufgabe angelegt');
     store.addTask(form.dataset.date, text);
     input.value = '';
-    render();
+    renderKeepScroll();
     // Nach dem Neuzeichnen ist das Feld ein anderes: erneut suchen.
     const again = tkRoot.querySelector(`[data-tkadd="${CSS.escape(form.dataset.date)}"]`);
     if (again) again.focus();

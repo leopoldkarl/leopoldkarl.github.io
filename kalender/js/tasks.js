@@ -12,6 +12,7 @@ import {
   WEEKDAY_SHORT, ymd, addDays, isoDow, sameDay, fmtDateLong,
 } from './dates.js';
 import { MIN_TASK_HEIGHT, MAX_TASK_HEIGHT, DEFAULT_TASK_HEIGHT } from './store.js';
+import { createEdgeScroller } from './dragscroll.js';
 
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -193,7 +194,34 @@ export function attachTaskInteractions(root, { onReorder, onResize }) {
   let drag = null;
   let resize = null;
 
+  // Am Rand der Liste mitscrollen, solange ein Block in der Hand ist.
+  const scroller = createEdgeScroller({ onScroll: (x, y) => placeAt(x, y) });
+
+  /**
+   * Platzhalter dorthin setzen, wo der Zeiger steht — und dabei melden, ob
+   * der Zeiger in der Randzone einer Liste haengt. Dieselbe Funktion bedient
+   * das Ziehen und das automatische Scrollen, damit beim Scrollen ohne
+   * Zeigerbewegung die Einsortierung mitwandert.
+   */
+  function placeAt(x, y) {
+    if (!drag) return;
+    const under = document.elementFromPoint(x, y);
+    const list = under && under.closest ? under.closest('.tk-list') : null;
+    scroller.update(list, x, y);
+    if (!list) return;
+
+    const siblings = [...list.querySelectorAll('.tk')].filter((n) => n !== drag.item);
+    let before = null;
+    for (const n of siblings) {
+      const r = n.getBoundingClientRect();
+      if (y < r.top + r.height / 2) { before = n; break; }
+    }
+    if (before) list.insertBefore(drag.placeholder, before);
+    else list.append(drag.placeholder);
+  }
+
   const cleanupDrag = () => {
+    scroller.stop();
     if (!drag) return;
     const { item, placeholder } = drag;
     item.classList.remove('tk-dragging');
@@ -262,22 +290,11 @@ export function attachTaskInteractions(root, { onReorder, onResize }) {
     }
     drag.item.style.left = `${e.clientX - drag.dx}px`;
     drag.item.style.top = `${e.clientY - drag.dy}px`;
-
-    const under = document.elementFromPoint(e.clientX, e.clientY);
-    const list = under?.closest?.('.tk-list');
-    if (!list) return;
-
-    const siblings = [...list.querySelectorAll('.tk')].filter((n) => n !== drag.item);
-    let before = null;
-    for (const n of siblings) {
-      const r = n.getBoundingClientRect();
-      if (e.clientY < r.top + r.height / 2) { before = n; break; }
-    }
-    if (before) list.insertBefore(drag.placeholder, before);
-    else list.append(drag.placeholder);
+    placeAt(e.clientX, e.clientY);
   });
 
   const finish = (e) => {
+    scroller.stop();
     if (resize) {
       const { id, item } = resize;
       const h = item.offsetHeight;
