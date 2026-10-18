@@ -272,6 +272,18 @@ stehen sie dauerhaft. Rückgängig mit `Strg+Z`. Dass ein Klick darauf keine
 Ziehbewegung auslöst, sorgt die Abfrage `e.target.closest('input, button')`
 in `attachTaskInteractions`.
 
+**Aufgaben aus dem Tagesplan:** in der Tagesansicht legt ein zweiter Knopf
+(`+ n aus Tagesplan`) aus den Einträgen der Tagesplanung Aufgaben an — nach
+Uhrzeit geordnet, hinter dem, was schon dasteht. Titel, die an diesem Tag
+schon als Aufgabe stehen, werden übersprungen; zweimal drücken verdoppelt
+also nicht. Der Knopf *liest* den Plan nur und löst die Kopier-Regel nicht
+aus. Die so erzeugten Titel sind Vorschläge und tragen `draft: true`: beim
+Hineinklicken wird der ganze Text markiert, man tippt darüber, ohne zu
+löschen. Mit der ersten Änderung fällt die Marke, danach verhält sich das
+Feld wie jedes andere. Dafür braucht es neben `focusin` auch `mouseup` mit
+`preventDefault` — sonst zieht der Klick die Auswahl beim Loslassen wieder
+auf eine Einfügemarke zusammen.
+
 **Offene Aufgaben früherer Tage** holt in der Tagesansicht ein Knopf in der
 Kopfzeile auf den angezeigten Tag — beschriftet mit der Anzahl, und nur
 vorhanden, wenn es etwas zu holen gibt; ein Knopf, der meistens nichts tut,
@@ -291,6 +303,24 @@ Tastenkürzel schlucken. Wichtig für die Kopier-Regel unten: das Anzeigen
 *liest* nur (`dayPlanView`) und legt keinen eigenständigen Tagesplan an —
 Hinsehen ist keine Änderung. In der Wochenansicht erscheint der Kasten
 nicht; auf schmalen Fenstern rutscht er unter die Aufgaben.
+
+## Zeiteingabe in der Planung
+
+Die Zeitfelder eines Eintrags stehen in der Tab-Reihenfolge **Beginn → Ende →
+Bezeichnung**. Damit das auch funktioniert, darf die Änderung nicht sofort
+neu zeichnen: `change` feuert, während der Browser den Fokus gerade
+weitergibt — wer darin die Liste neu aufbaut, zieht ihm das Zielfeld unter
+den Fingern weg, und der Fokus landet am Dokumentanfang. Deshalb speichert
+der Handler nur, und das Zeichnen liegt in `renderKeepingPlanFocus` auf dem
+nächsten Durchlauf: dann steht der Fokus schon im Zielfeld, wir lesen ab, wo
+er ist, zeichnen neu und setzen ihn samt Auswahlbereich auf dasselbe Feld
+zurück — dasselbe Feld desselben Eintrags, auch wenn der inzwischen an einer
+anderen Stelle steht.
+
+Denn sobald eine Zeit dasteht, rückt der Eintrag an seinen Platz im
+Tagesablauf: `sortItems` sortiert die Liste, in der er liegt, nach Beginn
+(Einträge ohne Zeit bleiben hinten). Das gilt in der Vorlage, im Wochenplan
+und im Tagesplan gleichermaßen.
 
 ## Planung: drei Ebenen, jede eine Kopie
 
@@ -420,14 +450,15 @@ Nicht Teil des Repos. Geprüft wurden 171 Einheitentests (Wiederholungsregeln,
 ics-Roundtrip inklusive Zeilenfaltung und Maskierung, RECURRENCE-ID-Auflösung,
 CSV-/vCard-Parser, Tastatureingabe von Datum und Uhrzeit, Schaltjahr-Rückfall,
 ISO-Wochenschlüssel, Vorlagen-Versionierung, Kopier-Isolation, Kontrastwahl)
-und 147 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
+und 158 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
 Geburtstags-Import, Kategorien-Editor, Tab-Reihenfolge, Scrollbalken,
 Seitenwechsel, Aufgaben-Reihenfolge und -Höhe, Tagebuch-Summen und
 -Speicherung, Vorlagen-Versionierung und Kopier-Isolation, Seitenleisten-Schalter und
 Spaltenbreiten, schmale Fenster, Zwei-Fenster-Abgleich, Titel-Einblendung,
 Einrichtung und Abgleich über zwei Browser-Kontexte, Überlauf der
 Aufgabenliste, Tagesplan-Anzeige, Übernahme offener Aufgaben, Weiterschieben
-einzelner Aufgaben).
+einzelner Aufgaben, Aufgaben aus dem Tagesplan, Tab-Fluss und Sortierung der
+Zeiteingabe).
 Der „Server" ist in allen Abgleich-Tests der echte Worker-Code mit einer
 D1-Attrappe, geprüft wird also die Kette Verschlüsseln → Schnittstelle →
 Entschlüsseln und nicht eine nachgebaute Vorstellung davon.

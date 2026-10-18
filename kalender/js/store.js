@@ -506,6 +506,36 @@ export class Store {
     });
   }
 
+  /**
+   * Aus Planeintraegen Aufgaben machen: ein Eintrag, eine Aufgabe, in der
+   * Reihenfolge der uebergebenen Liste (die Aufrufstelle sortiert sie nach
+   * Uhrzeit). Titel, die an diesem Tag schon als Aufgabe stehen, werden
+   * uebersprungen — zweimal druecken soll nicht verdoppeln.
+   *
+   * Die neuen Aufgaben tragen `draft: true`: ihr Titel ist ein Vorschlag,
+   * der beim ersten Hineinklicken vollstaendig markiert wird.
+   */
+  addTasksFromItems(dateYmd, items) {
+    let added = 0;
+    this.mutate((s) => {
+      const amTag = s.tasks.filter((t) => t.date === dateYmd);
+      const bekannt = new Set(amTag.map((t) => t.title));
+      let next = amTag.reduce((mx, t) => Math.max(mx, t.order), -1);
+      for (const it of items) {
+        const title = String(it && it.title ? it.title : '').trim();
+        if (!title || bekannt.has(title)) continue;
+        bekannt.add(title);
+        next += 1;
+        s.tasks.push({
+          id: uid(), date: dateYmd, title, done: false,
+          order: next, height: DEFAULT_TASK_HEIGHT, draft: true,
+        });
+        added += 1;
+      }
+    });
+    return added;
+  }
+
   /** Wie viele offene Aufgaben vor `dateYmd` liegen — fuer Knopf und Anzahl. */
   openTasksBefore(dateYmd) {
     return this.state.tasks.filter((t) => !t.done && t.date < dateYmd).length;
@@ -714,6 +744,10 @@ export function migrate(state) {
     done: !!t.done,
     order: Number(t.order) || 0,
     height: clampHeight(t.height),
+    // `draft` nur mitfuehren, wenn gesetzt: aus dem Tagesplan erzeugte Titel
+    // sind Vorschlaege, bis sie einmal geaendert wurden. Das Feld muss hier
+    // stehen, sonst faellt es beim naechsten Laden oder beim Abgleich weg.
+    ...(t.draft ? { draft: true } : {}),
   }));
   // Alte Staende hatten order = Date.now(); das sind riesige Zahlen, die
   // zwar richtig sortieren, aber nach dem ersten Ziehen mit den neuen

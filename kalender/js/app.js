@@ -169,6 +169,36 @@ function applyExternal(raw, { quelle = 'fenster' } = {}) {
     : 'In einem anderen Fenster geändert — Ansicht aktualisiert.');
 }
 
+/**
+ * Neu zeichnen, ohne den Tastaturfluss zu zerreissen.
+ *
+ * Der Haken an `change`: das Ereignis feuert, waehrend der Browser den Fokus
+ * gerade weitergibt. Wer darin sofort neu zeichnet, zieht dem Browser das
+ * Zielfeld unter den Fingern weg — der Fokus landet dann am Dokumentanfang,
+ * und Tab von der Anfangs- in die Endzeit wird unmoeglich.
+ *
+ * Deshalb: erst die Aenderung speichern, das Zeichnen aber auf den naechsten
+ * Durchlauf legen. Dann hat der Browser den Fokus bereits gesetzt, wir lesen
+ * ab, *wo* er steht, zeichnen neu — die Liste darf sich dabei umsortieren —
+ * und setzen ihn auf dasselbe Feld zurueck, samt Auswahlbereich.
+ */
+function renderKeepingPlanFocus() {
+  setTimeout(() => {
+    const ae = document.activeElement;
+    const keep = (ae && ae.dataset && ae.dataset.plitem)
+      ? { id: ae.dataset.plitem, part: ae.dataset.plpart, s: ae.selectionStart, e: ae.selectionEnd }
+      : null;
+    render();
+    if (!keep) return;
+    const next = document.querySelector(
+      `[data-plitem="${CSS.escape(keep.id)}"][data-plpart="${keep.part}"]`,
+    );
+    if (!next) return;
+    next.focus();
+    try { next.setSelectionRange(keep.s, keep.e); } catch { /* bei type=text immer moeglich */ }
+  }, 0);
+}
+
 /* ------------------------------------------------------------------ */
 /* Abgleich mit dem Server                                             */
 /* ------------------------------------------------------------------ */
@@ -453,8 +483,9 @@ function renderTaskPage() {
   ctx.carryCount = store.openTasksBefore(ui.selected);
   if (ui.taskView === 'day') {
     // Nur lesen: `dayPlanView` legt keinen eigenstaendigen Tagesplan an, und
-    // die Anzeige hier darf das auch nicht ausloesen.
+    // weder die Anzeige noch der Knopf duerfen das ausloesen.
     const v = dayPlanView(ui.selected);
+    ctx.planCount = v.items.length;
     ctx.planNode = renderPlanPreview({
       dateYmd: ui.selected, items: v.items, detached: v.detached, colorOf,
     });
@@ -583,7 +614,7 @@ function renderDayPlanPage() {
  * den eigenstaendigen Tagesplan an, falls es ihn noch nicht gibt, und
  * uebergibt dann dessen Eintragsliste zur Bearbeitung.
  */
-function mutateDayPlan(fn, label) {
+function mutateDayPlan(fn, label, { redraw = true } = {}) {
   pushUndo(label);
   const existing = store.dayPlan(ui.selected);
   if (!existing) {
@@ -591,21 +622,21 @@ function mutateDayPlan(fn, label) {
     store.ensureDayPlan(ui.selected, v.items);
   }
   store.mutate((s) => { fn(s.dayPlans[ui.selected]); });
-  render();
+  if (redraw) render();
 }
 
 /** Dasselbe fuer die Wochenplanung: erst anlegen, dann aendern. */
-function mutateWeekPlan(fn, label) {
+function mutateWeekPlan(fn, label, { redraw = true } = {}) {
   pushUndo(label);
   const plan = materializeWeek(ui.cursor);
   void plan;
   const key = isoWeekKey(ui.cursor);
   store.mutate((s) => { fn(s.weekPlans[key]); });
-  render();
+  if (redraw) render();
 }
 
 /** Und fuer die Vorlage — dort erzeugt eine Aenderung ggf. eine neue Fassung. */
-function mutateTemplate(fn, label) {
+function mutateTemplate(fn, label, { redraw = true } = {}) {
   const today = ymd(new Date());
   let id = ui.templateId || (store.templatesSorted()[0] || {}).id;
   if (!id) {
@@ -617,7 +648,7 @@ function mutateTemplate(fn, label) {
   const effective = store.editTemplate(id, today, fn);
   if (effective !== id) toast('Neue Fassung der Vorlage angelegt.');
   ui.templateId = effective;
-  render();
+  if (redraw) render();
 }
 
 /* ---- Tagebuchseite ---- */
@@ -1468,6 +1499,22 @@ function bind() {
     },
   });
 
+  // Ein aus dem Tagesplan erzeugter Titel ist ein Vorschlag: hineinklicken
+  // markiert ihn ganz, damit man ihn ueberschreiben kann, ohne zu loeschen.
+  // `mouseup` muss mit, weil der Klick sonst nach dem Fokus die Auswahl
+  // wieder auf eine Einfuegemarke zusammenzieht.
+  const markiereEntwurf = (el_) => { try { el_.select(); } catch { /* egal */ } };
+  tkRoot.addEventListener('focusin', (e) => {
+    const f = e.target.closest('[data-tktitle][data-draft]');
+    if (f) markiereEntwurf(f);
+  });
+  tkRoot.addEventListener('mouseup', (e) => {
+    const f = e.target.closest('[data-tktitle][data-draft]');
+    if (!f) return;
+    e.preventDefault();
+    markiereEntwurf(f);
+  });
+
   tkRoot.addEventListener('change', (e) => {
     const cb = e.target.closest('[data-tktoggle]');
     if (cb) {
@@ -1481,7 +1528,12 @@ function bind() {
       const text = title.value.trim();
       if (!text) { render(); return; }      // leerer Titel wird verworfen
       pushUndo('Aufgabe umbenannt');
-      store.updateTask(title.dataset.tktitle, { title: text });
+      // Mit der ersten Aenderung ist der Titel kein Vorschlag mehr. Die Marke
+      // muss auch am Feld selbst weg: hier wird bewusst nicht neu gezeichnet
+      // (das wuerde den Fokus kosten), also bliebe sie sonst bis zum naechsten
+      // Zeichnen stehen und der naechste Klick markierte wieder alles.
+      store.updateTask(title.dataset.tktitle, { title: text, draft: false });
+      delete title.dataset.draft;
     }
   });
 
@@ -1494,6 +1546,20 @@ function bind() {
       toast(n
         ? `${n} offene Aufgabe${n === 1 ? '' : 'n'} übernommen — rückgängig mit Strg+Z.`
         : 'Nichts zu übernehmen.');
+      render();
+      return;
+    }
+    const fromPlan = e.target.closest('[data-tkfromplan]');
+    if (fromPlan) {
+      const date = fromPlan.dataset.tkfromplan;
+      pushUndo('Aufgaben aus Tagesplan');
+      // Chronologisch: die Planliste selbst kann von Hand umsortiert sein.
+      const items = sortItems(dayPlanView(date).items);
+      const n = store.addTasksFromItems(date, items);
+      if (!n) undoStack.pop();
+      toast(n
+        ? `${n} Aufgabe${n === 1 ? '' : 'n'} aus dem Tagesplan angelegt — rückgängig mit Strg+Z.`
+        : 'Alle Einträge stehen schon als Aufgabe.');
       render();
       return;
     }
@@ -1579,11 +1645,21 @@ function bind() {
       f.classList.remove('invalid');
       const apply = (list) => {
         const it = list.find((x) => x.id === id);
-        if (it) it[part] = value;
+        if (!it) return;
+        it[part] = value;
+        // Sobald eine Zeit dasteht, gehoert der Eintrag an seinen Platz im
+        // Tagesablauf. Sortiert wird nur die Liste, in der er wirklich liegt.
+        if (part === 'start' || part === 'end') {
+          const sorted = sortItems(list);
+          list.length = 0;
+          list.push(...sorted);
+        }
       };
-      if (isWeek && ui.planMode === 'template') mutateTemplate((t) => forEachList(t.days, apply), 'Vorlage geändert');
-      else if (isWeek) mutateWeekPlan((p) => forEachList(p.days, apply), 'Plan geändert');
-      else mutateDayPlan((p) => apply(p.items), 'Plan geändert');
+      const opts = { redraw: false };
+      if (isWeek && ui.planMode === 'template') mutateTemplate((t) => forEachList(t.days, apply), 'Vorlage geändert', opts);
+      else if (isWeek) mutateWeekPlan((p) => forEachList(p.days, apply), 'Plan geändert', opts);
+      else mutateDayPlan((p) => apply(p.items), 'Plan geändert', opts);
+      renderKeepingPlanFocus();
     });
 
     root.addEventListener('click', (e) => {

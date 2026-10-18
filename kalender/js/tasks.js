@@ -46,6 +46,7 @@ function taskItem(t) {
   title.value = t.title;
   title.autocomplete = 'off';
   title.dataset.tktitle = t.id;
+  if (t.draft) title.dataset.draft = '1';
   title.setAttribute('aria-label', 'Aufgabentext');
 
   // Einen Tag weiterschieben. Steht links vom Loeschkreuz, weil die
@@ -133,6 +134,15 @@ export function renderTaskDay(ctx) {
 
   // Nur anbieten, wenn es tatsaechlich etwas zu holen gibt: ein Knopf, der
   // meistens nichts tut, erzieht dazu, ihn nicht mehr zu lesen.
+  if (ctx.planCount > 0) {
+    const mk = el('button', 'tk-carry tk-fromplan', `+ ${ctx.planCount} aus Tagesplan`);
+    mk.type = 'button';
+    mk.dataset.tkfromplan = dateYmd;
+    mk.title = 'Aus den Einträgen des Tagesplans Aufgaben anlegen, nach Uhrzeit geordnet. '
+      + 'Titel, die hier schon als Aufgabe stehen, werden übersprungen.';
+    head.append(mk);
+  }
+
   if (ctx.carryCount > 0) {
     const b = el('button', 'tk-carry', `↑ ${ctx.carryCount} offene von früher holen`);
     b.type = 'button';

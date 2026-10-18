@@ -942,3 +942,9 @@ kbd {
 }
 .tk-carry:hover { background: var(--surface); border-color: var(--accent-2); }
 .tk-carry:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 1px; }
+
+/* Der zweite Kopfzeilen-Knopf der Aufgaben-Tagesansicht sieht aus wie der
+   erste, hebt sich aber als „anlegen" leicht ab. */
+.tk-fromplan { border-color: color-mix(in srgb, var(--accent-2) 45%, var(--line-strong)); }
+.tk-fromplan:hover { background: color-mix(in srgb, var(--accent-2) 10%, var(--surface)); }
+.tk-head { flex-wrap: wrap; row-gap: 0.3rem; }
