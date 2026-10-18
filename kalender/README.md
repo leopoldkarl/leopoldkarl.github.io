@@ -317,6 +317,12 @@ er ist, zeichnen neu und setzen ihn samt Auswahlbereich auf dasselbe Feld
 zurück — dasselbe Feld desselben Eintrags, auch wenn der inzwischen an einer
 anderen Stelle steht.
 
+Aus demselben Grund behalten die Spalten ihren Scrollstand: sie scrollen
+einzeln (`.pl-list`), und beim Neuzeichnen entstehen sie neu und stünden
+wieder ganz oben — wer in einer langen Spalte einen Eintrag löscht, landete
+sonst am Spaltenanfang. `renderPlan` merkt sich die Stände je `plkey` und
+setzt sie danach zurück; alle drei Mutatoren der Planung zeichnen darüber.
+
 Denn sobald eine Zeit dasteht, rückt der Eintrag an seinen Platz im
 Tagesablauf: `sortItems` sortiert die Liste, in der er liegt, nach Beginn
 (Einträge ohne Zeit bleiben hinten). Das gilt in der Vorlage, im Wochenplan
@@ -461,7 +467,7 @@ Nicht Teil des Repos. Geprüft wurden 171 Einheitentests (Wiederholungsregeln,
 ics-Roundtrip inklusive Zeilenfaltung und Maskierung, RECURRENCE-ID-Auflösung,
 CSV-/vCard-Parser, Tastatureingabe von Datum und Uhrzeit, Schaltjahr-Rückfall,
 ISO-Wochenschlüssel, Vorlagen-Versionierung, Kopier-Isolation, Kontrastwahl)
-und 161 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
+und 163 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
 Geburtstags-Import, Kategorien-Editor, Tab-Reihenfolge, Scrollbalken,
 Seitenwechsel, Aufgaben-Reihenfolge und -Höhe, Tagebuch-Summen und
 -Speicherung, Vorlagen-Versionierung und Kopier-Isolation, Seitenleisten-Schalter und

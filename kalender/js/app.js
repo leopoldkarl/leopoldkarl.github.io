@@ -170,6 +170,37 @@ function applyExternal(raw, { quelle = 'fenster' } = {}) {
 }
 
 /**
+ * Die Spalten der Planung scrollen einzeln (`.pl-list`). Beim Neuzeichnen
+ * entstehen sie neu und stehen wieder ganz oben — wer in einer langen Spalte
+ * einen Eintrag loescht, landet sonst am Spaltenanfang. Deshalb vor dem
+ * Zeichnen merken, danach zuruecksetzen. Die Anzeige auf der Aufgabenseite
+ * hat keinen `plkey` und bleibt aussen vor.
+ */
+function planScrollSnapshot() {
+  const out = [];
+  for (const n of document.querySelectorAll('#wp-root .pl-list, #tp-root .pl-list')) {
+    if (n.dataset.plkey) out.push([n.dataset.plkey, n.scrollTop]);
+  }
+  return out;
+}
+
+function restorePlanScroll(snap) {
+  for (const [key, top] of snap) {
+    const n = document.querySelector(
+      `#wp-root .pl-list[data-plkey="${CSS.escape(key)}"], #tp-root .pl-list[data-plkey="${CSS.escape(key)}"]`,
+    );
+    if (n) n.scrollTop = top;
+  }
+}
+
+/** Zeichnen und dabei die Scrollstaende der Planungsspalten behalten. */
+function renderPlan() {
+  const snap = planScrollSnapshot();
+  render();
+  restorePlanScroll(snap);
+}
+
+/**
  * Neu zeichnen, ohne den Tastaturfluss zu zerreissen.
  *
  * Der Haken an `change`: das Ereignis feuert, waehrend der Browser den Fokus
@@ -188,7 +219,7 @@ function renderKeepingPlanFocus() {
     const keep = (ae && ae.dataset && ae.dataset.plitem)
       ? { id: ae.dataset.plitem, part: ae.dataset.plpart, s: ae.selectionStart, e: ae.selectionEnd }
       : null;
-    render();
+    renderPlan();
     if (!keep) return;
     const next = document.querySelector(
       `[data-plitem="${CSS.escape(keep.id)}"][data-plpart="${keep.part}"]`,
@@ -622,7 +653,7 @@ function mutateDayPlan(fn, label, { redraw = true } = {}) {
     store.ensureDayPlan(ui.selected, v.items);
   }
   store.mutate((s) => { fn(s.dayPlans[ui.selected]); });
-  if (redraw) render();
+  if (redraw) renderPlan();
 }
 
 /** Dasselbe fuer die Wochenplanung: erst anlegen, dann aendern. */
@@ -632,7 +663,7 @@ function mutateWeekPlan(fn, label, { redraw = true } = {}) {
   void plan;
   const key = isoWeekKey(ui.cursor);
   store.mutate((s) => { fn(s.weekPlans[key]); });
-  if (redraw) render();
+  if (redraw) renderPlan();
 }
 
 /** Und fuer die Vorlage — dort erzeugt eine Aenderung ggf. eine neue Fassung. */
@@ -648,7 +679,7 @@ function mutateTemplate(fn, label, { redraw = true } = {}) {
   const effective = store.editTemplate(id, today, fn);
   if (effective !== id) toast('Neue Fassung der Vorlage angelegt.');
   ui.templateId = effective;
-  if (redraw) render();
+  if (redraw) renderPlan();
 }
 
 /* ---- Tagebuchseite ---- */
