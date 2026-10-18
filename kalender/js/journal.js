@@ -30,14 +30,18 @@ function flag(values, id) {
 }
 
 /**
- * Mathezeit in Stunden = Paper + Forschung + Lehrbuchvortrag + Anki + Lektüre.
+ * Mathezeit in Stunden = Paper + Forschung + Lehrbuchvortrag + Lektüre
+ *                      + Zusätzliche Mathezeit.
  *
  * Bewusst NICHT enthalten: "Projekt". Leo hat es in der Summenformel nicht
  * genannt; bevor ich es stillschweigend dazurechne, bleibt es draussen.
+ *
+ * "Anki" war bis Oktober 2026 Teil der Summe. Mit der Zeile ist auch der
+ * Summand gegangen — sonst zaehlten alte Anki-Werte unsichtbar weiter.
  */
 export function mathezeit(values) {
   return (mins(values, 'paper') + mins(values, 'forschung') + mins(values, 'lehrbuchvortrag')
-        + mins(values, 'anki') + mins(values, 'lektuere')) / 60;
+        + mins(values, 'lektuere') + mins(values, 'zusatzmathe')) / 60;
 }
 
 /**

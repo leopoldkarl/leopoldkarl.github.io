@@ -364,10 +364,17 @@ gestrichelt = aus der Vorlage, eingefärbt = aus dem Kalender.
 ## Tagebuchseite
 
 Pro Tag: automatisch die Termine des Tages und die erledigten Aufgaben, dazu
-die Datenfelder und ein Freitextfeld. Die Feldliste steht als
-`journalSchema` im Zustand, nicht im Code — sie wandert damit in die
-Sicherung, und ein neues Feld ist ein Eintrag in `DEFAULT_JOURNAL_SCHEMA`.
-Neue Standardfelder werden bestehenden Ständen beim Laden nachgetragen.
+die Datenfelder und ein Freitextfeld. Die Feldliste kommt aus
+`DEFAULT_JOURNAL_SCHEMA` und wird beim Laden **neu aus der Vorgabe
+aufgebaut**, nicht aus dem gespeicherten Stand ergänzt. Vorher wurden nur
+neue Felder nachgetragen — eine umbenannte oder entfernte Zeile blieb auf
+dem Gerät beim Alten stehen. Einen Editor für das Schema gibt es nicht, der
+gespeicherte Abzug konnte also nur veralten.
+
+Die Werte hängen an den Feld-IDs in `journal[datum].values`: eine entfernte
+Zeile wird nur nicht mehr angezeigt, ihre Werte stehen weiter im Backup.
+Umbenannt wird deshalb das **Label**, nie die ID — „Papervortrag" heißt seit
+Oktober 2026 „Vortrag" und trägt weiter die ID `papervortrag`.
 
 Feldtypen: `number` (Zahl mit Einheit), `scale5` (1–5, nochmaliges Tippen
 löscht), `bool` (dreistufig: leer → ja → nein → leer), `text`, `numtext`
@@ -379,9 +386,13 @@ statt in der Liste darunter — derzeit „Tagesevent" und „Glücksmoment".
 Zwei Felder sind berechnet und deshalb nicht eingebbar — ein Summenfeld von
 Hand zu pflegen führt zwangsläufig zum Auseinanderlaufen:
 
-    Mathezeit = Paper + Forschung + Lehrbuchvortrag + Anki + Lektüre
+    Mathezeit = Paper + Forschung + Lehrbuchvortrag + Lektüre
+                      + Zusätzliche Mathezeit
     Sportzeit = Sporteinheit 1..3 + 15 min (Kraft) + 5 min (Mobilisation)
                                   + 10 min (Dehnen)
+
+„Anki" war bis Oktober 2026 Zeile und Summand; mit der Zeile ist auch der
+Summand gegangen, sonst zählten alte Anki-Werte unsichtbar weiter.
 
 **„Projekt" geht bewusst NICHT in die Mathezeit ein**, weil es in der
 genannten Formel nicht vorkam. Falls das ein Versehen war, ist es eine Zeile
@@ -450,7 +461,7 @@ Nicht Teil des Repos. Geprüft wurden 171 Einheitentests (Wiederholungsregeln,
 ics-Roundtrip inklusive Zeilenfaltung und Maskierung, RECURRENCE-ID-Auflösung,
 CSV-/vCard-Parser, Tastatureingabe von Datum und Uhrzeit, Schaltjahr-Rückfall,
 ISO-Wochenschlüssel, Vorlagen-Versionierung, Kopier-Isolation, Kontrastwahl)
-und 158 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
+und 161 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
 Geburtstags-Import, Kategorien-Editor, Tab-Reihenfolge, Scrollbalken,
 Seitenwechsel, Aufgaben-Reihenfolge und -Höhe, Tagebuch-Summen und
 -Speicherung, Vorlagen-Versionierung und Kopier-Isolation, Seitenleisten-Schalter und

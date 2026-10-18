@@ -75,7 +75,9 @@ export const DEFAULT_JOURNAL_SCHEMA = [
   { id: 'morgenlektuere',  label: 'Morgenlektüre',     type: 'text' },
   { id: 'sport1',          label: 'Sporteinheit 1',    type: 'numtext',  unit: 'min' },
   { id: 'fruehstueck2',    label: 'Frühstück 2',       type: 'text' },
-  { id: 'papervortrag',    label: 'Papervortrag',      type: 'text' },
+  // Die ID bleibt `papervortrag`: alte Eintraege haengen daran und wuerden
+  // beim Umbenennen der ID unsichtbar.
+  { id: 'papervortrag',    label: 'Vortrag',           type: 'text' },
   { id: 'arxiv',           label: 'arXiv',             type: 'text' },
   { id: 'paper',           label: 'Paper',             type: 'numtext',  unit: 'min' },
   { id: 'forschung',       label: 'Forschung',         type: 'numtext',  unit: 'min' },
@@ -85,10 +87,10 @@ export const DEFAULT_JOURNAL_SCHEMA = [
   { id: 'nap',             label: 'Nap',               type: 'number',   unit: 'min', step: 5 },
   { id: 'lehrbuchvortrag', label: 'Lehrbuchvortrag',   type: 'numtext',  unit: 'min' },
   { id: 'lektuere',        label: 'Lektüre',           type: 'numtext',  unit: 'min' },
-  { id: 'anki',            label: 'Anki',              type: 'number',   unit: 'min', step: 5 },
   { id: 'diverseaufgaben', label: 'Diverse Aufgaben',  type: 'text' },
   { id: 'sport3',          label: 'Sporteinheit 3',    type: 'numtext',  unit: 'min' },
   { id: 'projekt',         label: 'Projekt',           type: 'numtext',  unit: 'min' },
+  { id: 'zusatzmathe',     label: 'Zusätzliche Mathezeit', type: 'numtext', unit: 'min' },
   { id: 'dehnen',          label: 'Dehnen',            type: 'bool' },
   { id: 'abendlektuere',   label: 'Abendlektüre',      type: 'text' },
 ];
@@ -772,14 +774,14 @@ export function migrate(state) {
       entry: String(v?.entry ?? ''),
     };
   }
-  if (!Array.isArray(s.journalSchema) || !s.journalSchema.length) {
-    s.journalSchema = DEFAULT_JOURNAL_SCHEMA.map((f) => ({ ...f }));
-  } else {
-    // Neu hinzugekommene Felder nachtragen, ohne die Reihenfolge des
-    // Bestands umzuwerfen.
-    const known = new Set(s.journalSchema.map((f) => f.id));
-    for (const f of DEFAULT_JOURNAL_SCHEMA) if (!known.has(f.id)) s.journalSchema.push({ ...f });
-  }
+  // Das Schema wird bei jedem Laden aus der Vorgabe neu aufgebaut, nicht aus
+  // dem Bestand ergaenzt. Grund: es gibt keinen Editor dafuer, der gespeicherte
+  // Abzug kann also nur veralten — genau das war der Fall, als eine Zeile
+  // umbenannt und eine andere entfernt wurde und beides auf dem Geraet
+  // trotzdem beim Alten blieb. Die Werte selbst haengen an den Feld-IDs in
+  // `journal[datum].values` und bleiben davon unberuehrt; eine entfernte
+  // Zeile wird nur nicht mehr angezeigt, ihre Werte stehen weiter im Backup.
+  s.journalSchema = DEFAULT_JOURNAL_SCHEMA.map((f) => ({ ...f }));
   if (!Array.isArray(s.categories) || !s.categories.length) {
     s.categories = base.categories;
   } else {
