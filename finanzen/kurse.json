@@ -1,7 +1,7 @@
 {
  "source": "OeNB-Webservice, Referenzkurse der EZB EUR-CHF (VDBKUREFEURCHF), letzter Kurs je Woche",
  "unit": "CHF je 1 EUR",
- "updated": "2026-10-31T13:37:39+00:00",
+ "updated": "2026-11-07T13:58:00+00:00",
  "rates": [
   {
    "date": "2026-04-02",
@@ -126,6 +126,10 @@
   {
    "date": "2026-10-30",
    "chfPerEur": 0.9194
+  },
+  {
+   "date": "2026-11-06",
+   "chfPerEur": 0.9143
   }
  ]
 }
