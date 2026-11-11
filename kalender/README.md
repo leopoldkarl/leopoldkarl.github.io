@@ -7,9 +7,9 @@ Acht Seiten unter `/kalender/`, in dieser Reihenfolge und mit diesen Kürzeln:
     WP   Wochenplanung
     MP   Matheplan
     TP   Trainingsplan
-    SS   Simple and Stupid
     TB   Tagebuch
     K    Kalender
+    SS   Simple and Stupid
 
 (Bis November 2026 hieß die Tagesplanung „TP"; das Kürzel gehört jetzt dem
 Trainingsplan. Die URL-Fragmente `#tagesplanung` usw. sind unverändert.)

@@ -36,14 +36,14 @@ const store = () => page.evaluate(() => JSON.parse(localStorage.getItem('kalende
 const text = (tag, slot) => page.locator(`#ss-root textarea[data-ssday="${tag}"][data-ssslot="${slot}"]`);
 const stunden = (tag, slot) => page.locator(`#ss-root input[data-ssday="${tag}"][data-ssslot="${slot}"]`);
 
-await check('Reiter SS an sechster Stelle, Ziffer 6 springt dorthin', async () => {
+await check('Reiter SS ganz rechts (rechts von K), Ziffer 8 springt dorthin', async () => {
   const t = await page.locator('nav.pages button').allTextContents();
+  await page.locator('body').press('7');
+  await page.waitForTimeout(200);
   await page.locator('body').press('8');
   await page.waitForTimeout(200);
-  await page.locator('body').press('6');
-  await page.waitForTimeout(200);
   const sichtbar = await page.evaluate(() => !document.querySelector('#ss-root').hidden);
-  return (t[5] === 'SS' && sichtbar) ? true : `${t.join(' ')}, sichtbar=${sichtbar}`;
+  return (t.join(' ') === 'A TA WP MP TP TB K SS' && sichtbar) ? true : `${t.join(' ')}, sichtbar=${sichtbar}`;
 });
 
 await check('Tagesansicht: acht Kästen, Vorgabe nur als Platzhalter', async () => {

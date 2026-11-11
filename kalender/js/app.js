@@ -37,7 +37,7 @@ const store = new Store(adapter);
 
 // Reihenfolge der Reiter — auch die Reihenfolge fuer Strg+A und 1..5.
 const PAGES = [
-  'aufgaben', 'tagesplanung', 'wochenplanung', 'matheplan', 'trainingsplan', 'ss', 'tagebuch', 'kalender',
+  'aufgaben', 'tagesplanung', 'wochenplanung', 'matheplan', 'trainingsplan', 'tagebuch', 'kalender', 'ss',
 ];
 
 const ui = {
