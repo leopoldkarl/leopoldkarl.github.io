@@ -27,8 +27,10 @@
   <header class="topbar">
     <nav class="segmented pages" role="tablist" aria-label="Seite">
       <button data-page="aufgaben" role="tab" aria-selected="true" title="Aufgaben">A</button>
-      <button data-page="tagesplanung" role="tab" aria-selected="false" title="Tagesplanung">TP</button>
+      <button data-page="tagesplanung" role="tab" aria-selected="false" title="Tagesplanung">TA</button>
       <button data-page="wochenplanung" role="tab" aria-selected="false" title="Wochenplanung">WP</button>
+      <button data-page="matheplan" role="tab" aria-selected="false" title="Matheplan">MP</button>
+      <button data-page="trainingsplan" role="tab" aria-selected="false" title="Trainingsplan">TP</button>
       <button data-page="tagebuch" role="tab" aria-selected="false" title="Tagebuch">TB</button>
       <button data-page="kalender" role="tab" aria-selected="false" title="Kalender">K</button>
     </nav>
@@ -65,6 +67,8 @@
       <main id="tk-root" class="viewport page" data-pageid="aufgaben" aria-label="Aufgabenansicht" hidden></main>
       <main id="tp-root" class="viewport page" data-pageid="tagesplanung" aria-label="Tagesplanung" hidden></main>
       <main id="wp-root" class="viewport page" data-pageid="wochenplanung" aria-label="Wochenplanung" hidden></main>
+      <main id="mp-root" class="viewport page" data-pageid="matheplan" aria-label="Matheplan" hidden></main>
+      <main id="tr-root" class="viewport page" data-pageid="trainingsplan" aria-label="Trainingsplan" hidden></main>
       <main id="jr-root" class="viewport page" data-pageid="tagebuch" aria-label="Tagebuch" hidden></main>
     </div>
 
@@ -286,7 +290,7 @@
           <kbd>←</kbd> <kbd>→</kbd> blättern · <kbd>M</kbd> Monat · <kbd>W</kbd> Woche ·
           <kbd>D</kbd> Tag · <kbd>T</kbd> heute · <kbd>N</kbd> neuer Termin ·
           <kbd>Strg</kbd>+<kbd>Z</kbd> rückgängig<br>
-          <kbd>1</kbd>…<kbd>5</kbd> Seite direkt · <kbd>Strg</kbd>+<kbd>A</kbd> nächster Reiter ·
+          <kbd>1</kbd>…<kbd>7</kbd> Seite direkt · <kbd>Strg</kbd>+<kbd>A</kbd> nächster Reiter ·
           <kbd>Strg</kbd>+<kbd>⇧</kbd>+<kbd>A</kbd> vorheriger · <kbd>S</kbd> Seitenleiste
         </p>
       </div>

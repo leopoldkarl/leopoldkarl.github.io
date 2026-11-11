@@ -22,6 +22,10 @@ import {
   renderWeekPlan, renderDayPlan, renderPlanPreview, attachPlanInteractions, eventItemsByDate,
 } from './plan.js';
 import { initTooltips, hideTip } from './tooltip.js';
+import { renderMathePlan } from './matheplan.js';
+import { renderTrainingPlan, fitTitles } from './trainingsplan.js';
+import { readProjekte, offeneAufgaben, aufgabeErledigt, PROJEKTE_KEY } from './projektquelle.js';
+import { ladeAktivitaeten, wochenIst, tagesIst } from './trainingquelle.js';
 import {
   SyncClient, establishKey, loadConfig, saveConfig, conflictCopies,
 } from './sync.js';
@@ -31,7 +35,9 @@ const adapter = new LocalStorageAdapter('kalender.v1');
 const store = new Store(adapter);
 
 // Reihenfolge der Reiter — auch die Reihenfolge fuer Strg+A und 1..5.
-const PAGES = ['aufgaben', 'tagesplanung', 'wochenplanung', 'tagebuch', 'kalender'];
+const PAGES = [
+  'aufgaben', 'tagesplanung', 'wochenplanung', 'matheplan', 'trainingsplan', 'tagebuch', 'kalender',
+];
 
 const ui = {
   page: localStorage_get('kalender.page', 'aufgaben'),
@@ -179,6 +185,9 @@ function applyExternal(raw, { quelle = 'fenster' } = {}) {
 const SCROLL_SELECTORS = [
   ['#wp-root .pl-list', 'plkey'],
   ['#tp-root .pl-list', 'plkey'],
+  ['#mp-root .pl-list', 'mpkey'],
+  ['#mp-root .mp-tasks', 'side'],
+  ['#tr-root .pl-list', 'trkey'],
   ['#tk-root .tk-list', 'date'],
 ];
 
@@ -195,8 +204,7 @@ function scrollSnapshot() {
 
 function restoreScroll(snap) {
   for (const [sel, attr, key, top] of snap) {
-    const dash = attr === 'plkey' ? 'plkey' : 'date';
-    const n = document.querySelector(`${sel}[data-${dash}="${CSS.escape(key)}"]`);
+    const n = document.querySelector(`${sel}[data-${attr}="${CSS.escape(key)}"]`);
     if (n) n.scrollTop = top;
   }
 }
@@ -229,14 +237,20 @@ function renderKeepScroll() {
 function renderKeepingPlanFocus() {
   setTimeout(() => {
     const ae = document.activeElement;
-    const keep = (ae && ae.dataset && ae.dataset.plitem)
-      ? { id: ae.dataset.plitem, part: ae.dataset.plpart, s: ae.selectionStart, e: ae.selectionEnd }
+    // Feldkennungen der drei Planseiten: Wochen-/Tagesplan, Matheplan,
+    // Trainingsplan. Gemerkt wird (Eintrag, Feld, Auswahl).
+    const art = ae && ae.dataset
+      ? [['plitem', 'plpart'], ['mp', 'mpfield'], ['tr', 'trfield'], ['trziel', null]]
+        .find(([id, teil]) => ae.dataset[id] && (!teil || ae.dataset[teil]))
+      : null;
+    const keep = art
+      ? { art, id: ae.dataset[art[0]], part: art[1] ? ae.dataset[art[1]] : null, s: ae.selectionStart, e: ae.selectionEnd }
       : null;
     renderKeepScroll();
     if (!keep) return;
-    const next = document.querySelector(
-      `[data-plitem="${CSS.escape(keep.id)}"][data-plpart="${keep.part}"]`,
-    );
+    const sel = `[data-${keep.art[0]}="${CSS.escape(keep.id)}"]`
+      + (keep.art[1] ? `[data-${keep.art[1]}="${keep.part}"]` : '');
+    const next = document.querySelector(sel);
     if (!next) return;
     next.focus();
     try { next.setSelectionRange(keep.s, keep.e); } catch { /* bei type=text immer moeglich */ }
@@ -414,6 +428,7 @@ function activeSpan() {
   if (ui.page === 'kalender') return ui.view;             // month | week | day
   if (ui.page === 'aufgaben') return ui.taskView;         // day | week
   if (ui.page === 'wochenplanung') return 'week';
+  if (ui.page === 'matheplan' || ui.page === 'trainingsplan') return 'week';
   return 'day';                                           // Tagesplanung, Tagebuch
 }
 
@@ -443,6 +458,7 @@ function setPage(page, { updateHash = true } = {}) {
   if (page !== 'kalender') ui.cursor = parseYmd(ui.selected);
   localStorage_set('kalender.page', page);
   if (updateHash && location.hash.slice(1) !== page) location.hash = page;
+  if (page === 'trainingsplan') trainingIstHolen({ frisch: true });
 
   for (const node of document.querySelectorAll('.page')) {
     node.hidden = node.dataset.pageid !== page;
@@ -469,6 +485,8 @@ function render() {
   if (ui.page === 'aufgaben') return renderTaskPage();
   if (ui.page === 'tagesplanung') return renderDayPlanPage();
   if (ui.page === 'wochenplanung') return renderWeekPlanPage();
+  if (ui.page === 'matheplan') return renderMathePage();
+  if (ui.page === 'trainingsplan') return renderTrainingPage();
   if (ui.page === 'tagebuch') return renderJournalPage();
   return renderCalendarPage();
 }
@@ -535,6 +553,153 @@ function renderTaskPage() {
     });
   }
   root.replaceChildren(ui.taskView === 'week' ? renderTaskWeek(ctx) : renderTaskDay(ctx));
+  renderCommonChrome();
+}
+
+/* ------------------------------------------------------------------ */
+/* Matheplan und Trainingsplan                                         */
+/* ------------------------------------------------------------------ */
+
+const MATHE_DAUER = 90;        // Minuten, Standard fuer einen neuen Block
+const TRAINING_DAUER = 60;
+const MATHE_START = '09:00';
+const TRAINING_START = '17:00';
+
+const minOf = (hhmm) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+const hhmmOf = (min) => `${pad(Math.floor((min % 1440) / 60))}:${pad(min % 60)}`;
+
+/** Termine einer Planart an einem Tag, nach Beginn sortiert. */
+function planEventsAt(dateYmd, kind) {
+  return store.state.events
+    .filter((e) => e.plan && e.plan.kind === kind && !e.allDay
+      && String(e.start).slice(0, 10) === dateYmd)
+    .sort((a, b) => String(a.start).localeCompare(String(b.start)));
+}
+
+/** Anschluss an den letzten Block des Tages, sonst die uebliche Startzeit. */
+function naechsterBeginn(dateYmd, kind) {
+  const vorhanden = planEventsAt(dateYmd, kind);
+  if (!vorhanden.length) return kind === 'mathe' ? MATHE_START : TRAINING_START;
+  const letzte = vorhanden[vorhanden.length - 1];
+  return hhmmOf(Math.min(23 * 60, minOf(String(letzte.end).slice(11, 16))));
+}
+
+function planKategorie(kind) {
+  if (kind === 'training') {
+    const sport = store.state.categories.find((c) => c.id === 'sport');
+    if (sport) return sport.id;
+  }
+  return store.state.settings.defaultCategory || 'sonstiges';
+}
+
+/**
+ * Einen Plan-Termin anlegen. Das ist ein gewoehnlicher Kalendertermin — er
+ * erscheint sofort unter K —, nur mit `plan` markiert.
+ */
+function planEventAnlegen(dateYmd, kind, titel, { dauer, plan = {} } = {}) {
+  const beginn = naechsterBeginn(dateYmd, kind);
+  const laenge = dauer || (kind === 'mathe' ? MATHE_DAUER : TRAINING_DAUER);
+  const ende = hhmmOf(Math.min(24 * 60 - 1, minOf(beginn) + laenge));
+  return store.addEvent({
+    title: titel,
+    start: `${dateYmd}T${beginn}`,
+    end: `${dateYmd}T${ende}`,
+    allDay: false,
+    category: planKategorie(kind),
+    notes: '',
+    rrule: null,
+    exdates: [],
+    plan: { kind, ...plan },
+  });
+}
+
+/* ---- Matheplan ---- */
+
+let aufgabenCache = { aufgaben: [], projekte: [], grund: null, stand: null };
+
+function ladeProjektaufgaben() {
+  const r = readProjekte();
+  aufgabenCache = {
+    projekte: r.projekte,
+    aufgaben: r.ok ? offeneAufgaben(r.projekte) : [],
+    grund: r.ok ? null : r.grund,
+    stand: r.stand,
+  };
+  return aufgabenCache;
+}
+
+function renderMathePage() {
+  const a = ladeProjektaufgaben();
+  $('#mp-root').replaceChildren(renderMathePlan({
+    days: weekDays(ui.cursor),
+    bloeckeFor: (key) => planEventsAt(key, 'mathe'),
+    aufgaben: a.aufgaben,
+    aufgabenGrund: a.grund,
+    stand: a.stand,
+    selected: ui.selected,
+    today: new Date(),
+    erledigt: (ev) => aufgabeErledigt(a.projekte, ev.plan),
+  }));
+  fitTitles($('#mp-root'));
+  renderCommonChrome();
+}
+
+/* ---- Trainingsplan ---- */
+
+let trainingCache = { zustand: 'keine', grund: null, acts: [], stand: null };
+let trainingGeholtUm = 0;       // Zeitpunkt des letzten abgeschlossenen Abrufs
+let trainingLaeuft = false;
+const TRAINING_FRISCH_MS = 10 * 60 * 1000;
+
+/**
+ * Das Ist wird beim ersten Zeichnen geholt und danach aus dem Zwischenspeicher
+ * bedient; kommt es spaeter an, wird die Seite noch einmal gezeichnet. Der
+ * Abruf darf das Zeichnen nicht aufhalten — ohne /training soll die Seite
+ * trotzdem sofort stehen.
+ *
+ * Mit `frisch` (Seitenwechsel auf TP, Rueckkehr ins Fenster) wird erneut
+ * geholt, wenn das letzte Ergebnis kein Ist war — etwa weil /training
+ * inzwischen in einem anderen Tab entsperrt wurde — oder wenn es aelter als
+ * zehn Minuten ist. Beim gewoehnlichen Neuzeichnen nie.
+ */
+function trainingIstHolen({ frisch = false } = {}) {
+  if (trainingLaeuft) return;
+  if (trainingGeholtUm) {
+    if (!frisch) return;
+    const alt = Date.now() - trainingGeholtUm > TRAINING_FRISCH_MS;
+    if (trainingCache.zustand === 'ok' && !alt) return;
+  }
+  const erzwingen = trainingGeholtUm > 0;
+  trainingLaeuft = true;
+  ladeAktivitaeten({ force: erzwingen }).then((r) => {
+    trainingCache = r;
+    trainingGeholtUm = Date.now();
+    if (ui.page === 'trainingsplan') renderKeepScroll();
+  }).catch(() => { /* ladeAktivitaeten wirft nicht */ })
+    .finally(() => { trainingLaeuft = false; });
+}
+
+function renderTrainingPage() {
+  trainingIstHolen();
+  const days = weekDays(ui.cursor);
+  const von = ymd(days[0]);
+  const bis = ymd(days[6]);
+  const ist = trainingCache.zustand === 'ok'
+    ? wochenIst(trainingCache.acts, von, bis)
+    : { sportarten: {}, gesamtMin: 0 };
+
+  $('#tr-root').replaceChildren(renderTrainingPlan({
+    days,
+    einheitenFor: (key) => planEventsAt(key, 'training'),
+    ist,
+    tagesIst: (key) => tagesIst(trainingCache.acts, key),
+    istZustand: trainingCache.zustand,
+    istGrund: trainingCache.grund,
+    ziele: store.state.settings.trainingZiele || {},
+    selected: ui.selected,
+    today: new Date(),
+  }));
+  fitTitles($('#tr-root'));
   renderCommonChrome();
 }
 
@@ -1653,6 +1818,218 @@ function bind() {
     if (again) again.focus();
   });
 
+
+  /* ---- Matheplan ---- */
+  const mpRoot = $('#mp-root');
+
+  mpRoot.addEventListener('click', (e) => {
+    const task = e.target.closest('[data-mptask]');
+    if (task) {
+      const t = aufgabenCache.aufgaben[Number(task.dataset.mptask)];
+      if (!t) return;
+      pushUndo('Block aus Projektaufgabe');
+      planEventAnlegen(ui.selected, 'mathe', t.title, {
+        plan: {
+          projectId: t.projectId,
+          milestoneId: t.milestoneId,
+          taskId: t.taskId || '',
+          projectTitle: t.projectTitle,
+        },
+      });
+      toast(`„${t.title}" am ${ui.selected.slice(8, 10)}.${ui.selected.slice(5, 7)}. eingeplant — rückgängig mit Strg+Z.`);
+      renderKeepScroll();
+      return;
+    }
+    const del = e.target.closest('[data-mpdel]');
+    if (del) {
+      pushUndo('Block gelöscht');
+      store.deleteEvent(del.dataset.mpdel);
+      renderKeepScroll();
+      return;
+    }
+    const goto = e.target.closest('[data-mpgoto]');
+    if (goto) {
+      ui.selected = goto.dataset.mpgoto;
+      renderKeepScroll();
+    }
+  });
+
+  mpRoot.addEventListener('change', (e) => {
+    const f = e.target.closest('[data-mpfield]');
+    if (!f) return;
+    const { mp: id, mpfield: feld } = f.dataset;
+    const ev = store.state.events.find((x) => x.id === id);
+    if (!ev) return;
+    if (feld === 'title') {
+      const text = f.value.trim();
+      if (!text) { renderKeepingPlanFocus(); return; }
+      pushUndo('Block umbenannt');
+      store.updateEvent(id, { title: text });
+      return;
+    }
+    const zeit = parseTimeInput(f.value);
+    if (!zeit) { f.classList.add('invalid'); toast('Uhrzeit nicht lesbar.'); return; }
+    f.classList.remove('invalid');
+    const tag = String(ev.start).slice(0, 10);
+    pushUndo('Zeit geändert');
+    if (feld === 'start') {
+      const dauer = Math.max(15, minOf(String(ev.end).slice(11, 16)) - minOf(String(ev.start).slice(11, 16)));
+      store.updateEvent(id, {
+        start: `${tag}T${zeit}`,
+        end: `${tag}T${hhmmOf(Math.min(24 * 60 - 1, minOf(zeit) + dauer))}`,
+      });
+    } else {
+      store.updateEvent(id, { end: `${tag}T${zeit}` });
+    }
+    renderKeepingPlanFocus();
+  });
+
+  mpRoot.addEventListener('submit', (e) => {
+    const form = e.target.closest('.pl-add');
+    if (!form) return;
+    e.preventDefault();
+    const input = form.querySelector('[data-mpadd]');
+    const titel = input.value.trim();
+    if (!titel) return;
+    pushUndo('Block angelegt');
+    planEventAnlegen(form.dataset.mpkey, 'mathe', titel);
+    input.value = '';
+    renderKeepScroll();
+    const again = mpRoot.querySelector(`[data-mpadd="${CSS.escape(form.dataset.mpkey)}"]`);
+    if (again) again.focus();
+  });
+
+  /* ---- Trainingsplan ---- */
+  const trRoot = $('#tr-root');
+
+  /* Mehrzeilige Titel (MP, TP): Enter schliesst die Eingabe ab wie in einem
+     einzeiligen Feld — der Titel bleibt eine Zeile Text, die nur umbricht. */
+  // Andere Breite, anderer Umbruch: die Hoehen stimmen dann nicht mehr.
+  let fitTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(fitTimer);
+    fitTimer = setTimeout(() => {
+      if (ui.page === 'matheplan') fitTitles(mpRoot);
+      if (ui.page === 'trainingsplan') fitTitles(trRoot);
+    }, 120);
+  });
+  for (const root of [mpRoot, trRoot]) {
+    root.addEventListener('input', (e) => {
+      if (e.target.matches('textarea.pl-wrap')) fitTitles(e.target.parentElement);
+    });
+    root.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.target.matches('textarea.pl-wrap')) {
+        e.preventDefault();
+        e.target.blur();
+      }
+    });
+  }
+
+  trRoot.addEventListener('click', (e) => {
+    const del = e.target.closest('[data-trdel]');
+    if (del) {
+      pushUndo('Einheit gelöscht');
+      store.deleteEvent(del.dataset.trdel);
+      renderKeepScroll();
+      return;
+    }
+    const int = e.target.closest('[data-trint]');
+    if (int) {
+      const ev = store.state.events.find((x) => x.id === int.dataset.tr);
+      if (!ev) return;
+      const neu = ev.plan && ev.plan.intensity === int.dataset.trint ? null : int.dataset.trint;
+      pushUndo('Intensität geändert');
+      store.updateEvent(ev.id, { plan: { ...ev.plan, intensity: neu } });
+      renderKeepScroll();
+      return;
+    }
+    const goto = e.target.closest('[data-trgoto]');
+    if (goto) {
+      ui.selected = goto.dataset.trgoto;
+      renderKeepScroll();
+    }
+  });
+
+  trRoot.addEventListener('change', (e) => {
+    const ziel = e.target.closest('[data-trziel]');
+    if (ziel) {
+      const n = Math.round(Number(ziel.value.replace(',', '.')));
+      pushUndo('Wochenziel geändert');
+      store.mutate((st) => {
+        const z = { ...(st.settings.trainingZiele || {}) };
+        if (Number.isFinite(n) && n > 0) z[ziel.dataset.trziel] = n;
+        else delete z[ziel.dataset.trziel];
+        st.settings.trainingZiele = z;
+      });
+      renderKeepingPlanFocus();
+      return;
+    }
+    const f = e.target.closest('[data-trfield]');
+    if (!f) return;
+    const { tr: id, trfield: feld } = f.dataset;
+    const ev = store.state.events.find((x) => x.id === id);
+    if (!ev) return;
+    const tag = String(ev.start).slice(0, 10);
+
+    if (feld === 'title') {
+      const text = f.value.trim();
+      if (!text) { renderKeepingPlanFocus(); return; }
+      pushUndo('Einheit umbenannt');
+      store.updateEvent(id, { title: text });
+      return;
+    }
+    if (feld === 'sport') {
+      pushUndo('Sportart geändert');
+      store.updateEvent(id, { plan: { ...ev.plan, sport: f.value } });
+      renderKeepingPlanFocus();
+      return;
+    }
+    if (feld === 'km') {
+      const km = Number(f.value.replace(',', '.'));
+      pushUndo('Distanz geändert');
+      store.updateEvent(id, { plan: { ...ev.plan, km: Number.isFinite(km) && km > 0 ? km : null } });
+      renderKeepingPlanFocus();
+      return;
+    }
+    if (feld === 'dauer') {
+      const min = Math.round(Number(f.value.replace(',', '.')));
+      if (!Number.isFinite(min) || min <= 0) { f.classList.add('invalid'); toast('Dauer in Minuten angeben.'); return; }
+      f.classList.remove('invalid');
+      pushUndo('Dauer geändert');
+      const beginn = minOf(String(ev.start).slice(11, 16));
+      store.updateEvent(id, { end: `${tag}T${hhmmOf(Math.min(24 * 60 - 1, beginn + min))}` });
+      renderKeepingPlanFocus();
+      return;
+    }
+    if (feld === 'start') {
+      const zeit = parseTimeInput(f.value);
+      if (!zeit) { f.classList.add('invalid'); toast('Uhrzeit nicht lesbar.'); return; }
+      f.classList.remove('invalid');
+      const dauer = Math.max(5, minOf(String(ev.end).slice(11, 16)) - minOf(String(ev.start).slice(11, 16)));
+      pushUndo('Zeit geändert');
+      store.updateEvent(id, {
+        start: `${tag}T${zeit}`,
+        end: `${tag}T${hhmmOf(Math.min(24 * 60 - 1, minOf(zeit) + dauer))}`,
+      });
+      renderKeepingPlanFocus();
+    }
+  });
+
+  trRoot.addEventListener('submit', (e) => {
+    const form = e.target.closest('.pl-add');
+    if (!form) return;
+    e.preventDefault();
+    const input = form.querySelector('[data-tradd]');
+    const titel = input.value.trim();
+    if (!titel) return;
+    pushUndo('Einheit angelegt');
+    planEventAnlegen(form.dataset.trkey, 'training', titel, { plan: { sport: 'run' } });
+    input.value = '';
+    renderKeepScroll();
+    const again = trRoot.querySelector(`[data-tradd="${CSS.escape(form.dataset.trkey)}"]`);
+    if (again) again.focus();
+  });
+
   /* ---- Planungsseiten ---- */
   for (const root of [$('#wp-root'), $('#tp-root')]) {
     const isWeek = root.id === 'wp-root';
@@ -2058,7 +2435,7 @@ function bind() {
     if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
     if (document.querySelector('dialog[open]')) return;
     switch (e.key) {
-      case '1': case '2': case '3': case '4': case '5':
+      case '1': case '2': case '3': case '4': case '5': case '6': case '7':
         setPage(PAGES[Number(e.key) - 1]);
         break;
       case 'ArrowLeft': step(-1); break;
@@ -2093,12 +2470,19 @@ function bind() {
     if (document.visibilityState !== 'visible') return;
     resyncFromStorage();
     if (sync && sync.enabled) sync.pull();
+    if (ui.page === 'trainingsplan') trainingIstHolen({ frisch: true });
   });
   // Fensterwechsel am Desktop laesst die Sichtbarkeit unberuehrt (beide
   // Fenster gelten als sichtbar), deshalb zusaetzlich der Fokus.
   window.addEventListener('focus', () => {
     resyncFromStorage();
     if (sync && sync.enabled) sync.pull();
+    if (ui.page === 'trainingsplan') trainingIstHolen({ frisch: true });
+  });
+  // /projekte in einem anderen Tab geaendert: die Aufgabenliste des
+  // Matheplans nachziehen. Der Kalenderzustand ist davon nicht betroffen.
+  window.addEventListener('storage', (e) => {
+    if (e.key === PROJEKTE_KEY && ui.page === 'matheplan') renderKeepingPlanFocus();
   });
   // Rueckkehr aus dem Vor-/Zurueck-Cache: die Seite lief nicht, das Ereignis
   // kam nie an.
@@ -2135,7 +2519,8 @@ async function main() {
   initTooltips([
     { match: '.block', label: '.bt' },       // Termin in Wochen-/Tagesansicht
     { match: '.chip', label: '.s' },         // Termin in Monatsansicht, Ganztags-Leiste
-    { match: 'input.pl-title' },             // Eintrag in Wochen- und Tagesplanung
+    { match: 'input.pl-title' },             // Eintrag in WP/TA, Block in MP, Einheit in TP
+    { match: '.mp-reftext' },                // Projektbezug eines Mathe-Blocks
     { match: '.agenda li', label: '.tx' },   // Tagesliste in der Seitenleiste
   ]);
   buildCatPick();

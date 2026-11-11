@@ -948,3 +948,165 @@ kbd {
 .tk-fromplan { border-color: color-mix(in srgb, var(--accent-2) 45%, var(--line-strong)); }
 .tk-fromplan:hover { background: color-mix(in srgb, var(--accent-2) 10%, var(--surface)); }
 .tk-head { flex-wrap: wrap; row-gap: 0.3rem; }
+
+/* ------------------------------------------------------------------ */
+/* Matheplan (MP) und Trainingsplan (TP)                               */
+/* Beide benutzen bewusst die Bausteine der Planung (.pl-*): dieselbe   */
+/* Spaltenform, dieselbe Bedienung, nur anderer Inhalt.                */
+/* ------------------------------------------------------------------ */
+
+.mp-body { flex: 1; min-height: 0; display: flex; gap: 0; }
+.mp-body .pl-grid { flex: 1; min-width: 0; }
+.mp-hint { font-size: 0.74rem; color: var(--muted); margin-left: auto; }
+
+.mp-side {
+  flex: 0 0 15rem; max-width: 18rem; min-width: 0;
+  display: flex; flex-direction: column; min-height: 0;
+  border-left: 1px solid var(--line); background: var(--surface);
+}
+.mp-tasks { flex: 1; min-height: 0; overflow-y: auto; padding: 0.4rem; display: flex; flex-direction: column; gap: 0.3rem; }
+.mp-task {
+  display: flex; align-items: flex-start; gap: 0.45rem; text-align: left;
+  border: 1px solid var(--line-strong); border-left: 3px solid var(--c, var(--accent-2));
+  border-radius: 8px; background: var(--surface); padding: 0.35rem 0.45rem;
+  font: inherit; font-size: 0.82rem; cursor: pointer;
+}
+.mp-task:hover { background: var(--surface-2); border-color: var(--accent-2); }
+.mp-task:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 1px; }
+.mp-tasktext { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.mp-tasktitle { font-weight: 600; overflow-wrap: anywhere; }
+.mp-taskmeta { display: flex; gap: 0.4rem; font-size: 0.72rem; color: var(--muted); }
+.mp-due { white-space: nowrap; }
+.mp-dot {
+  flex: none; width: 0.5rem; height: 0.5rem; border-radius: 50%;
+  background: var(--c, var(--accent-2)); margin-top: 0.35rem;
+}
+
+.mp-block .mp-ref {
+  grid-column: 1 / -1; display: flex; align-items: center; gap: 0.3rem;
+  font-size: 0.7rem; color: var(--muted); margin-top: 0.1rem;
+}
+.mp-reftext { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mp-fertig { color: #16a34a; font-weight: 600; }
+.mp-block.mp-done .pl-title { text-decoration: line-through; color: var(--muted); }
+
+/* Mehrzeilige Titel in MP und TP: wie das einzeilige Feld, nur umbrechend. */
+.pl textarea.pl-title {
+  grid-area: title; display: block; resize: none; overflow: hidden; min-height: 0;
+  border: 0; background: transparent; padding: 0.1rem 0.15rem; margin: 0;
+  font: inherit; font-size: 0.84rem; font-weight: 500; line-height: 1.25;
+  width: 100%; min-width: 0; border-radius: 4px; overflow-wrap: anywhere;
+}
+.pl textarea.pl-title:hover { background: var(--surface-2); }
+.pl textarea.pl-title:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 0; background: var(--surface); }
+
+/* Das Loeschkreuz liegt in MP und TP ueber der Ecke, statt eine eigene
+   Spalte zu belegen — die Spalten sind dort schmal genug. */
+.pl.mp-block, .pl.tr-unit { position: relative; grid-template-columns: auto minmax(0, 1fr); }
+.pl.mp-block { grid-template-areas: "handle title" "handle times"; }
+.mp-block .pl-del, .tr-unit .pl-del {
+  position: absolute; top: 0.15rem; right: 0.15rem;
+  background: var(--surface); border-radius: 4px; padding: 0.05rem 0.25rem;
+}
+
+/* Trainingsplan: Kacheln je Sportart, geplant / Ist, Ziel-Leiste. */
+.tr-kacheln { display: flex; gap: 0.5rem; padding: 0.5rem 0.6rem; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+.tr-kachel {
+  flex: 0 1 11.5rem; min-width: 9.5rem;
+  display: flex; flex-direction: column; gap: 0.1rem;
+  border: 1px solid var(--line); border-top: 3px solid var(--c, var(--accent-2));
+  border-radius: var(--radius); background: var(--surface); padding: 0.35rem 0.55rem 0.4rem;
+}
+.tr-kachel-kopf { display: flex; justify-content: space-between; align-items: baseline; gap: 0.4rem; }
+.tr-kachel-top { font-size: 0.74rem; color: var(--c, var(--muted)); font-weight: 700; }
+.tr-legende { font-size: 0.64rem; color: var(--muted); }
+.tr-kachel-werte { display: flex; align-items: baseline; gap: 0.25rem; font-variant-numeric: tabular-nums; }
+.tr-plan { font-family: var(--font-serif); font-weight: 700; font-size: 1.15rem; }
+.tr-sep { color: var(--muted); }
+.tr-istwert2 { font-family: var(--font-serif); font-size: 1.15rem; color: var(--muted); font-weight: 600; }
+.tr-kachel-km { font-size: 0.68rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tr-bar { position: relative; height: 6px; border-radius: 3px; background: var(--surface-2); margin: 0.25rem 0 0.2rem; overflow: hidden; }
+.tr-bar.leer { background: repeating-linear-gradient(90deg, var(--surface-2) 0 4px, transparent 4px 8px); }
+.tr-barplan, .tr-barfill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; }
+.tr-barplan { background: color-mix(in srgb, var(--c, var(--accent-2)) 28%, transparent); }
+.tr-barfill { background: var(--c, var(--accent-2)); }
+.tr-barfill.voll { background: #16a34a; }
+.tr-zielzeile { display: flex; align-items: center; gap: 0.3rem; font-size: 0.68rem; color: var(--muted); }
+.tr-kachel input.tr-ziel {
+  width: 2.8rem; font: inherit; font-size: 0.74rem; font-variant-numeric: tabular-nums;
+  text-align: right; padding: 0.05rem 0.2rem; border: 1px solid transparent;
+  background: var(--surface-2); border-radius: 4px; color: var(--text);
+}
+.tr-kachel input.tr-ziel:hover { border-color: var(--line-strong); }
+.tr-kachel input.tr-ziel:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 0; background: var(--surface); }
+
+/* Farbe je Sportart — dieselbe Zuordnung wie auf der Trainingsseite. */
+.tr-run      { --c: #0ea5a4; }
+.tr-ride     { --c: #6366f1; }
+.tr-swim     { --c: #0369a1; }
+.tr-strength { --c: #db2777; }
+.tr-other    { --c: #64748b; }
+
+/* Einheit: Titel; Sportart · Beginn; Dauer · km; Intensitaet. */
+.pl.tr-unit {
+  grid-template-areas:
+    "handle title"
+    "handle meta"
+    "handle nums"
+    "handle int";
+  row-gap: 0.12rem; align-items: center;
+  background: color-mix(in srgb, var(--c) 6%, var(--surface));
+}
+.tr-unit .pl-handle { align-self: start; margin-top: 0.15rem; }
+.tr-meta { grid-area: meta; display: flex; flex-wrap: wrap; align-items: center; gap: 0 0.2rem; min-width: 0; }
+.tr-unit select.tr-sport {
+  appearance: none; -webkit-appearance: none; border: 0; background: transparent;
+  font: inherit; font-size: 0.74rem; font-weight: 700; color: var(--c);
+  padding: 0.05rem 0.15rem; border-radius: 4px; cursor: pointer; min-width: 0; max-width: 100%;
+}
+.tr-unit select.tr-sport:hover { background: var(--surface-2); }
+.tr-unit select.tr-sport:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 0; }
+.tr-meta .pl-time { margin-left: auto; }
+.tr-zahlen { grid-area: nums; display: flex; flex-wrap: wrap; gap: 0 0.5rem; min-width: 0; }
+.tr-numwrap { display: inline-flex; align-items: baseline; gap: 0.15rem; font-size: 0.7rem; color: var(--muted); cursor: text; }
+.tr-unit input.tr-num {
+  width: 2.3rem; border: 0; background: transparent; padding: 0.05rem 0.15rem;
+  font: inherit; font-size: 0.78rem; font-variant-numeric: tabular-nums; text-align: right;
+  color: var(--text); border-radius: 4px;
+}
+.tr-unit input.tr-num:hover { background: var(--surface-2); }
+.tr-unit input.tr-num:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 0; background: var(--surface); }
+.tr-int {
+  grid-area: int; display: grid; grid-template-columns: 1fr 1.4fr 1fr;
+  border: 1px solid var(--line-strong); border-radius: 6px; overflow: hidden; margin-top: 0.1rem;
+}
+.tr-intbtn {
+  border: 0; background: var(--surface); padding: 0.08rem 0; min-width: 0;
+  font: inherit; font-size: 0.64rem; font-weight: 600; color: var(--muted); cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tr-intbtn + .tr-intbtn { border-left: 1px solid var(--line-strong); }
+.tr-intbtn:hover { background: var(--surface-2); }
+.tr-intbtn.on { background: var(--c, var(--accent-2)); color: #fff; }
+.tr-intbtn .tr-kurz { display: none; }
+/* Schmale Spalte (Laptop mit Seitenleiste, Tablet): nur Anfangsbuchstaben. */
+.tr-page .pl-col { container-type: inline-size; }
+@container (max-width: 150px) {
+  .tr-intbtn .tr-lang { display: none; }
+  .tr-intbtn .tr-kurz { display: inline; }
+  .tr-int { grid-template-columns: repeat(3, 1fr); }
+}
+
+.tr-ist { border-top: 1px dashed var(--line-strong); padding: 0.3rem 0.45rem; display: flex; flex-direction: column; gap: 0.15rem; }
+.tr-istrow { display: flex; justify-content: space-between; gap: 0.4rem; font-size: 0.7rem; }
+.tr-istsport { color: var(--c, var(--muted)); font-weight: 600; }
+.tr-istwert { color: var(--muted); font-variant-numeric: tabular-nums; }
+.tr-warn { font-size: 0.74rem; color: #b45309; margin-left: auto; }
+
+@media (max-width: 1100px) {
+  .mp-side { flex-basis: 13rem; }
+}
+@media (max-width: 860px) {
+  .mp-body { flex-direction: column; overflow-y: auto; }
+  .mp-side { flex: 0 0 auto; max-width: none; border-left: 0; border-top: 1px solid var(--line); }
+}

@@ -1,14 +1,19 @@
 # Aufgaben, Planung, Tagebuch, Kalender
 
-Fünf Seiten unter `/kalender/`, in dieser Reihenfolge und mit diesen Kürzeln:
+Sieben Seiten unter `/kalender/`, in dieser Reihenfolge und mit diesen Kürzeln:
 
     A    Aufgaben
-    TP   Tagesplanung
+    TA   Tagesplanung
     WP   Wochenplanung
+    MP   Matheplan
+    TP   Trainingsplan
     TB   Tagebuch
     K    Kalender
 
-Umschalten über die Reiter, über `1`…`5`, oder mit `Strg+A` (vorwärts) und
+(Bis November 2026 hieß die Tagesplanung „TP"; das Kürzel gehört jetzt dem
+Trainingsplan. Die URL-Fragmente `#tagesplanung` usw. sind unverändert.)
+
+Umschalten über die Reiter, über `1`…`7`, oder mit `Strg+A` (vorwärts) und
 `Strg+⇧+A` (rückwärts). Die Seite steht im URL-Fragment (`#wochenplanung`
 usw.), ist also lesezeichenfähig und übersteht ein Neuladen; zuletzt
 besuchte Seite wird gemerkt.
@@ -68,6 +73,10 @@ Voraussetzung, nicht zur Option.
     js/tasks.js       Aufgabenseite: Ansichten und Zeigergesten
     js/journal.js     Tagebuchseite: Feldtypen, Summen, Layout
     js/plan.js        Tages- und Wochenplanung, Vorlagen
+    js/matheplan.js   Matheplan: Wochenraster der Mathe-Blöcke
+    js/trainingsplan.js  Trainingsplan: Einheiten, Kacheln je Sportart
+    js/projektquelle.js  liest den Stand von /projekte (nur lesend)
+    js/trainingquelle.js holt das Ist über das Modul von /training
     js/tooltip.js     voller Titel beim Verweilen mit dem Zeiger
     js/dragscroll.js  Mitscrollen am Rand, während etwas gezogen wird
     js/crypto.js      AES-GCM + PBKDF2, Verschlüsselung im Browser
@@ -75,6 +84,7 @@ Voraussetzung, nicht zur Option.
     js/sync.js        Abgleich mit dem Worker, Konfliktregel
     worker/           Cloudflare Worker + D1 (Datenschnittstelle)
     js/app.js         Controller: Seitenwechsel, Navigation, Dialoge
+    tests/            Prüfungen (node tests/run.mjs), siehe unten
 
 Keine Abhängigkeiten, keine Build-Kette. ES-Module, direkt aus dem Repo
 ausgeliefert (`.nojekyll` ist gesetzt).
@@ -305,7 +315,7 @@ es in der Seitenleiste der Kalenderseite („↑ Offene Aufgaben früherer Tage
 übernehmen"), beide rufen `store.carryOverOpenTasks`.
 
 **Tagesansicht:** rechts neben den Aufgaben steht der **Tagesplan** als
-reine Anzeige — dieselben Einträge wie auf der Tagesplanung (TP), ohne
+reine Anzeige — dieselben Einträge wie auf der Tagesplanung (TA), ohne
 Eingabefeld, ohne Löschknopf, ohne Ziehgriff, mit `readOnly` und
 `tabindex="-1"`, damit die Felder nicht den Fokus nehmen und die
 Tastenkürzel schlucken. Wichtig für die Kopier-Regel unten: das Anzeigen
@@ -377,6 +387,71 @@ gilt: die jüngste, deren Datum am Montag der Woche bereits zurückliegt;
 
 Einträge tragen ihre Herkunft: durchgezogener Rand = selbst angelegt,
 gestrichelt = aus der Vorlage, eingefärbt = aus dem Kalender.
+
+## Matheplan und Trainingsplan
+
+Zwei Wochenraster mit derselben Spaltenform wie die Wochenplanung. Der
+entscheidende Unterschied zur Planung: **Was hier steht, sind echte
+Kalendertermine**, keine Kopien. Ein Block im Matheplan ist ein Termin mit
+`plan: { kind: 'mathe', … }`, eine Einheit im Trainingsplan einer mit
+`plan: { kind: 'training', sport, intensity?, km? }`. Er steht sofort unter
+K, wird mit abgeglichen, exportiert (als gewöhnlicher Termin) und lässt sich
+dort verschieben; zurück im Raster ist er dann eben verschoben. Kein zweiter
+Datenbestand, also nichts, was auseinanderlaufen könnte. Termine ohne `plan`
+erscheinen in keinem der beiden Raster.
+
+Neue Blöcke beginnen um 09:00 (Mathe, 90 min) bzw. 17:00 (Training, 60 min)
+oder direkt im Anschluss an den letzten Eintrag desselben Tages. Kategorie:
+`sport` für Training, sofern vorhanden, sonst die Standardkategorie.
+
+### MP: Projektaufgaben aus /projekte
+
+Rechts stehen die offenen Aufgaben laufender Projekte (Status `aktiv`) aus
+`localStorage['projekte.state']`, früher Fälliges zuerst; ein Meilenstein
+ohne Aufgaben zählt selbst als planbare Einheit. Ein Klick legt am gewählten
+Tag einen Block mit dem Titel der Aufgabe und dem Verweis
+(`projectId`, `milestoneId`, `taskId`, `projectTitle`) an. Ist die Aufgabe
+auf /projekte inzwischen abgehakt, wird der Block durchgestrichen und mit
+„erledigt" markiert — gelöscht wird er nicht, er war ja Arbeitszeit.
+
+Die Brücke ist **nur lesend**. /projekte hat seinen eigenen Abgleich; ein
+zweiter Schreiber auf denselben Schlüssel wäre eine Konfliktquelle ohne
+Gewinn. Abhaken also weiterhin auf /projekte. Daraus folgt: der Kalender
+sieht den Projektstand, den **dieses Gerät** zuletzt von /projekte geladen
+hat. Auf einem Gerät, auf dem /projekte nie offen war, bleibt die Liste leer
+(mit Hinweis). Ändert sich der Stand in einem anderen Tab, zieht die Liste
+sofort nach (`storage`-Ereignis).
+
+### TP: Einheiten, Ziele, Ist
+
+Je Einheit Sportart (Laufen, Rad, Schwimmen, Kraft, Sonstiges — dieselben
+Kategorien wie auf /training), Beginn, Dauer, Kilometer (nicht bei Kraft)
+und Intensität locker / Schwelle / hart; ein zweiter Klick auf die gewählte
+Intensität hebt sie auf. Über dem Raster eine Kachel je Sportart, die in
+der Woche geplant, getan oder mit Ziel versehen ist: geplant / Ist in
+Stunden, Kilometer, und gegen das Wochenziel (Minuten, in den Einstellungen
+gespeichert und damit mit abgeglichen) eine Leiste in zwei Lagen — hell das
+Geplante, satt das Getane.
+
+Das **Ist** kommt aus den Aktivitäten der Trainingsseite: `trainingquelle.js`
+importiert `/training/js/source.js` (gleiche Herkunft) und benutzt dessen
+Manifest, Entschlüsselung und den dort in IndexedDB hinterlegten
+Schlüssel. Der Kalender fragt **nie** nach der Passphrase. Ist auf diesem
+Gerät kein Schlüssel hinterlegt („Merken" auf /training), zeigt TP
+„gesperrt" mit Verweis auf /training; nach dem Entsperren dort genügt ein
+Seitenwechsel, kein Neuladen. Das Ist wird nirgends gespeichert, es ist
+abgeleitet. Neu geholt wird beim Wechsel auf TP und bei Rückkehr ins
+Fenster, sofern das letzte Ergebnis kein Ist war oder älter als zehn
+Minuten ist — beim gewöhnlichen Neuzeichnen nie.
+
+Damit das funktioniert, sucht `source.js` seine Daten relativ zum **Modul**
+(`new URL('../data/', import.meta.url)`), nicht mehr relativ zur Seite;
+sonst hätte es aus /kalender/ heraus unter `/kalender/data/` gesucht. Für
+/training selbst ändert das nichts.
+
+Titel sind in beiden Rastern mehrzeilig (umbrechend), weil sieben Spalten
+neben Aufgabenliste und Seitenleiste für einzeilige Felder zu schmal sind;
+`Enter` schließt die Eingabe trotzdem ab.
 
 ## Tagebuchseite
 
@@ -474,32 +549,26 @@ Zwei Entwurfsentscheidungen:
 
 ## Tests
 
-Nicht Teil des Repos. Geprüft wurden 171 Einheitentests (Wiederholungsregeln,
-ics-Roundtrip inklusive Zeilenfaltung und Maskierung, RECURRENCE-ID-Auflösung,
-CSV-/vCard-Parser, Tastatureingabe von Datum und Uhrzeit, Schaltjahr-Rückfall,
-ISO-Wochenschlüssel, Vorlagen-Versionierung, Kopier-Isolation, Kontrastwahl)
-und 168 Browsertests (Rendern, Dialoge, Drag & Drop, Rückgängig, Export,
-Geburtstags-Import, Kategorien-Editor, Tab-Reihenfolge, Scrollbalken,
-Seitenwechsel, Aufgaben-Reihenfolge und -Höhe, Tagebuch-Summen und
--Speicherung, Vorlagen-Versionierung und Kopier-Isolation, Seitenleisten-Schalter und
-Spaltenbreiten, schmale Fenster, Zwei-Fenster-Abgleich, Titel-Einblendung,
-Einrichtung und Abgleich über zwei Browser-Kontexte, Überlauf der
-Aufgabenliste, Tagesplan-Anzeige, Übernahme offener Aufgaben, Weiterschieben
-einzelner Aufgaben, Aufgaben aus dem Tagesplan, Tab-Fluss und Sortierung der
-Zeiteingabe).
-Der „Server" ist in allen Abgleich-Tests der echte Worker-Code mit einer
-D1-Attrappe, geprüft wird also die Kette Verschlüsseln → Schnittstelle →
-Entschlüsseln und nicht eine nachgebaute Vorstellung davon.
-Der Zwei-Fenster-Fall läuft mit zwei echten Seiten in einem Browser-Kontext.
-Die Gegenprobe ist Teil des Befunds: schaltet man `adapter.watch` ab, fällt
-der Termin des einen Fensters aus dem Speicher, sobald das andere schreibt —
-genau der Datenverlust, den diese Prüfungen absichern.
-Eine Einschränkung: headless-Chromium liefert beim Wechsel zwischen zwei
-Seiten weder `visibilitychange` noch `focus` (`bringToFront` lässt beide
-sichtbar und fokussiert, `Page.setWebLifecycleState` feuert nur
-`freeze`/`resume`). Geprüft wird dort die Kette Ereignis → `poll()` →
-Übernahme mit synthetisch ausgelöstem Ereignis; dass der Browser das Ereignis
-im Ernstfall auch schickt, ist nicht mitgeprüft.
-Die Versionierung über einen Tageswechsel hinweg wird mit der Browser-Uhr
-geprüft, nicht durch Manipulation am `localStorage` — die App schreibt ihren
-Stand beim Entladen zurück und würde eine solche Manipulation überschreiben.
+Liegen seit November 2026 **im Repo** unter `tests/`:
+
+    node tests/run.mjs          alles (startet selbst einen Server auf der Repo-Wurzel)
+    node tests/run.mjs unit     nur ohne Browser
+
+Derzeit: `unit/planmodell.mjs` (Plan-Angaben am Termin, Wochenziele,
+Projektaufgaben, Trainings-Ist), `browser/planseiten.mjs` (MP und TP:
+Reiter und Ziffern, Block aus Projektaufgabe, echte Termine unter K, Zeiten,
+Löschen und Rückgängig, Fokus beim Tab, Umbruch der Titel, Kacheln, Ziele,
+Intensität, Projektänderung aus einem zweiten Tab, gesperrt → entsperrt ohne
+Neuladen, fehlende Fremddaten), `browser/echtequelle.mjs` (das echte Modul
+von /training aus /kalender/ heraus: Daten gefunden, Zustand „gesperrt",
+keine Anfragen unter `/kalender/data/`), `browser/wochenplan.mjs` (Fokus und
+Scrollposition der Wochenplanung). Die Trainings-Ist-Prüfungen benutzen eine
+Attrappe statt echter Daten (`setImporter`); entschlüsselt wird in keiner
+Prüfung. Gegenproben: ohne den `storage`-Empfänger und mit dem alten Datenpfad
+in `source.js` schlagen die zugehörigen Prüfungen fehl.
+
+Die ältere, umfangreichere Sammlung (171 Einheiten- und 168 Browsertests:
+Wiederholungsregeln, ics, Kontakte, Abgleich über zwei Browser-Kontexte mit
+dem echten Worker-Code, Zwei-Fenster-Fall, Vorlagen-Versionierung, Drag &
+Drop u. a.) lag nur im Arbeitsbereich einer Sitzung und ist mit diesem
+verloren gegangen. Sie wird nach und nach hier neu aufgebaut.

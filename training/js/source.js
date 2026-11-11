@@ -16,7 +16,9 @@
 // Rohmaterial ist danach auch fuer Skripte auf dieser Seite nicht mehr
 // auslesbar, nur noch benutzbar.
 
-const DATA = new URL('./data/', document.baseURI);
+// Relativ zum Modul, nicht zur Seite: der Kalender (/kalender/) laedt dieses
+// Modul ebenfalls, und dort laege ./data/ unter /kalender/data/.
+const DATA = new URL('../data/', import.meta.url);
 const DB_NAME = 'training-keys';
 const enc = new TextEncoder();
 

@@ -42,7 +42,13 @@ export function emptyState() {
     // Beide entstehen erst beim ersten Bearbeiten (copy-on-write).
     weekPlans: {},
     dayPlans: {},
-    settings: { defaultCategory: 'forschung', scrollHour: 7 },
+    settings: {
+      defaultCategory: 'forschung',
+      scrollHour: 7,
+      // Wochenziele des Trainingsplans in Minuten je Sportart. Leer = kein
+      // Ziel, dann zeigt die Kachel keine Leiste.
+      trainingZiele: {},
+    },
   };
 }
 
@@ -631,6 +637,45 @@ export class Store {
 
 /* ------------------------------------------------------------------ */
 
+export const SPORTS = ['run', 'ride', 'swim', 'strength', 'other'];
+export const SPORT_LABEL = {
+  run: 'Laufen', ride: 'Rad', swim: 'Schwimmen', strength: 'Kraft', other: 'Sonstiges',
+};
+/** Intensitaetsstufen des Trainingsplans — bewusst grob, drei reichen. */
+export const INTENSITIES = ['locker', 'schwelle', 'hart'];
+
+/**
+ * Plan-Angaben eines Termins oder `null`.
+ *
+ * `kind` entscheidet, welche Felder ueberhaupt Sinn ergeben: beim Matheplan
+ * der Verweis auf Projekt, Meilenstein und Aufgabe, beim Trainingsplan
+ * Sportart, Distanz und Intensitaet. Unbekannte `kind`-Werte fallen weg,
+ * damit ein kuenftiger dritter Plan keine Altlasten erbt.
+ */
+export function normalizePlan(plan) {
+  if (!plan || typeof plan !== 'object') return null;
+  const kind = plan.kind === 'mathe' || plan.kind === 'training' ? plan.kind : null;
+  if (!kind) return null;
+  const text = (v, max = 200) => (typeof v === 'string' ? v.slice(0, max) : '');
+  if (kind === 'mathe') {
+    const out = { kind };
+    // Der Bezug ist eine lose Kopplung: Projekt und Aufgabe leben in
+    // /projekte. Titel und Projektname werden mitgeschrieben, damit der
+    // Termin lesbar bleibt, auch wenn die Projektdaten hier fehlen.
+    if (text(plan.projectId, 64)) out.projectId = text(plan.projectId, 64);
+    if (text(plan.milestoneId, 64)) out.milestoneId = text(plan.milestoneId, 64);
+    if (text(plan.taskId, 64)) out.taskId = text(plan.taskId, 64);
+    if (text(plan.projectTitle)) out.projectTitle = text(plan.projectTitle);
+    return out;
+  }
+  const out = { kind };
+  out.sport = SPORTS.includes(plan.sport) ? plan.sport : 'other';
+  if (INTENSITIES.includes(plan.intensity)) out.intensity = plan.intensity;
+  const km = Number(plan.km);
+  if (Number.isFinite(km) && km > 0) out.km = Math.round(km * 100) / 100;
+  return out;
+}
+
 export function normalizeEvent(ev) {
   const out = {
     id: ev.id || uid(),
@@ -655,6 +700,11 @@ export function normalizeEvent(ev) {
     // berechnen, statt es fest in den Titel zu schreiben (in einer Serie
     // waere es dann fuer alle Jahre bis auf eines falsch).
     birthYear: Number.isInteger(ev.birthYear) ? ev.birthYear : null,
+    // Zusatzangaben der Planungsseiten. Ein Termin bleibt ein Termin — er
+    // steht im Kalender wie jeder andere —, traegt aber, wenn er aus dem
+    // Mathe- oder Trainingsplan stammt, die Angaben mit, die nur dort
+    // dargestellt und bearbeitet werden.
+    plan: normalizePlan(ev.plan),
   };
   if (out.allDay) {
     out.start = String(out.start).slice(0, 10);
@@ -791,5 +841,11 @@ export function migrate(state) {
     for (const c of base.categories) if (!known.has(c.id)) s.categories.push({ ...c });
   }
   s.settings = { ...base.settings, ...(state.settings || {}) };
+  const ziele = {};
+  for (const [k, v] of Object.entries(s.settings.trainingZiele || {})) {
+    const n = Math.round(Number(v));
+    if (SPORTS.includes(k) && Number.isFinite(n) && n > 0) ziele[k] = n;
+  }
+  s.settings.trainingZiele = ziele;
   return s;
 }
