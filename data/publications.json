@@ -1,0 +1,52 @@
+{
+  "_hinweis": "Einzige Quelle der Publikationsliste. Nach jeder Aenderung: python tools/build_publications.py",
+  "arxiv_suche": "https://arxiv.org/search/math?searchtype=author&query=Karl%2C+L",
+  "orcid": "https://orcid.org/0009-0002-0083-4868",
+  "preprints": [
+    {
+      "titel": "Automatic Continuity for projective clone homomorphisms",
+      "koautoren": [
+        { "name": "Michael Pinsker", "url": "https://dmg.tuwien.ac.at/pinsker/", "gc": "michael-pinsker" }
+      ],
+      "arxiv": "2611.14490",
+      "gc": "arxiv-automatic-continuity",
+      "jahr": 2026
+    },
+    {
+      "titel": "A Complete Classification of Ideal Chomp Games on Low-Rank Algebras",
+      "koautoren": [],
+      "arxiv": "2511.01673",
+      "gc": "arxiv-chomp-paper",
+      "jahr": 2025
+    }
+  ],
+  "abschlussarbeiten": [
+    {
+      "art": "Master's Thesis",
+      "datum": "May 2025",
+      "titel": "The Ideal Chomp Game",
+      "url": "https://www.research-collection.ethz.ch/server/api/core/bitstreams/d6754021-1a2b-40da-b938-03328d273e49/content",
+      "gc": "thesis-master",
+      "institution": "ETH Zurich",
+      "betreuung": { "name": "Johannes Schmitt", "url": "https://johannesschmitt.gitlab.io/", "gc": "johannes-schmitt" }
+    },
+    {
+      "art": "Bachelor's Thesis",
+      "datum": "May 2024",
+      "titel": "On the finiteness of Simple Eta-quotients of fixed weight or fixed level",
+      "url": "https://www.research-collection.ethz.ch/server/api/core/bitstreams/61b2b6a4-f53a-48e1-8350-37ffc4a709f5/content",
+      "gc": "thesis-bachelor",
+      "institution": "ETH Zurich",
+      "betreuung": { "name": "Markus Schwagenscheidt", "url": "https://sites.google.com/view/schwagenscheidt", "gc": "markus-schwagenscheidt" }
+    },
+    {
+      "art": "Vorwissenschaftliche Arbeit",
+      "datum": "Jan. 2021",
+      "titel": "Der Satz von Euler-Fermat und seine Anwendung in der Kryptographie",
+      "url": null,
+      "gc": null,
+      "institution": "Schottengymnasium",
+      "betreuung": { "name": "Markus Kiesenhofer", "url": null, "gc": null }
+    }
+  ]
+}
