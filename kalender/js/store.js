@@ -42,6 +42,9 @@ export function emptyState() {
     // Beide entstehen erst beim ersten Bearbeiten (copy-on-write).
     weekPlans: {},
     dayPlans: {},
+    // SS („Simple and Stupid"): je Tag feste Felder mit Freitext und
+    // investierten Stunden, { 'YYYY-MM-DD': { feldId: { text, h } } }.
+    ss: {},
     settings: {
       defaultCategory: 'forschung',
       scrollHour: 7,
@@ -493,6 +496,30 @@ export class Store {
     this.mutate((s) => { delete s.dayPlans[dateYmd]; });
   }
 
+  /* ---- SS ---- */
+
+  ssFor(dateYmd) {
+    return this.state.ss[dateYmd] || {};
+  }
+
+  /**
+   * Ein SS-Feld setzen. `patch` enthaelt `text` und/oder `h`; leere Werte
+   * werden entfernt, ein ganz leeres Feld und ein ganz leerer Tag ebenfalls —
+   * sonst sammelte der Zustand mit jedem angetippten Feld Leichen an.
+   */
+  setSs(dateYmd, feldId, patch) {
+    this.mutate((s) => {
+      const tag = { ...(s.ss[dateYmd] || {}) };
+      const feld = { ...(tag[feldId] || {}), ...patch };
+      if (!feld.text) delete feld.text;
+      if (!(Number(feld.h) > 0)) delete feld.h;
+      if (Object.keys(feld).length) tag[feldId] = feld;
+      else delete tag[feldId];
+      if (Object.keys(tag).length) s.ss[dateYmd] = tag;
+      else delete s.ss[dateYmd];
+    });
+  }
+
   /* ---- Tagebuch ---- */
 
   journalFor(dateYmd) {
@@ -623,6 +650,9 @@ export class Store {
       for (const [key, value] of Object.entries(parsed.journal || {})) {
         if (!(key in s.journal)) s.journal[key] = value;
       }
+      for (const [key, value] of Object.entries(parsed.ss || {})) {
+        if (!(key in s.ss)) s.ss[key] = value;
+      }
       for (const [key, value] of Object.entries(parsed.weekPlans || {})) {
         if (!(key in s.weekPlans)) s.weekPlans[key] = value;
       }
@@ -636,6 +666,30 @@ export class Store {
 }
 
 /* ------------------------------------------------------------------ */
+
+/**
+ * SS-Bestand pruefen: nur Datumsschluessel, nur Text und positive Stunden.
+ * Feld-IDs werden nicht gegen die aktuelle Feldliste geprueft — wer ein Feld
+ * aus der Liste nimmt, soll dessen alte Eintraege nicht verlieren.
+ */
+export function normalizeSs(raw) {
+  const out = {};
+  if (!raw || typeof raw !== 'object') return out;
+  for (const [tag, felder] of Object.entries(raw)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(tag) || !felder || typeof felder !== 'object') continue;
+    const t = {};
+    for (const [id, f] of Object.entries(felder)) {
+      if (!f || typeof f !== 'object') continue;
+      const feld = {};
+      if (typeof f.text === 'string' && f.text) feld.text = f.text;
+      const h = Math.round(Number(f.h) * 100) / 100;
+      if (Number.isFinite(h) && h > 0) feld.h = h;
+      if (Object.keys(feld).length) t[id] = feld;
+    }
+    if (Object.keys(t).length) out[tag] = t;
+  }
+  return out;
+}
 
 export const SPORTS = ['run', 'ride', 'swim', 'strength', 'other'];
 export const SPORT_LABEL = {
@@ -816,6 +870,8 @@ export function migrate(state) {
   s.planTemplates = Array.isArray(s.planTemplates) ? s.planTemplates.map(normalizeTemplate) : [];
   s.weekPlans = (s.weekPlans && typeof s.weekPlans === 'object') ? s.weekPlans : {};
   s.dayPlans = (s.dayPlans && typeof s.dayPlans === 'object') ? s.dayPlans : {};
+
+  s.ss = normalizeSs(s.ss);
 
   s.journal = (s.journal && typeof s.journal === 'object') ? s.journal : {};
   for (const [k, v] of Object.entries(s.journal)) {

@@ -107,13 +107,13 @@ const zurTrainingsSeite = async () => {
 
 /* ---- Reiter ---- */
 
-await check('Sieben Reiter in der Reihenfolge A, TA, WP, MP, TP, TB, K', async () => {
+await check('Acht Reiter in der Reihenfolge A, TA, WP, MP, TP, SS, TB, K', async () => {
   const t2 = await page.locator('nav.pages button').allTextContents();
-  return t2.join(' ') === 'A TA WP MP TP TB K' ? true : t2.join(' ');
+  return t2.join(' ') === 'A TA WP MP TP SS TB K' ? true : t2.join(' ');
 });
 
-await check('Ziffern 1…7 springen auf die Seiten, 4 auf den Matheplan', async () => {
-  await page.locator('body').press('7');
+await check('Ziffern 1…8 springen auf die Seiten, 8 auf K, 4 auf den Matheplan', async () => {
+  await page.locator('body').press('8');
   await page.waitForTimeout(250);
   const k = await page.evaluate(() => document.querySelector('[data-pageid="kalender"]').hidden);
   await page.locator('body').press('4');

@@ -24,6 +24,7 @@ import {
 import { initTooltips, hideTip } from './tooltip.js';
 import { renderMathePlan } from './matheplan.js';
 import { renderTrainingPlan, fitTitles } from './trainingsplan.js';
+import { renderSS, parseStunden, fmtStunden, tagesSumme, SS_FELDER } from './ss.js';
 import { readProjekte, offeneAufgaben, aufgabeErledigt, PROJEKTE_KEY } from './projektquelle.js';
 import { ladeAktivitaeten, wochenIst, tagesIst } from './trainingquelle.js';
 import {
@@ -36,7 +37,7 @@ const store = new Store(adapter);
 
 // Reihenfolge der Reiter — auch die Reihenfolge fuer Strg+A und 1..5.
 const PAGES = [
-  'aufgaben', 'tagesplanung', 'wochenplanung', 'matheplan', 'trainingsplan', 'tagebuch', 'kalender',
+  'aufgaben', 'tagesplanung', 'wochenplanung', 'matheplan', 'trainingsplan', 'ss', 'tagebuch', 'kalender',
 ];
 
 const ui = {
@@ -45,6 +46,7 @@ const ui = {
   templateId: null,
   view: localStorage_get('kalender.view', 'week'),
   taskView: localStorage_get('kalender.taskview', 'day'),
+  ssView: localStorage_get('kalender.ssview', 'day'),
   cursor: new Date(),
   selected: ymd(new Date()),
   miniCursor: startOfMonth(new Date()),
@@ -188,6 +190,7 @@ const SCROLL_SELECTORS = [
   ['#mp-root .pl-list', 'mpkey'],
   ['#mp-root .mp-tasks', 'side'],
   ['#tr-root .pl-list', 'trkey'],
+  ['#ss-root .ss-grid', 'ssgrid'],
   ['#tk-root .tk-list', 'date'],
 ];
 
@@ -427,6 +430,7 @@ function visibleDays() {
 function activeSpan() {
   if (ui.page === 'kalender') return ui.view;             // month | week | day
   if (ui.page === 'aufgaben') return ui.taskView;         // day | week
+  if (ui.page === 'ss') return ui.ssView;                 // day | week
   if (ui.page === 'wochenplanung') return 'week';
   if (ui.page === 'matheplan' || ui.page === 'trainingsplan') return 'week';
   return 'day';                                           // Tagesplanung, Tagebuch
@@ -468,6 +472,7 @@ function setPage(page, { updateHash = true } = {}) {
   }
   $('#cal-views').hidden = page !== 'kalender';
   $('#task-views').hidden = page !== 'aufgaben';
+  $('#ss-views').hidden = page !== 'ss';
   $('#btn-new').hidden = page !== 'kalender';
   $('#panel-agenda').hidden = page !== 'kalender';
   $('#panel-tasks').hidden = page !== 'kalender';
@@ -487,6 +492,7 @@ function render() {
   if (ui.page === 'wochenplanung') return renderWeekPlanPage();
   if (ui.page === 'matheplan') return renderMathePage();
   if (ui.page === 'trainingsplan') return renderTrainingPage();
+  if (ui.page === 'ss') return renderSsPage();
   if (ui.page === 'tagebuch') return renderJournalPage();
   return renderCalendarPage();
 }
@@ -500,6 +506,9 @@ function renderCommonChrome() {
   }
   for (const b of document.querySelectorAll('[data-taskview]')) {
     b.setAttribute('aria-pressed', String(b.dataset.taskview === ui.taskView));
+  }
+  for (const b of document.querySelectorAll('[data-ssview]')) {
+    b.setAttribute('aria-pressed', String(b.dataset.ssview === ui.ssView));
   }
   $('#storage-warning').hidden = !adapter.degraded;
   renderSidebar();
@@ -701,6 +710,89 @@ function renderTrainingPage() {
   }));
   fitTitles($('#tr-root'));
   renderCommonChrome();
+}
+
+/* ---- SS ---- */
+
+function renderSsPage() {
+  const tage = ui.ssView === 'week' ? weekDays(ui.cursor) : [parseYmd(ui.selected)];
+  $('#ss-root').replaceChildren(renderSS({
+    ansicht: ui.ssView,
+    days: tage,
+    tagFor: (key) => store.ssFor(key),
+    selected: ui.selected,
+    today: new Date(),
+  }));
+  fitSsTexte($('#ss-root'));
+  renderCommonChrome();
+}
+
+function setSsView(v) {
+  flushSsPending();
+  ui.ssView = v;
+  localStorage_set('kalender.ssview', v);
+  ui.cursor = parseYmd(ui.selected);
+  renderKeepScroll();
+}
+
+/** Textfelder auf ihren Inhalt bringen, nie kleiner als die Zeilenvorgabe. */
+function fitSsTexte(root) {
+  for (const t of root.querySelectorAll('textarea.ss-text')) {
+    t.style.height = 'auto';
+    t.style.height = `${t.scrollHeight + 2}px`;
+  }
+}
+
+// Text wird beim Tippen entprellt geschrieben, nicht erst beim Verlassen des
+// Feldes: wer den Tab schliesst, ohne das Feld zu verlassen, soll nichts
+// verlieren. Neu gezeichnet wird dafuer nicht — das Feld bleibt, wie es ist.
+let ssPending = null;
+let ssTimer = null;
+
+function scheduleSsText(ta) {
+  ssPending = { ta, day: ta.dataset.ssday, slot: ta.dataset.ssslot };
+  clearTimeout(ssTimer);
+  ssTimer = setTimeout(flushSsPending, 400);
+}
+
+function flushSsPending() {
+  clearTimeout(ssTimer);
+  if (!ssPending) return;
+  const { ta, day, slot } = ssPending;
+  ssPending = null;
+  const text = ta.value.replace(/\s+$/, '');
+  if ((store.ssFor(day)[slot]?.text || '') === text) return;
+  store.setSs(day, slot, { text });
+}
+
+/** Summen (Tag, Woche, Zeile) nachschreiben, ohne die Eingabefelder anzufassen. */
+function refreshSsSummen() {
+  const root = $('#ss-root');
+  let gesamt = 0;
+  for (const s of root.querySelectorAll('[data-sssum]')) {
+    const h = tagesSumme(store.ssFor(s.dataset.sssum));
+    gesamt += h;
+    s.textContent = h ? `${fmtStunden(h)} h` : '';
+  }
+  const total = root.querySelector('[data-sstotal]');
+  if (total) {
+    total.textContent = ui.ssView === 'week'
+      ? `${fmtStunden(gesamt)} h investiert in dieser Woche`
+      : `${fmtStunden(gesamt)} h investiert`;
+  }
+  const tage = [...root.querySelectorAll('[data-sssum]')].map((x) => x.dataset.sssum);
+  for (const z of root.querySelectorAll('[data-ssrowsum]')) {
+    const id = z.dataset.ssrowsum;
+    const h = tage.reduce((a, d) => a + (Number(store.ssFor(d)[id]?.h) || 0), 0);
+    const def = SS_FELDER.find((f) => f.id === id);
+    z.textContent = h ? `${fmtStunden(h)} h` : (def?.soll || '');
+    z.classList.toggle('soll', !h);
+  }
+  for (const box of root.querySelectorAll('.ss-box')) {
+    const ta = box.querySelector('textarea');
+    const wert = store.ssFor(ta.dataset.ssday)[ta.dataset.ssslot] || {};
+    box.classList.toggle('belegt', Boolean(wert.text || wert.h));
+  }
 }
 
 /* ---- Planung: gemeinsame Ableitungen ---- */
@@ -1483,6 +1575,10 @@ function flushJournalWrite(input, refresh, date = ui.selected) {
 
 /** Offene Eingaben festschreiben, bevor der gewaehlte Tag wechselt. */
 function flushJournalPending() {
+  // Auch die offene SS-Eingabe: alle Stellen, die vor einem Seiten- oder
+  // Tageswechsel und vor einer fremden Uebernahme das Tagebuch festschreiben,
+  // brauchen dasselbe fuer SS.
+  flushSsPending();
   if (jPending) flushJournalWrite(jPending.input, false, jPending.date);
   if (entryPending) {
     clearTimeout(entryTimer);
@@ -1899,6 +1995,50 @@ function bind() {
     if (again) again.focus();
   });
 
+  /* ---- SS ---- */
+  const ssRoot = $('#ss-root');
+  for (const b of document.querySelectorAll('[data-ssview]')) {
+    b.addEventListener('click', () => setSsView(b.dataset.ssview));
+  }
+  ssRoot.addEventListener('input', (e) => {
+    const t = e.target;
+    if (t.matches('textarea.ss-text')) {
+      fitSsTexte(t.parentElement);
+      scheduleSsText(t);
+      // „belegt" sofort, nicht erst nach dem Schreiben.
+      t.closest('.ss-box').classList.toggle('belegt', Boolean(t.value || t.parentElement.querySelector('.ss-hin').value));
+    }
+  });
+  ssRoot.addEventListener('change', (e) => {
+    const t = e.target;
+    if (t.matches('textarea.ss-text')) { flushSsPending(); refreshSsSummen(); return; }
+    if (!t.matches('input.ss-hin')) return;
+    const h = parseStunden(t.value);
+    if (h === null || h > 24) {
+      t.classList.add('invalid');
+      toast('Stunden nicht lesbar — z. B. 1,5 oder 1:30.');
+      return;
+    }
+    t.classList.remove('invalid');
+    flushSsPending();
+    store.setSs(t.dataset.ssday, t.dataset.ssslot, { h: Math.round(h * 100) / 100 });
+    t.value = h ? fmtStunden(Math.round(h * 100) / 100) : '';
+    refreshSsSummen();
+  });
+  ssRoot.addEventListener('keydown', (e) => {
+    // Enter im Stundenfeld uebernimmt; im Text bleibt Enter ein Zeilenumbruch.
+    if (e.key === 'Enter' && e.target.matches('input.ss-hin')) { e.preventDefault(); e.target.blur(); }
+  });
+  ssRoot.addEventListener('click', (e) => {
+    const goto = e.target.closest('[data-ssgoto]');
+    if (!goto) return;
+    flushSsPending();
+    ui.selected = goto.dataset.ssgoto;
+    ui.cursor = parseYmd(ui.selected);
+    if (ui.ssView === 'week') setSsView('day');
+    else render();
+  });
+
   /* ---- Trainingsplan ---- */
   const trRoot = $('#tr-root');
 
@@ -1911,6 +2051,7 @@ function bind() {
     fitTimer = setTimeout(() => {
       if (ui.page === 'matheplan') fitTitles(mpRoot);
       if (ui.page === 'trainingsplan') fitTitles(trRoot);
+      if (ui.page === 'ss') fitSsTexte(ssRoot);
     }, 120);
   });
   for (const root of [mpRoot, trRoot]) {
@@ -2435,7 +2576,7 @@ function bind() {
     if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
     if (document.querySelector('dialog[open]')) return;
     switch (e.key) {
-      case '1': case '2': case '3': case '4': case '5': case '6': case '7':
+      case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8':
         setPage(PAGES[Number(e.key) - 1]);
         break;
       case 'ArrowLeft': step(-1); break;
@@ -2444,6 +2585,7 @@ function bind() {
       case 'w': case 'W':
         if (ui.page === 'kalender') setView('week');
         else if (ui.page === 'aufgaben') { ui.taskView = 'week'; localStorage_set('kalender.taskview', 'week'); render(); }
+        else if (ui.page === 'ss') setSsView('week');
         break;
       case 'v': case 'V':
         if (ui.page === 'wochenplanung') {
@@ -2455,6 +2597,7 @@ function bind() {
       case 'd': case 'D':
         if (ui.page === 'kalender') setView('day');
         else if (ui.page === 'aufgaben') { ui.taskView = 'day'; localStorage_set('kalender.taskview', 'day'); render(); }
+        else if (ui.page === 'ss') setSsView('day');
         break;
       case 's': case 'S': setSidebar(!ui.sidebar); break;
       case 't': case 'T': case 'h': case 'H': goToday(); break;

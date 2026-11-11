@@ -1,19 +1,20 @@
 # Aufgaben, Planung, Tagebuch, Kalender
 
-Sieben Seiten unter `/kalender/`, in dieser Reihenfolge und mit diesen Kürzeln:
+Acht Seiten unter `/kalender/`, in dieser Reihenfolge und mit diesen Kürzeln:
 
     A    Aufgaben
     TA   Tagesplanung
     WP   Wochenplanung
     MP   Matheplan
     TP   Trainingsplan
+    SS   Simple and Stupid
     TB   Tagebuch
     K    Kalender
 
 (Bis November 2026 hieß die Tagesplanung „TP"; das Kürzel gehört jetzt dem
 Trainingsplan. Die URL-Fragmente `#tagesplanung` usw. sind unverändert.)
 
-Umschalten über die Reiter, über `1`…`7`, oder mit `Strg+A` (vorwärts) und
+Umschalten über die Reiter, über `1`…`8`, oder mit `Strg+A` (vorwärts) und
 `Strg+⇧+A` (rückwärts). Die Seite steht im URL-Fragment (`#wochenplanung`
 usw.), ist also lesezeichenfähig und übersteht ein Neuladen; zuletzt
 besuchte Seite wird gemerkt.
@@ -77,6 +78,7 @@ Voraussetzung, nicht zur Option.
     js/trainingsplan.js  Trainingsplan: Einheiten, Kacheln je Sportart
     js/projektquelle.js  liest den Stand von /projekte (nur lesend)
     js/trainingquelle.js holt das Ist über das Modul von /training
+    js/ss.js          SS: acht feste Felder je Tag
     js/tooltip.js     voller Titel beim Verweilen mit dem Zeiger
     js/dragscroll.js  Mitscrollen am Rand, während etwas gezogen wird
     js/crypto.js      AES-GCM + PBKDF2, Verschlüsselung im Browser
@@ -453,6 +455,38 @@ Titel sind in beiden Rastern mehrzeilig (umbrechend), weil sieben Spalten
 neben Aufgabenliste und Seitenleiste für einzeilige Felder zu schmal sind;
 `Enter` schließt die Eingabe trotzdem ab.
 
+## SS („Simple and Stupid")
+
+Je Tag dieselben acht Kästen, in der Reihenfolge der Papierskizze:
+
+    Sonstiges
+    MR inkl. T1 & L1   ~2–3 h
+    Paper              ~2 h
+    Forschung          ~2 h
+    MP inkl. K/L
+    Lektüre            ~2 h
+    Forschung          ~2 h
+    AR inkl. T2        ~2 h
+
+Bezeichnung und Richtwert stehen nur als **Platzhalter** im Feld und
+verschwinden mit dem ersten Zeichen. Unten rechts in jedem Kasten die
+**investierten Stunden**: `1,5`, `1.5`, `1:30` (Stunden:Minuten) und `90min`
+werden gelesen, Unlesbares wird rot markiert und nicht gespeichert. Summen je
+Tag (im Tageskopf), je Woche (oben rechts) und in der Wochenansicht je Zeile
+(linke Randspalte, sonst steht dort der Richtwert).
+
+Tag- und Wochenansicht über den Umschalter oben oder `D` / `W`; ein Klick auf
+einen Tageskopf der Woche öffnet diesen Tag. In der Woche ist es ein Raster
+mit einer Zeile je Feld, damit gleiche Felder nebeneinanderstehen; die
+Randspalte nennt die Bezeichnung, die in gefüllten Feldern ja verschwunden ist.
+
+Gespeichert wird beim Tippen (entprellt, 400 ms) und spätestens bei Seiten-
+oder Tageswechsel und beim Schließen — nicht erst beim Verlassen des Feldes.
+Zustand: `ss['YYYY-MM-DD'][feldId] = { text?, h? }`; leere Felder und Tage
+werden entfernt. Die Felder stehen fest in `SS_FELDER` (`js/ss.js`):
+Bezeichnungen und Richtwerte dort frei änderbar, die IDs nicht (Speicherschlüssel).
+Mit dem Tagebuch ist SS bewusst nicht verbunden.
+
 ## Tagebuchseite
 
 Pro Tag: automatisch die Termine des Tages und die erledigten Aufgaben, dazu
@@ -562,7 +596,10 @@ Intensität, Projektänderung aus einem zweiten Tab, gesperrt → entsperrt ohne
 Neuladen, fehlende Fremddaten), `browser/echtequelle.mjs` (das echte Modul
 von /training aus /kalender/ heraus: Daten gefunden, Zustand „gesperrt",
 keine Anfragen unter `/kalender/data/`), `browser/wochenplan.mjs` (Fokus und
-Scrollposition der Wochenplanung). Die Trainings-Ist-Prüfungen benutzen eine
+Scrollposition der Wochenplanung), `unit/ss.mjs` und `browser/ss.mjs`
+(Stundeneingabe, Aufräumen leerer Felder, Import, Platzhalter, Speichern
+beim Tippen, Neuladen direkt nach dem Tippen, Summen, Wochenraster,
+Tastenkürzel). Die Trainings-Ist-Prüfungen benutzen eine
 Attrappe statt echter Daten (`setImporter`); entschlüsselt wird in keiner
 Prüfung. Gegenproben: ohne den `storage`-Empfänger und mit dem alten Datenpfad
 in `source.js` schlagen die zugehörigen Prüfungen fehl.

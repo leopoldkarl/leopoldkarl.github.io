@@ -1110,3 +1110,80 @@ kbd {
   .mp-body { flex-direction: column; overflow-y: auto; }
   .mp-side { flex: 0 0 auto; max-width: none; border-left: 0; border-top: 1px solid var(--line); }
 }
+
+/* ------------------------------------------------------------------ */
+/* SS („Simple and Stupid")                                            */
+/* Je Tag dieselben acht Kaesten, wie auf dem Papier: abgerundet, die  */
+/* Vorgabe nur als Platzhalter, rechts unten die investierten Stunden. */
+/* ------------------------------------------------------------------ */
+
+.ss-page { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.ss-grid {
+  flex: 1; min-height: 0; overflow-y: auto;
+  display: grid; gap: 0.5rem 0.45rem; align-content: start;
+  padding: 0 0.6rem 1rem;
+}
+.ss-page.day .ss-grid { grid-template-columns: minmax(0, 34rem); justify-content: center; gap: 0.65rem; }
+.ss-page.week .ss-grid { grid-template-columns: 6.8rem repeat(var(--tage), minmax(0, 1fr)); }
+
+.ss-head, .ss-corner {
+  position: sticky; top: 0; z-index: 2; background: var(--bg);
+  display: flex; align-items: baseline; justify-content: space-between; gap: 0.4rem;
+  padding: 0.55rem 0.2rem 0.35rem; border-bottom: 1px solid var(--line);
+}
+.ss-head .pl-col-title { cursor: pointer; }
+.ss-head.today .num { background: var(--accent-2); color: #fff; border-radius: 999px; padding: 0 0.4rem; }
+.ss-head.selected { border-bottom: 2px solid var(--accent-2); }
+.ss-sum { font-size: 0.78rem; color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 600; }
+.ss-page.day .ss-head { justify-content: space-between; }
+
+.ss-rowlabel {
+  display: flex; flex-direction: column; justify-content: center; gap: 0.1rem;
+  font-size: 0.76rem; padding-right: 0.2rem;
+}
+.ss-rowname { font-weight: 600; line-height: 1.2; }
+.ss-rowsum { color: var(--text); font-variant-numeric: tabular-nums; font-size: 0.72rem; }
+.ss-rowsum.soll { color: var(--muted); font-style: italic; }
+
+.ss-box {
+  position: relative; display: flex; flex-direction: column;
+  border: 1.5px solid var(--line-strong); border-radius: 14px;
+  background: var(--surface); padding: 0.4rem 0.55rem 0.3rem;
+  transition: border-color 0.12s;
+}
+.ss-box:focus-within { border-color: var(--accent-2); }
+.ss-box.belegt { border-color: color-mix(in srgb, var(--accent-2) 55%, var(--line-strong)); }
+.ss-box textarea.ss-text {
+  /* Basis `auto`, nicht 0: sonst ignorierte die Flexbox die von
+     fitSsTexte gesetzte Hoehe, und lange Eintraege wuerden abgeschnitten. */
+  flex: 1 0 auto; resize: none; overflow: hidden; min-height: 0;
+  border: 0; background: transparent; padding: 0; margin: 0; width: 100%;
+  overflow-wrap: anywhere;
+  font: inherit; font-size: 0.88rem; line-height: 1.35; color: var(--text);
+}
+.ss-box textarea.ss-text:focus-visible { outline: none; }
+.ss-box textarea.ss-text::placeholder { color: var(--muted); opacity: 0.75; }
+.ss-page.day .ss-box { min-height: 6.2rem; padding: 0.55rem 0.8rem 0.4rem; }
+.ss-page.day .ss-box textarea.ss-text { font-size: 0.95rem; }
+.ss-page.week .ss-box { min-height: 4.6rem; }
+.ss-page.week .ss-box textarea.ss-text { font-size: 0.8rem; }
+
+.ss-h {
+  align-self: flex-end; display: inline-flex; align-items: baseline; gap: 0.15rem;
+  font-size: 0.72rem; color: var(--muted); cursor: text;
+}
+.ss-box input.ss-hin {
+  width: 2.6rem; border: 0; border-bottom: 1px dashed var(--line-strong); border-radius: 0;
+  background: transparent; padding: 0 0.1rem; text-align: right;
+  font: inherit; font-size: 0.8rem; font-variant-numeric: tabular-nums; color: var(--text);
+}
+.ss-box input.ss-hin:focus-visible { outline: none; border-bottom: 1px solid var(--accent-2); }
+.ss-box input.ss-hin.invalid { border-bottom-color: #b91c1c; color: #b91c1c; }
+
+/* Schmale Fenster: die Wochenansicht wird waagrecht gewischt, wie die
+   anderen Wochenraster; die Randspalte bleibt stehen. */
+@media (max-width: 780px) {
+  .ss-page.week .ss-grid { grid-template-columns: 5.5rem repeat(var(--tage), minmax(8.5rem, 1fr)); overflow-x: auto; }
+  .ss-page.week .ss-rowlabel, .ss-page.week .ss-corner { position: sticky; left: 0; z-index: 1; background: var(--bg); }
+  .ss-page.week .ss-corner { z-index: 3; }
+}
