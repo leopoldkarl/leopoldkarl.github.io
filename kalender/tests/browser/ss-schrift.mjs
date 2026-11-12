@@ -1,4 +1,5 @@
-// ss-schrift.mjs — SS-Felder wachsen mit, auch wenn die Webschrift spät kommt.
+// ss-schrift.mjs — SS-Felder wachsen mit: bei spät eintreffender Webschrift
+// und in Fenstern, in die das Raster nicht ganz passt.
 //
 // Der Fehler, den diese Prüfung festhält: die Höhe wurde beim ersten
 // Zeichnen gemessen, noch mit der Ersatzschrift. Trifft Inter danach ein
@@ -36,8 +37,8 @@ const chromium = await holeChromium();
 const browser = await chromium.launch();
 const checks = [];
 
-async function lauf(ansicht, ohneFieldSizing) {
-  const ctx = await browser.newContext({ viewport: { width: 1500, height: 950 } });
+async function lauf(ansicht, ohneFieldSizing, hoehe = 950) {
+  const ctx = await browser.newContext({ viewport: { width: 1500, height: hoehe } });
   await ctx.route('https://fonts.googleapis.com/**', (r) => r.fulfill({
     contentType: 'text/css',
     body: "@font-face{font-family:'Inter';font-display:swap;src:url(https://fonts.gstatic.com/attrappe/inter.ttf) format('truetype')}",
@@ -65,8 +66,12 @@ async function lauf(ansicht, ohneFieldSizing) {
   await page.waitForTimeout(2600);
   const r = await page.evaluate(() => ({
     schrift: document.fonts.check('16px Inter'),
+    // Zweierlei kann abschneiden: das Textfeld selbst (zu niedrig) und der
+    // Kasten um das Feld (Feld waechst, Kasten nicht — dann liegt der Rest
+    // unter dem naechsten Kasten). Beides pruefen.
     ueber: [...document.querySelectorAll('#ss-root textarea.ss-text')]
-      .filter((t) => t.scrollHeight > t.clientHeight + 1)
+      .filter((t) => t.scrollHeight > t.clientHeight + 1
+        || t.getBoundingClientRect().bottom > t.closest('.ss-box').getBoundingClientRect().bottom + 1)
       .map((t) => `${t.dataset.ssslot} ${t.scrollHeight}>${t.clientHeight}`),
   }));
   // Danach noch tippen: das Feld muss Zeile um Zeile mitwachsen.
@@ -74,16 +79,21 @@ async function lauf(ansicht, ohneFieldSizing) {
   await ta.click();
   await page.keyboard.type(`${LANG}\nzweite Zeile\ndritte Zeile`);
   await page.waitForTimeout(200);
-  const getippt = await ta.evaluate((t) => t.scrollHeight <= t.clientHeight + 1);
+  const getippt = await ta.evaluate((t) => t.scrollHeight <= t.clientHeight + 1
+    && t.getBoundingClientRect().bottom <= t.closest('.ss-box').getBoundingClientRect().bottom + 1);
   await ctx.close();
-  const name = `${ansicht === 'week' ? 'Woche' : 'Tag'}, ${ohneFieldSizing ? 'gemessen (ohne field-sizing)' : 'field-sizing'}`;
+  const name = `${ansicht === 'week' ? 'Woche' : 'Tag'}, ${ohneFieldSizing ? 'gemessen (ohne field-sizing)' : 'field-sizing'}, Fenster ${hoehe} px hoch`;
   checks.push([`${name}: nach Eintreffen der Schrift nichts abgeschnitten`,
     !r.schrift ? 'FEHLER: Schrift kam nicht an — Prüfung sinnlos' : (r.ueber.length ? `FEHLER: ${r.ueber.join(', ')}` : 'ok')]);
   checks.push([`${name}: beim Tippen wächst das Feld mit`, getippt ? 'ok' : 'FEHLER: abgeschnitten']);
 }
 
-for (const ansicht of ['week', 'day']) {
-  for (const ohne of [false, true]) await lauf(ansicht, ohne);
+// Das niedrige Fenster ist der Fall, an dem es im Gebrauch scheiterte: passt
+// das Raster nicht ins Fenster, wachsen auto-Zeilen nicht mehr mit.
+for (const hoehe of [950, 450]) {
+  for (const ansicht of ['week', 'day']) {
+    for (const ohne of [false, true]) await lauf(ansicht, ohne, hoehe);
+  }
 }
 
 console.log('\nFunktionsprüfungen (SS, Schrift und Feldhöhe):');

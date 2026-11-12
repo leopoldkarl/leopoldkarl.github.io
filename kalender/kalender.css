@@ -1121,6 +1121,14 @@ kbd {
 .ss-grid {
   flex: 1; min-height: 0; overflow-y: auto;
   display: grid; gap: 0.5rem 0.45rem; align-content: start;
+  /* max-content, nicht auto: das Raster hat eine feste Hoehe (es scrollt
+     selbst). Reicht der Platz nicht fuer alle Zeilen, bleiben auto-Zeilen
+     auf ihrer min-content-Hoehe stehen — und die ist beim Kasten nur seine
+     Mindesthoehe, weil ein Textfeld dazu nichts beitraegt. Ergebnis war: der
+     Text wuchs, der Kasten nicht, alles unterhalb der Mindesthoehe lag unter
+     dem naechsten Kasten. Mit max-content ist jede Zeile so hoch wie ihr
+     laengster Kasten, egal wie viel Platz im Fenster ist. */
+  grid-auto-rows: max-content;
   padding: 0 0.6rem 1rem;
 }
 .ss-page.day .ss-grid { grid-template-columns: minmax(0, 34rem); justify-content: center; gap: 0.65rem; }

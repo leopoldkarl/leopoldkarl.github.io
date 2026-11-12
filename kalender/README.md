@@ -486,6 +486,10 @@ nach dem ersten Zeichnen eintrifft und der Text dadurch öfter umbricht. Das
 macht der Browser über `field-sizing: content`, wo er es kann; sonst misst
 `app.js` und misst bei Größenänderung und beim Eintreffen der Schrift nach.
 Dasselbe gilt für die Titel in MP und TP.
+Damit der **Kasten** mitwächst und nicht nur das Textfeld darin, hat das
+Raster `grid-auto-rows: max-content`. Mit `auto` blieben die Zeilen auf ihrer
+Mindesthöhe stehen, sobald das Raster nicht ganz ins Fenster passte — also
+gerade im Gebrauch, kaum aber in einem großen Testfenster.
 
 Gespeichert wird beim Tippen (entprellt, 400 ms) und spätestens bei Seiten-
 oder Tageswechsel und beim Schließen — nicht erst beim Verlassen des Feldes.
@@ -607,7 +611,7 @@ Scrollposition der Wochenplanung), `unit/ss.mjs` und `browser/ss.mjs`
 (Stundeneingabe, Aufräumen leerer Felder, Import, Platzhalter, Speichern
 beim Tippen, Neuladen direkt nach dem Tippen, Summen, Wochenraster,
 Tastenkürzel), `browser/ss-schrift.mjs` (Feldhöhe bei spät eintreffender
-Webschrift, mit und ohne `field-sizing`). Die Trainings-Ist-Prüfungen benutzen eine
+Webschrift und in niedrigen Fenstern, mit und ohne `field-sizing`). Die Trainings-Ist-Prüfungen benutzen eine
 Attrappe statt echter Daten (`setImporter`); entschlüsselt wird in keiner
 Prüfung. Gegenproben: ohne den `storage`-Empfänger und mit dem alten Datenpfad
 in `source.js` schlagen die zugehörigen Prüfungen fehl.
