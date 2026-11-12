@@ -480,6 +480,13 @@ einen Tageskopf der Woche öffnet diesen Tag. In der Woche ist es ein Raster
 mit einer Zeile je Feld, damit gleiche Felder nebeneinanderstehen; die
 Randspalte nennt die Bezeichnung, die in gefüllten Feldern ja verschwunden ist.
 
+Jeder Kasten wächst mit seinem Text, bis alles sichtbar ist — beim Tippen,
+bei anderer Fensterbreite und auch dann, wenn die Webschrift (Inter) erst
+nach dem ersten Zeichnen eintrifft und der Text dadurch öfter umbricht. Das
+macht der Browser über `field-sizing: content`, wo er es kann; sonst misst
+`app.js` und misst bei Größenänderung und beim Eintreffen der Schrift nach.
+Dasselbe gilt für die Titel in MP und TP.
+
 Gespeichert wird beim Tippen (entprellt, 400 ms) und spätestens bei Seiten-
 oder Tageswechsel und beim Schließen — nicht erst beim Verlassen des Feldes.
 Zustand: `ss['YYYY-MM-DD'][feldId] = { text?, h? }`; leere Felder und Tage
@@ -599,7 +606,8 @@ keine Anfragen unter `/kalender/data/`), `browser/wochenplan.mjs` (Fokus und
 Scrollposition der Wochenplanung), `unit/ss.mjs` und `browser/ss.mjs`
 (Stundeneingabe, Aufräumen leerer Felder, Import, Platzhalter, Speichern
 beim Tippen, Neuladen direkt nach dem Tippen, Summen, Wochenraster,
-Tastenkürzel). Die Trainings-Ist-Prüfungen benutzen eine
+Tastenkürzel), `browser/ss-schrift.mjs` (Feldhöhe bei spät eintreffender
+Webschrift, mit und ohne `field-sizing`). Die Trainings-Ist-Prüfungen benutzen eine
 Attrappe statt echter Daten (`setImporter`); entschlüsselt wird in keiner
 Prüfung. Gegenproben: ohne den `storage`-Empfänger und mit dem alten Datenpfad
 in `source.js` schlagen die zugehörigen Prüfungen fehl.

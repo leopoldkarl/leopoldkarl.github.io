@@ -1187,3 +1187,10 @@ kbd {
   .ss-page.week .ss-rowlabel, .ss-page.week .ss-corner { position: sticky; left: 0; z-index: 1; background: var(--bg); }
   .ss-page.week .ss-corner { z-index: 3; }
 }
+
+/* Textfelder, die mit ihrem Inhalt wachsen (SS, Titel in MP/TP): wo der
+   Browser es kann, macht er es selbst — bei jedem Zeichen, jeder Breite und
+   nach dem Nachladen der Webschrift. Sonst misst app.js (fitSsTexte). */
+@supports (field-sizing: content) {
+  .ss-box textarea.ss-text, .pl textarea.pl-title.pl-wrap { field-sizing: content; }
+}

@@ -13,9 +13,19 @@ import { SPORTS, SPORT_LABEL, INTENSITIES } from './store.js';
 const pad2 = (n) => String(n).padStart(2, '0');
 const INT_LABEL = { locker: 'locker', schwelle: 'Schwelle', hart: 'hart' };
 
+/**
+ * Kann der Browser Textfelder selbst auf ihren Inhalt bringen
+ * (`field-sizing: content`)? Dann waechst das Feld mit jedem Zeichen, jedem
+ * Umbruch, jeder Breitenaenderung und jedem nachgeladenen Schriftschnitt
+ * mit, ohne dass hier gemessen wird. Sonst misst fitTitles/fitSsTexte.
+ */
+export const AUTOHOEHE = typeof CSS !== 'undefined' && typeof CSS.supports === 'function'
+  && CSS.supports('field-sizing', 'content');
+
 /** Mehrzeilige Titelfelder auf ihren Inhalt bringen (nach dem Einhaengen). */
 export function fitTitles(root) {
   for (const t of root.querySelectorAll('textarea.pl-wrap')) {
+    if (AUTOHOEHE) { t.style.height = ''; continue; }
     t.style.height = 'auto';
     t.style.height = `${t.scrollHeight}px`;
   }

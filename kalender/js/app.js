@@ -23,7 +23,7 @@ import {
 } from './plan.js';
 import { initTooltips, hideTip } from './tooltip.js';
 import { renderMathePlan } from './matheplan.js';
-import { renderTrainingPlan, fitTitles } from './trainingsplan.js';
+import { renderTrainingPlan, fitTitles, AUTOHOEHE } from './trainingsplan.js';
 import { renderSS, parseStunden, fmtStunden, tagesSumme, SS_FELDER } from './ss.js';
 import { readProjekte, offeneAufgaben, aufgabeErledigt, PROJEKTE_KEY } from './projektquelle.js';
 import { ladeAktivitaeten, wochenIst, tagesIst } from './trainingquelle.js';
@@ -738,6 +738,7 @@ function setSsView(v) {
 /** Textfelder auf ihren Inhalt bringen, nie kleiner als die Zeilenvorgabe. */
 function fitSsTexte(root) {
   for (const t of root.querySelectorAll('textarea.ss-text')) {
+    if (AUTOHOEHE) { t.style.height = ''; continue; }
     t.style.height = 'auto';
     t.style.height = `${t.scrollHeight + 2}px`;
   }
@@ -2045,15 +2046,31 @@ function bind() {
   /* Mehrzeilige Titel (MP, TP): Enter schliesst die Eingabe ab wie in einem
      einzeiligen Feld — der Titel bleibt eine Zeile Text, die nur umbricht. */
   // Andere Breite, anderer Umbruch: die Hoehen stimmen dann nicht mehr.
+  // Nur fuer Browser ohne `field-sizing: content`. Gemessene Hoehen stimmen
+  // nicht mehr, sobald sich die Breite aendert (Fenster, Seitenleiste) oder
+  // die Webschrift nach dem ersten Zeichnen eintrifft — Inter laeuft breiter
+  // als die Ersatzschrift, der Text bricht oefter um und wuerde unten
+  // abgeschnitten. Beides loest ein erneutes Messen aus.
   let fitTimer = null;
-  window.addEventListener('resize', () => {
+  const refit = () => {
     clearTimeout(fitTimer);
     fitTimer = setTimeout(() => {
       if (ui.page === 'matheplan') fitTitles(mpRoot);
       if (ui.page === 'trainingsplan') fitTitles(trRoot);
       if (ui.page === 'ss') fitSsTexte(ssRoot);
-    }, 120);
-  });
+    }, 60);
+  };
+  if (!AUTOHOEHE) {
+    window.addEventListener('resize', refit);
+    if (typeof ResizeObserver === 'function') {
+      const ro = new ResizeObserver(refit);
+      for (const r of [mpRoot, trRoot, ssRoot]) ro.observe(r);
+    }
+    if (document.fonts) {
+      document.fonts.addEventListener?.('loadingdone', refit);
+      document.fonts.ready.then(refit);
+    }
+  }
   for (const root of [mpRoot, trRoot]) {
     root.addEventListener('input', (e) => {
       if (e.target.matches('textarea.pl-wrap')) fitTitles(e.target.parentElement);
