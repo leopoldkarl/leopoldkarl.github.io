@@ -10,15 +10,17 @@ import { el } from './views.js';
 import { WEEKDAY_SHORT, isoDow, sameDay, ymd } from './dates.js';
 
 /**
- * Die Felder in der Reihenfolge der Skizze. Die IDs sind Speicherschluessel:
+ * Die Felder in der Reihenfolge der Skizze (seit 14.11.2026 Forschung vor
+ * Paper; die Eintraege wandern mit, weil sie an der ID haengen). Die IDs sind
+ * Speicherschluessel:
  * nicht umbenennen, sonst haengen alte Eintraege an nichts mehr. Neue Felder
  * einfach dazuschreiben, Bezeichnungen und Richtwerte frei aenderbar.
  */
 export const SS_FELDER = [
   { id: 'sonstiges',  label: 'Sonstiges' },
   { id: 'mr',         label: 'MR inkl. T1 & L1', soll: '~2–3 h' },
-  { id: 'paper',      label: 'Paper',            soll: '~2 h' },
   { id: 'forschung1', label: 'Forschung',        soll: '~2 h' },
+  { id: 'paper',      label: 'Paper',            soll: '~2 h' },
   { id: 'mp',         label: 'MP inkl. K/L' },
   { id: 'lektuere',   label: 'Lektüre',          soll: '~2 h' },
   { id: 'forschung2', label: 'Forschung',        soll: '~2 h' },

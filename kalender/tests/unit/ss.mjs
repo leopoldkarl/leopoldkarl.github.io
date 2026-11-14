@@ -48,7 +48,7 @@ t('Tagessumme über alle Felder', () => {
 
 t('Acht Felder in der Reihenfolge der Skizze, IDs eindeutig', () => {
   assert.deepEqual(SS_FELDER.map((f) => f.label),
-    ['Sonstiges', 'MR inkl. T1 & L1', 'Paper', 'Forschung', 'MP inkl. K/L', 'Lektüre', 'Forschung', 'AR inkl. T2']);
+    ['Sonstiges', 'MR inkl. T1 & L1', 'Forschung', 'Paper', 'MP inkl. K/L', 'Lektüre', 'Forschung', 'AR inkl. T2']);
   assert.equal(new Set(SS_FELDER.map((f) => f.id)).size, 8);
 });
 

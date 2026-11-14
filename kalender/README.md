@@ -457,12 +457,13 @@ neben Aufgabenliste und Seitenleiste für einzeilige Felder zu schmal sind;
 
 ## SS („Simple and Stupid")
 
-Je Tag dieselben acht Kästen, in der Reihenfolge der Papierskizze:
+Je Tag dieselben acht Kästen, in der Reihenfolge der Papierskizze (seit
+14.11.2026 mit Forschung vor Paper):
 
     Sonstiges
     MR inkl. T1 & L1   ~2–3 h
-    Paper              ~2 h
     Forschung          ~2 h
+    Paper              ~2 h
     MP inkl. K/L
     Lektüre            ~2 h
     Forschung          ~2 h
