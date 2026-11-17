@@ -119,8 +119,10 @@ export const emptyState = () => ({ schema: SCHEMA, projects: [] });
 export function newProject(fields = {}) {
   const now = new Date().toISOString();
   return normalizeProject({
-    id: newId(), title: 'Neues Projekt', status: 'aktiv', color: COLORS[0],
-    start: todayIso(), due: null, created: now, updated: now, milestones: [], notes: '', ...fields,
+    // Neue Projekte landen in der Leseliste (Status „geplant“); Beginn erst
+    // beim Starten, sonst liefe das Soll schon während der Wartezeit.
+    id: newId(), title: 'Neues Projekt', status: 'geplant', color: COLORS[0],
+    start: null, due: null, created: now, updated: now, milestones: [], notes: '', ...fields,
   });
 }
 
@@ -229,6 +231,9 @@ export function normalizeProject(p) {
     tags: normalizeTags(p && p.tags),
     // Tag des Abschlusses; nur bei abgeschlossenen/verworfenen Projekten.
     closedAt: CLOSED.includes(status) ? dateOrNull(p && p.closedAt) : null,
+    // Position in der Leseliste (global; jede Label-Liste ist ein Ausschnitt
+    // dieser einen Reihenfolge). null = noch nicht vergeben, siehe normalizeState.
+    rank: Number.isFinite(Number(p && p.rank)) && p.rank !== null && p.rank !== '' ? Number(p.rank) : null,
     milestones: Array.isArray(p && p.milestones) ? p.milestones.map(normalizeMilestone) : [],
   };
 }
@@ -244,7 +249,98 @@ export function normalizeState(s) {
     seen.add(p.id);
     projects.push(p);
   }
+  // Fehlende Ränge (Bestand von vor der Leseliste, Import) hinten anhängen,
+  // in der bisherigen Listenfolge.
+  let max = Math.max(0, ...projects.map((p) => (p.rank == null ? -Infinity : p.rank)));
+  for (const p of projects) if (p.rank == null) { max += 1; p.rank = max; }
   return { schema: SCHEMA, projects };
+}
+
+/* ------------------------------------------------------------------ */
+/* Leseliste                                                           */
+/* ------------------------------------------------------------------ */
+
+/** Status der Leseliste: noch nicht begonnen oder unterbrochen. */
+export const INACTIVE = ['geplant', 'pausiert'];
+export const isActive = (p) => p.status === 'aktiv';
+export const isQueued = (p) => INACTIVE.includes(p.status);
+
+export const byRank = (a, b) => (a.rank - b.rank) || a.title.localeCompare(b.title, 'de');
+
+/** Rang für „ganz unten“ bzw. „ganz oben“. */
+export const bottomRank = (projects) => Math.max(0, ...projects.map((p) => p.rank ?? 0)) + 1;
+export const topRank = (projects) => Math.min(1, ...projects.map((p) => p.rank ?? 1)) - 1;
+
+/** Ränge 1..n in der jetzigen Reihenfolge, wenn Halbierungen zu eng werden. */
+function renumber(projects) {
+  [...projects].sort(byRank).forEach((p, i) => { p.rank = i + 1; });
+}
+
+/**
+ * Verschiebt `id` innerhalb der sichtbaren Liste `ids` (eine Label-Leseliste,
+ * also ein Ausschnitt der globalen Rangfolge) an Position `to` (Index nach
+ * dem Entfernen). Neuer Rang = Mitte zwischen den neuen Nachbarn; die
+ * Reihenfolge der übrigen Projekte bleibt unberührt. Mutiert `state`.
+ * Rückgabe: true, wenn sich etwas geändert hat.
+ */
+export function moveInList(state, ids, id, to) {
+  const from = ids.indexOf(id);
+  if (from < 0) return false;
+  const rest = ids.filter((x) => x !== id);
+  const t = Math.max(0, Math.min(rest.length, to));
+  if (t === from) return false;
+  const get = (x) => state.projects.find((p) => p.id === x);
+  const place = () => {
+    const prev = t > 0 ? get(rest[t - 1]).rank : null;
+    const next = t < rest.length ? get(rest[t]).rank : null;
+    if (prev == null && next == null) return 1;
+    if (prev == null) return next - 1;
+    if (next == null) return prev + 1;
+    return (prev + next) / 2;
+  };
+  let r = place();
+  const prev = t > 0 ? get(rest[t - 1]).rank : -Infinity;
+  const next = t < rest.length ? get(rest[t]).rank : Infinity;
+  if (!(r > prev && r < next) || (next - prev) < 1e-9) {
+    renumber(state.projects);
+    r = place();
+  }
+  get(id).rank = r;
+  return true;
+}
+
+/**
+ * Projekt starten: Status „aktiv“. Ist noch nichts erledigt, beginnt der Plan
+ * heute: ohne Beginn wird heute gesetzt; lag der Beginn in der Vergangenheit,
+ * verschieben sich Beginn, Ziel und alle Meilenstein-Fälligkeiten um dieselbe
+ * Anzahl Tage (die geplante Dauer bleibt). Mutiert `p`; Rückgabe: Verschiebung
+ * in Tagen (0, wenn nichts verschoben wurde).
+ */
+export function activate(p, today = todayIso()) {
+  p.status = 'aktiv';
+  p.closedAt = null;
+  if (projectProgress(p).done > 0) return 0;
+  if (!validIso(p.start)) { p.start = today; return 0; }
+  const delta = dayNum(today) - dayNum(p.start);
+  if (delta <= 0) return 0;
+  const shift = (iso) => (validIso(iso) ? fromDayNum(dayNum(iso) + delta) : iso);
+  p.start = shift(p.start);
+  p.due = shift(p.due);
+  for (const m of p.milestones) m.due = shift(m.due);
+  return delta;
+}
+
+/**
+ * Gruppen der Übersicht: ein Abschnitt je Label (alphabetisch), zuletzt
+ * „Ohne Label“. Ein Projekt mit mehreren Labels steht in jedem seiner
+ * Abschnitte. Rückgabe: [{ tag | null, projects }].
+ */
+export function groupByTag(projects) {
+  const tags = allTags(projects).map((t) => t.tag);
+  const groups = tags.map((tag) => ({ tag, projects: projects.filter((p) => hasTag(p, tag)) }));
+  const none = projects.filter((p) => !p.tags.length);
+  if (none.length) groups.push({ tag: null, projects: none });
+  return groups;
 }
 
 /* ------------------------------------------------------------------ */

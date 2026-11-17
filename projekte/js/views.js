@@ -5,7 +5,7 @@ import {
   STATUS, STATUS_LABEL, COLORS, dayNum, fromDayNum, todayIso, formatDate,
   summarize, milestoneProgress, milestoneComplete, actualSeries, plannedAt, sortProjects,
   allTags, matchesTags,
-  offerClose,
+  offerClose, isActive, isQueued, byRank, groupByTag, CLOSED,
 } from './model.js';
 
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({
@@ -111,8 +111,9 @@ export function renderOverview(state, ui) {
   const byStatus = state.projects.filter(filter.test);
   const list = sortProjects(byStatus.filter((p) => matchesTags(p, ui.tags)), ui.sort, today);
 
-  const laufend = state.projects.filter(FILTERS[0].test);
-  const sums = laufend.map((p) => summarize(p, today));
+  const aktiv = state.projects.filter(isActive);
+  const queued = state.projects.filter(isQueued).length;
+  const sums = aktiv.map((p) => summarize(p, today));
   const verzug = sums.filter((s) => s.health === 'verzug' || s.health === 'ueberfaellig').length;
   const msOver = sums.reduce((a, s) => a + s.overdueMilestones, 0);
 
@@ -123,7 +124,7 @@ export function renderOverview(state, ui) {
     <label class="sort">Sortieren
       <select data-act="sort">${SORTS.map((o) => `<option value="${o.id}"${o.id === ui.sort ? ' selected' : ''}>${o.label}</option>`).join('')}</select>
     </label>
-    <p class="summary muted">${laufend.length} laufend${verzug ? ` · <span class="h-verzug">${verzug} im Verzug</span>` : ''}${msOver ? ` · ${msOver} Meilenstein${msOver === 1 ? '' : 'e'} überfällig` : ''}</p>
+    <p class="summary muted">${aktiv.length} aktiv · ${queued} in der Leseliste${verzug ? ` · <span class="h-verzug">${verzug} im Verzug</span>` : ''}${msOver ? ` · ${msOver} Meilenstein${msOver === 1 ? '' : 'e'} überfällig` : ''}</p>
   </div>${tagBar(byStatus, ui.tags)}`;
 
   if (!state.projects.length) {
@@ -135,7 +136,61 @@ export function renderOverview(state, ui) {
   }
   if (!list.length) return `${head}<p class="muted empty-small">Keine Projekte in dieser Auswahl.</p>`;
 
-  return `${head}<div class="cards">${list.map((p) => projectCard(p, summarize(p, today), today, ui.tags)).join('')}</div>`;
+  // „Abgeschlossen“: schlichtes Kartenraster wie bisher.
+  if (filter.id === 'abgeschlossen') {
+    return `${head}<div class="cards">${list.map((p) => projectCard(p, summarize(p, today), today, ui.tags)).join('')}</div>`;
+  }
+
+  // Sonst: ein Abschnitt je Label — oben die aktiven Projekte als Karten,
+  // darunter die Leseliste in eigener Reihenfolge. Mit gewähltem Label (oder
+  // mehreren, UND) genau ein Abschnitt.
+  const groups = ui.tags.length
+    ? [{ tag: ui.tags.join(' + '), projects: list, selected: true }]
+    : groupByTag(list);
+  return `${head}${groups.map((g) => labelSection(g, ui, today)).join('')}`;
+}
+
+function labelSection(g, ui, today) {
+  const key = g.tag == null ? '' : g.tag;
+  const active = sortProjects(g.projects.filter(isActive), ui.sort, today);
+  const closed = sortProjects(g.projects.filter((p) => CLOSED.includes(p.status)), ui.sort, today);
+  const queue = g.projects.filter(isQueued).sort(byRank);
+  const title = g.tag == null ? 'Ohne Label' : g.tag.split(' + ').map((t) => `#${esc(t)}`).join(' + ');
+  const addTag = g.tag == null || g.selected ? '' : g.tag;
+  return `<section class="grp" data-group="${esc(key)}">
+    <div class="grp-h">
+      <h2>${title}</h2>
+      <span class="muted">${active.length} aktiv · ${queue.length} in der Leseliste</span>
+      <span class="grow"></span>
+      <button type="button" class="small" data-act="new-project"${addTag ? ` data-tag="${esc(addTag)}"` : ''} title="Neues Projekt${addTag ? ` mit #${esc(addTag)}` : ''} — landet unten in der Leseliste">+ Projekt</button>
+    </div>
+    ${active.length || closed.length
+      ? `<div class="cards">${[...active, ...closed].map((p) => projectCard(p, summarize(p, today), today, ui.tags)).join('')}</div>`
+      : '<p class="muted empty-small">Kein aktives Projekt.</p>'}
+    <h3 class="q-h">Leseliste</h3>
+    ${queue.length ? queueList(queue, key) : '<p class="muted empty-small q-empty">Leer — neue Projekte landen hier.</p>'}
+  </section>`;
+}
+
+/** Leseliste: geordnet, per Griff (Maus/Touch) oder ↑/↓ am Griff verschiebbar. */
+function queueList(queue, key) {
+  return `<ol class="queue" data-group="${esc(key)}" data-ids="${queue.map((p) => esc(p.id)).join(',')}">
+    ${queue.map((p, i) => {
+      const s = summarize(p);
+      const meta = [
+        s.tasks.total ? `${s.tasks.total} Aufgabe${s.tasks.total === 1 ? '' : 'n'}` : (p.milestones.length ? `${p.milestones.length} Meilenstein${p.milestones.length === 1 ? '' : 'e'}` : ''),
+        s.ist ? `${pct(s.ist)} erledigt` : '',
+      ].filter(Boolean).join(' · ');
+      return `<li class="q-item" data-pid="${esc(p.id)}" style="--pc:${esc(p.color)}">
+        <button type="button" class="q-handle" data-act="drag" data-fk="q-${esc(key)}-${esc(p.id)}" aria-label="„${esc(p.title)}“ verschieben (Pfeiltasten ↑/↓)" title="Ziehen zum Verschieben · am Griff auch ↑/↓">⠿</button>
+        <span class="q-pos">${i + 1}</span>
+        <a class="q-title" href="#/p/${esc(p.id)}">${esc(p.title)}</a>
+        ${p.status === 'pausiert' ? statusChip(p.status) : ''}
+        ${meta ? `<span class="q-meta muted">${meta}</span>` : ''}
+        <button type="button" class="small q-start" data-act="activate" data-pid="${esc(p.id)}">${p.status === 'pausiert' ? 'Fortsetzen' : 'Starten'}</button>
+      </li>`;
+    }).join('')}
+  </ol>`;
 }
 
 function projectCard(p, s, today, selectedTags) {
@@ -211,6 +266,8 @@ export function renderDetail(p, ui) {
       <h1>${esc(p.title)}</h1>
       ${statusChip(p.status)}
       <span class="grow"></span>
+      ${isQueued(p) ? `<button type="button" class="primary" data-act="activate">${p.status === 'pausiert' ? 'Fortsetzen' : 'Starten'}</button>` : ''}
+      ${isActive(p) ? '<button type="button" data-act="deactivate" title="Zurück in die Leseliste (ganz oben)">In die Leseliste</button>' : ''}
       <button type="button" data-act="edit-project">Bearbeiten</button>
     </div>
     ${p.description ? `<p class="desc">${esc(p.description)}</p>` : ''}

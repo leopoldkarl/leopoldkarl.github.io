@@ -4,6 +4,7 @@ import {
   STATUS_LABEL, COLORS, WEIGHTS, newProject, newMilestone, newTask, parseDateInput,
   formatDate, todayIso, normalizeState, milestoneComplete,
   parseTagInput, allTags, cleanTag, CLOSED, offerClose, summarize,
+  activate, moveInList, bottomRank, topRank, isActive, isQueued, projectProgress,
 } from './model.js';
 import { Store, findProject, findMilestone, findTask, touch } from './store.js';
 import {
@@ -165,7 +166,29 @@ function onMainClick(e) {
       break;
     }
     case 'tags-reset': ui.tags = []; saveUi(); render(); break;
-    case 'new-project': openProjectDialog(null); break;
+    case 'new-project': openProjectDialog(null, { tag: btn.dataset.tag }); break;
+    case 'activate': {
+      const id = btn.dataset.pid || pid;
+      const p = findProject(store.state, id);
+      if (!p) break;
+      const was = p.status;
+      let delta = 0;
+      change(id, (x) => { delta = activate(x); }, 'Projekt gestartet');
+      toast(`„${p.title}“ ${was === 'pausiert' ? 'fortgesetzt' : 'gestartet'}${delta ? ` — Zeitplan um ${delta} Tag${delta === 1 ? '' : 'e'} auf heute verschoben` : ''}. Strg+Z macht es rückgängig.`);
+      break;
+    }
+    case 'deactivate': {
+      const p = findProject(store.state, pid);
+      if (!p) break;
+      change(pid, (x, s) => {
+        // Schon begonnen: „pausiert“, sonst wieder „geplant“. Ganz oben in die Leseliste.
+        x.status = projectProgress(x).done > 0 ? 'pausiert' : 'geplant';
+        x.rank = topRank(s.projects);
+      }, 'In die Leseliste');
+      toast(`„${p.title}“ steht jetzt oben in der Leseliste. Strg+Z macht es rückgängig.`);
+      break;
+    }
+    case 'drag': break;   // Klick ohne Ziehen: nichts (Ziehen/Pfeiltasten siehe unten)
     case 'edit-project': openProjectDialog(pid); break;
     case 'new-milestone': openMilestoneDialog(pid, null); break;
     case 'edit-ms': openMilestoneDialog(pid, mid); break;
@@ -265,6 +288,15 @@ function onMainInput(e) {
 
 function onMainKeydown(e) {
   const el = e.target;
+  if (el.dataset.act === 'drag' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+    e.preventDefault();
+    const li = el.closest('.q-item');
+    const ol = el.closest('.queue');
+    const ids = ol.dataset.ids.split(',');
+    const from = ids.indexOf(li.dataset.pid);
+    moveQueue(ids, li.dataset.pid, from + (e.key === 'ArrowUp' ? -1 : 1));
+    return;
+  }
   if (el.dataset.act === 'new-task' && e.key === 'Enter' && !e.isComposing) {
     e.preventDefault();
     const v = el.value.trim();
@@ -293,6 +325,101 @@ function onMainKeydown(e) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Leseliste: Verschieben                                              */
+/* ------------------------------------------------------------------ */
+
+/** `id` in der sichtbaren Liste `ids` an Position `to` setzen (ein Undo-Schritt). */
+function moveQueue(ids, id, to) {
+  if (to < 0 || to >= ids.length || ids.indexOf(id) === to) return;
+  let moved = false;
+  store.commit((s) => { moved = moveInList(s, ids, id, to); }, 'Leseliste umsortiert');
+  if (!moved) store.undoStack.pop();
+}
+
+/**
+ * Ziehen am Griff (Maus, Stift, Touch über Pointer Events). Während des
+ * Ziehens wird nur verschoben (transform), nichts neu gezeichnet; beim
+ * Loslassen ein einziger Commit. Nahe am Fensterrand scrollt die Seite mit.
+ */
+let drag = null;
+
+function onPointerDown(e) {
+  const handle = e.target.closest('.q-handle');
+  if (!handle || e.button > 0) return;
+  const li = handle.closest('.q-item');
+  const ol = handle.closest('.queue');
+  const items = [...ol.querySelectorAll(':scope > .q-item')];
+  const from = items.indexOf(li);
+  const sy = window.scrollY;
+  const mids = items.map((it) => { const r = it.getBoundingClientRect(); return r.top + sy + r.height / 2; });
+  const r0 = li.getBoundingClientRect();
+  const gap = items.length > 1 ? Math.abs(items[1].getBoundingClientRect().top - items[0].getBoundingClientRect().top) : r0.height;
+  drag = {
+    pointerId: e.pointerId, handle, li, ol, items, from, to: from, mids,
+    startY: e.clientY + sy, lastClientY: e.clientY, step: gap, started: false, raf: 0,
+  };
+  handle.setPointerCapture(e.pointerId);
+  e.preventDefault();
+}
+
+function dragUpdate() {
+  const d = drag;
+  if (!d) return;
+  const y = d.lastClientY + window.scrollY;
+  const dy = y - d.startY;
+  if (!d.started) {
+    if (Math.abs(dy) < 4) return;
+    d.started = true;
+    d.ol.classList.add('sorting');
+    d.li.classList.add('dragging');
+  }
+  d.li.style.transform = `translateY(${dy}px)`;
+  const center = d.mids[d.from] + dy;
+  let to = 0;
+  d.mids.forEach((m, k) => { if (k !== d.from && center > m) to += 1; });
+  d.to = to;
+  d.items.forEach((it, k) => {
+    if (k === d.from) return;
+    let shift = 0;
+    if (d.from < k && k <= to) shift = -d.step;
+    else if (to <= k && k < d.from) shift = d.step;
+    it.style.transform = shift ? `translateY(${shift}px)` : '';
+  });
+}
+
+function autoScroll() {
+  const d = drag;
+  if (!d || !d.started) { if (d) d.raf = 0; return; }
+  const edge = 56;
+  const y = d.lastClientY;
+  let v = 0;
+  if (y < edge) v = -Math.ceil((edge - y) / 4);
+  else if (y > window.innerHeight - edge) v = Math.ceil((y - (window.innerHeight - edge)) / 4);
+  if (v) { window.scrollBy(0, v); dragUpdate(); }
+  d.raf = requestAnimationFrame(autoScroll);
+}
+
+function onPointerMove(e) {
+  if (!drag || e.pointerId !== drag.pointerId) return;
+  drag.lastClientY = e.clientY;
+  dragUpdate();
+  if (drag.started && !drag.raf) drag.raf = requestAnimationFrame(autoScroll);
+}
+
+function endDrag(e, commit) {
+  if (!drag || (e && e.pointerId !== drag.pointerId)) return;
+  const d = drag;
+  drag = null;
+  cancelAnimationFrame(d.raf);
+  d.ol.classList.remove('sorting');
+  d.li.classList.remove('dragging');
+  d.items.forEach((it) => { it.style.transform = ''; });
+  if (commit && d.started && d.to !== d.from) {
+    moveQueue(d.ol.dataset.ids.split(','), d.li.dataset.pid, d.to);
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* Projekt-Dialog                                                      */
 /* ------------------------------------------------------------------ */
 
@@ -305,17 +432,18 @@ function setSwatches(color) {
   $('#pd-colors').innerHTML = colorSwatches(color);
 }
 
-function openProjectDialog(pid) {
+function openProjectDialog(pid, { tag } = {}) {
   const p = pid ? findProject(store.state, pid) : null;
   editingProject = p ? p.id : null;
   $('#pd-title').textContent = p ? 'Projekt bearbeiten' : 'Neues Projekt';
   $('#pd-name').value = p ? p.title : '';
   $('#pd-desc').value = p ? p.description : '';
-  $('#pd-tags').value = p ? p.tags.join(', ') : ui.tags.join(', ');
+  $('#pd-tags').value = p ? p.tags.join(', ') : (tag ? [tag] : ui.tags).join(', ');
   renderTagSuggestions();
-  $('#pd-start').value = p ? formatDate(p.start) : formatDate(todayIso());
+  // Neu: kein Beginn — der wird beim Starten gesetzt (Leseliste).
+  $('#pd-start').value = p ? formatDate(p.start) : '';
   $('#pd-due').value = p ? formatDate(p.due) : '';
-  $('#pd-status').innerHTML = statusOptions(p ? p.status : 'aktiv');
+  $('#pd-status').innerHTML = statusOptions(p ? p.status : 'geplant');
   const used = new Set(store.state.projects.map((x) => x.color));
   setSwatches(p ? p.color : (COLORS.find((c) => !used.has(c)) || COLORS[store.state.projects.length % COLORS.length]));
   $('#pd-msg').textContent = '';
@@ -359,8 +487,12 @@ function saveProjectDialog() {
     status: $('#pd-status').value, color: pdColor,
     tags: parseTagInput($('#pd-tags').value),
   };
+  // Aktiv ohne Beginn: Beginn heute (sonst gäbe es kein Soll).
+  if (fields.status === 'aktiv' && !fields.start) fields.start = todayIso();
   if (editingProject) {
-    change(editingProject, (p) => {
+    change(editingProject, (p, s) => {
+      // Von aktiv zurück in die Leseliste: ganz oben einreihen.
+      if (isActive(p) && isQueued(fields)) p.rank = topRank(s.projects);
       // Abschlussdatum folgt dem Status: beim Wechsel in „abgeschlossen“/
       // „verworfen“ heute, beim Wechsel zurück gelöscht; sonst unverändert.
       if (CLOSED.includes(fields.status)) {
@@ -369,7 +501,12 @@ function saveProjectDialog() {
       Object.assign(p, fields);
     }, 'Projekt geändert');
   } else {
-    const p = newProject({ ...fields, closedAt: CLOSED.includes(fields.status) ? todayIso() : null });
+    // Neu: ganz unten in die Leseliste (bzw. ans Ende der Rangfolge).
+    const p = newProject({
+      ...fields,
+      closedAt: CLOSED.includes(fields.status) ? todayIso() : null,
+      rank: bottomRank(store.state.projects),
+    });
     store.commit((s) => { s.projects.push(p); }, 'Projekt angelegt');
     location.hash = `#/p/${p.id}`;
   }
@@ -660,6 +797,11 @@ function init() {
   main.addEventListener('change', onMainChange);
   main.addEventListener('input', onMainInput);
   main.addEventListener('keydown', onMainKeydown);
+  main.addEventListener('pointerdown', onPointerDown);
+  main.addEventListener('pointermove', onPointerMove);
+  main.addEventListener('pointerup', (e) => endDrag(e, true));
+  main.addEventListener('pointercancel', (e) => endDrag(e, false));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && drag) { e.stopPropagation(); endDrag(null, false); } }, true);
 
   $('#btn-new').addEventListener('click', () => openProjectDialog(null));
   $('#btn-menu').addEventListener('click', (e) => { e.stopPropagation(); toggleMenu(); });

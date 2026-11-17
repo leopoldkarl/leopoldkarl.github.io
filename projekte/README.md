@@ -55,6 +55,41 @@ Erledigt-Datum auf heute; wer nachträglich abhakt, verschiebt also den
 Ist-Verlauf auf heute. Erledigte Einheiten ohne Datum (etwa aus einem
 Import) zählen ab Projektbeginn.
 
+## Übersicht: aktive Projekte und Leseliste
+
+Die Übersicht (Filter „Laufend“ und „Alle“) ist nach Label gegliedert: ein
+Abschnitt je Label, alphabetisch, zuletzt „Ohne Label“. Ein Projekt mit
+mehreren Labels steht in jedem seiner Abschnitte. Ist ein Label gewählt,
+erscheint nur dessen Abschnitt. Im Filter „Abgeschlossen“ bleibt es beim
+schlichten Kartenraster.
+
+Je Abschnitt oben die **aktiven** Projekte (Status „Aktiv“) als Karten,
+sortiert nach der Auswahl „Sortieren“ (unter „Alle“ dahinter die
+abgeschlossenen), darunter die **Leseliste**: alle Projekte mit Status
+„Geplant“ oder „Pausiert“ in einer selbst bestimmten Reihenfolge.
+
+- **Reihenfolge:** jedes Projekt hat einen Rang `rank` (Zahl). Es gibt
+  *eine* globale Rangfolge; jede Label-Leseliste ist ein Ausschnitt davon.
+  Verschieben setzt den Rang auf die Mitte zwischen den neuen Nachbarn in
+  der sichtbaren Liste; werden die Abstände zu klein, wird neu
+  durchnummeriert. Folge: Bei Projekten mit mehreren Labels ist die
+  Reihenfolge in allen ihren Listen dieselbe (keine unabhängige Ordnung je
+  Label). Bestand ohne Rang bekommt beim Laden Ränge in Anlagereihenfolge.
+- **Verschieben:** am Griff ⠿ ziehen (Maus, Stift, Touch; nahe am
+  Fensterrand scrollt die Seite mit; Esc bricht ab) oder Griff fokussieren
+  und ↑/↓. Ein Undo-Schritt je Verschiebung.
+- **Neues Projekt:** Status „Geplant“, kein Beginn, Rang = ganz unten. Der
+  Knopf „+ Projekt“ im Abschnitt belegt das Label vor.
+- **Starten / Fortsetzen** (in der Leseliste und im Projektkopf): Status
+  „Aktiv“. Ist noch nichts erledigt, beginnt der Plan heute: ohne Beginn
+  wird heute gesetzt; lag der Beginn in der Vergangenheit, verschieben sich
+  Beginn, Ziel und alle Meilenstein-Fälligkeiten um dieselbe Zahl von Tagen
+  (geplante Dauer bleibt). Bei schon Begonnenem wird nichts verschoben.
+- **In die Leseliste** (Projektkopf, oder Status im Dialog von „Aktiv“ auf
+  „Geplant“/„Pausiert“): ganz oben einreihen; über den Knopf wird
+  „Pausiert“ gesetzt, wenn schon etwas erledigt ist, sonst „Geplant“.
+- Im Dialog: Status „Aktiv“ ohne Beginn → Beginn heute.
+
 ## Abschluss
 
 Der Status wird nie von selbst umgestellt. Erreicht ein laufendes Projekt
@@ -126,7 +161,7 @@ Primärschlüssel.
 
 ## Tests
 
-Nicht Teil des Repos. 14 Modelltests (Datumseingabe, Normalisierung, Tags, Abschluss,
+Nicht Teil des Repos. Stand 17.11.2026 (Umbau Leseliste, Testumgebung neu aufgesetzt): 7 Modelltests (Rang-Migration, Verschieben samt Neunummerierung, Starten mit Verschiebung, Gruppen je Label, Prognose) und 31 Browserprüfungen (Abschnitte, Leseliste, Ziehen mit Maus und Touch, ↑/↓ samt Fokus, Strg+Z, Neuladen, neues Projekt unten, Starten/Fortsetzen, zurück in die Leseliste, Label-Filter, Filter Alle/Abgeschlossen, 375 px dunkel). Davor: 14 Modelltests (Datumseingabe, Normalisierung, Tags, Abschluss,
 Gewichtung, Soll-Kurve samt Umkehrung, Abstand, Ampel, Ist-Verlauf,
 Prognose samt Fenster, Sortierung), 21 Worker-Prüfungen (Namensraum getrennt vom
 Kalender, 409, unbekannte Namensräume und Pfadvarianten → 404, und der

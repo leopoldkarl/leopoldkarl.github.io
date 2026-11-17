@@ -201,6 +201,47 @@ main { max-width: var(--container); margin: 0 auto; padding: 1.25rem 1rem 4rem; 
 .empty-small { padding: 1rem 0; }
 
 /* ---------------------------------------------------------------- */
+/* Label-Abschnitte und Leseliste                                    */
+/* ---------------------------------------------------------------- */
+
+.grp { margin: 0 0 2.25rem; }
+.grp + .grp { padding-top: 1.5rem; border-top: 1px solid var(--line); }
+.grp-h { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.8rem; }
+.grp-h h2 { margin: 0; font-size: 1.2rem; font-family: var(--font-serif); }
+.grp-h .muted { font-size: 0.85rem; }
+.q-h { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; margin: 1.1rem 0 0.4rem; }
+.q-empty { padding: 0.2rem 0; font-size: 0.88rem; }
+.grp > .empty-small { padding: 0.1rem 0 0; margin: 0; font-size: 0.9rem; }
+
+.queue { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; }
+.q-item {
+  display: flex; align-items: center; gap: 0.6rem; min-height: 2.6rem;
+  background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--pc);
+  border-radius: 8px; padding: 0.3rem 0.5rem 0.3rem 0.25rem;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.queue.sorting .q-item { user-select: none; }
+.q-item.dragging { transition: none; position: relative; z-index: 2; box-shadow: 0 10px 24px rgba(16, 24, 40, 0.18); }
+.q-handle {
+  flex: none; border: 0; background: none; padding: 0.25rem 0.3rem; min-width: 1.6rem;
+  color: var(--muted); cursor: grab; touch-action: none; font-size: 1rem; line-height: 1;
+}
+.q-handle:hover { background: var(--surface-2); color: var(--text); }
+.q-item.dragging .q-handle { cursor: grabbing; }
+.q-pos { flex: none; width: 1.4rem; text-align: right; font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.q-title { flex: 1 1 auto; min-width: 0; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.q-meta { flex: none; font-size: 0.8rem; white-space: nowrap; }
+.q-start { flex: none; }
+@media (max-width: 560px) {
+  .q-item { flex-wrap: wrap; row-gap: 0.15rem; }
+  .q-title { flex-basis: calc(100% - 6rem); white-space: normal; }
+  .q-item > .chip { order: 4; margin-left: 3.4rem; }
+  .q-meta { order: 5; margin-left: 3.4rem; }
+  .q-item > .chip + .q-meta { margin-left: 0; }
+  .q-start { order: 6; margin-left: auto; }
+}
+
+/* ---------------------------------------------------------------- */
 /* Abschluss                                                         */
 /* ---------------------------------------------------------------- */
 
