@@ -60,7 +60,11 @@ export class Store {
 
   /** Ganzen Zustand ersetzen (Import); rückgängig machbar. */
   replace(next, label = 'Import') {
-    this.commit((s) => { s.projects = normalizeState(next).projects; }, label);
+    this.commit((s) => {
+      const n = normalizeState(next);
+      s.projects = n.projects;
+      s.labels = n.labels;
+    }, label);
   }
 
   /** Fremden Zustand übernehmen (Server, anderes Fenster) — ohne Zurückschreiben ins Undo. */

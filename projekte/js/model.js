@@ -114,7 +114,7 @@ export function newId() {
   return Math.random().toString(36).slice(2, 14);
 }
 
-export const emptyState = () => ({ schema: SCHEMA, projects: [] });
+export const emptyState = () => ({ schema: SCHEMA, projects: [], labels: [] });
 
 export function newProject(fields = {}) {
   const now = new Date().toISOString();
@@ -196,7 +196,7 @@ export const hasTag = (p, t) => p.tags.some((x) => tagKey(x) === tagKey(t));
  * Alle Tags über alle Projekte mit Häufigkeit, alphabetisch. Weichen die
  * Schreibweisen zwischen Projekten ab, gewinnt die häufigste.
  */
-export function allTags(projects) {
+export function allTags(projects, labels = []) {
   const by = new Map();
   for (const p of projects) {
     for (const t of p.tags) {
@@ -207,9 +207,32 @@ export function allTags(projects) {
       e.spellings.set(t, (e.spellings.get(t) || 0) + 1);
     }
   }
+  // Angelegte Labels ohne Projekt erscheinen mit Häufigkeit 0.
+  for (const t of labels) {
+    const k = tagKey(t);
+    if (!by.has(k)) by.set(k, { count: 0, spellings: new Map([[t, 0]]) });
+  }
   return [...by.values()]
     .map((e) => ({ tag: [...e.spellings].sort((a, b) => b[1] - a[1])[0][0], count: e.count }))
     .sort((a, b) => a.tag.localeCompare(b.tag, 'de'));
+}
+
+/**
+ * Angelegte Labels: bleiben bestehen, auch wenn (noch) kein Projekt sie
+ * trägt — sonst gäbe es ein Label nur als Eigenschaft eines Projekts.
+ */
+export const LABELS_MAX = 100;
+export function normalizeLabels(list) {
+  const out = [];
+  const seen = new Set();
+  for (const raw of Array.isArray(list) ? list : []) {
+    const t = cleanTag(raw);
+    if (!t || seen.has(tagKey(t))) continue;
+    seen.add(tagKey(t));
+    out.push(t);
+    if (out.length >= LABELS_MAX) break;
+  }
+  return out.sort((a, b) => a.localeCompare(b, 'de'));
 }
 
 /** Projekte, die ALLE gewählten Tags tragen (leere Auswahl: alle). */
@@ -253,7 +276,7 @@ export function normalizeState(s) {
   // in der bisherigen Listenfolge.
   let max = Math.max(0, ...projects.map((p) => (p.rank == null ? -Infinity : p.rank)));
   for (const p of projects) if (p.rank == null) { max += 1; p.rank = max; }
-  return { schema: SCHEMA, projects };
+  return { schema: SCHEMA, projects, labels: normalizeLabels(s.labels) };
 }
 
 /* ------------------------------------------------------------------ */
@@ -335,8 +358,8 @@ export function activate(p, today = todayIso()) {
  * „Ohne Label“. Ein Projekt mit mehreren Labels steht in jedem seiner
  * Abschnitte. Rückgabe: [{ tag | null, projects }].
  */
-export function groupByTag(projects) {
-  const tags = allTags(projects).map((t) => t.tag);
+export function groupByTag(projects, labels = []) {
+  const tags = allTags(projects, labels).map((t) => t.tag);
   const groups = tags.map((tag) => ({ tag, projects: projects.filter((p) => hasTag(p, tag)) }));
   const none = projects.filter((p) => !p.tags.length);
   if (none.length) groups.push({ tag: null, projects: none });

@@ -63,16 +63,16 @@ function tagChips(p, selected = []) {
  * gewählte Tags (nur per Strg/⌘-Klick) schneiden (UND). Ein normaler Klick
  * wählt genau dieses Tag.
  */
-function tagBar(projects, selected) {
-  const tags = allTags(projects);
+function tagBar(projects, selected, labels = []) {
+  const tags = allTags(projects, labels);
   const known = new Set(tags.map((t) => t.tag.toLocaleLowerCase('de')));
   const stale = selected.filter((t) => !known.has(t.toLocaleLowerCase('de')));
-  if (!tags.length && !stale.length) return '';
   const isOn = (t) => selected.some((x) => x.toLocaleLowerCase('de') === t.toLocaleLowerCase('de'));
   return `<div class="tagbar" role="group" aria-label="Nach Tags filtern">
     <span class="muted tagbar-l">Tags</span>
     ${tags.map(({ tag, count }) => `<button type="button" class="tag${isOn(tag) ? ' on' : ''}" data-act="tag" data-tag="${esc(tag)}" aria-pressed="${isOn(tag)}" title="Nur „${esc(tag)}“ zeigen · Strg/⌘-Klick: zusätzlich (UND)">#${esc(tag)} <span class="n">${count}</span></button>`).join('')}
     ${stale.map((t) => `<button type="button" class="tag on" data-act="tag" data-tag="${esc(t)}" aria-pressed="true" title="Kein Projekt in dieser Auswahl trägt diesen Tag">#${esc(t)} <span class="n">0</span></button>`).join('')}
+    <button type="button" class="tag tag-new" data-act="new-label" title="Neues Label anlegen — erscheint als eigener Abschnitt, auch ohne Projekt">+ Label</button>
     ${selected.length ? `<button type="button" class="linklike tag-reset" data-act="tags-reset">Auswahl aufheben${selected.length > 1 ? ' (alle gewählten Tags müssen passen)' : ''}</button>` : ''}
   </div>`;
 }
@@ -125,43 +125,50 @@ export function renderOverview(state, ui) {
       <select data-act="sort">${SORTS.map((o) => `<option value="${o.id}"${o.id === ui.sort ? ' selected' : ''}>${o.label}</option>`).join('')}</select>
     </label>
     <p class="summary muted">${aktiv.length} aktiv · ${queued} in der Leseliste${verzug ? ` · <span class="h-verzug">${verzug} im Verzug</span>` : ''}${msOver ? ` · ${msOver} Meilenstein${msOver === 1 ? '' : 'e'} überfällig` : ''}</p>
-  </div>${tagBar(byStatus, ui.tags)}`;
+  </div>${tagBar(byStatus, ui.tags, state.labels)}`;
 
-  if (!state.projects.length) {
+  if (!state.projects.length && !state.labels.length) {
     return `${head}<div class="empty">
       <h2>Noch keine Projekte</h2>
       <p class="muted">Ein Projekt besteht aus Meilensteinen, ein Meilenstein aus Aufgaben. Der Fortschritt ist der Anteil erledigter Aufgaben (gewichtet), das Soll ergibt sich aus Beginn und den Fälligkeitsdaten.</p>
       <button type="button" class="primary" data-act="new-project">+ Erstes Projekt anlegen</button>
     </div>`;
   }
-  if (!list.length) return `${head}<p class="muted empty-small">Keine Projekte in dieser Auswahl.</p>`;
-
   // „Abgeschlossen“: schlichtes Kartenraster wie bisher.
   if (filter.id === 'abgeschlossen') {
+    if (!list.length) return `${head}<p class="muted empty-small">Keine Projekte in dieser Auswahl.</p>`;
     return `${head}<div class="cards">${list.map((p) => projectCard(p, summarize(p, today), today, ui.tags)).join('')}</div>`;
   }
 
   // Sonst: ein Abschnitt je Label — oben die aktiven Projekte als Karten,
   // darunter die Leseliste in eigener Reihenfolge. Mit gewähltem Label (oder
   // mehreren, UND) genau ein Abschnitt.
+  // Angelegte Labels erscheinen als Abschnitt, auch wenn kein Projekt sie trägt.
   const groups = ui.tags.length
     ? [{ tag: ui.tags.join(' + '), projects: list, selected: true }]
-    : groupByTag(list);
-  return `${head}${groups.map((g) => labelSection(g, ui, today)).join('')}`;
+    : groupByTag(list, state.labels);
+  if (!groups.length) return `${head}<p class="muted empty-small">Keine Projekte in dieser Auswahl.</p>`;
+  const ctx = { state };
+  return `${head}${groups.map((g) => labelSection(g, ui, today, ctx)).join('')}`;
 }
 
-function labelSection(g, ui, today) {
+function labelSection(g, ui, today, ctx) {
   const key = g.tag == null ? '' : g.tag;
   const active = sortProjects(g.projects.filter(isActive), ui.sort, today);
   const closed = sortProjects(g.projects.filter((p) => CLOSED.includes(p.status)), ui.sort, today);
   const queue = g.projects.filter(isQueued).sort(byRank);
   const title = g.tag == null ? 'Ohne Label' : g.tag.split(' + ').map((t) => `#${esc(t)}`).join(' + ');
   const addTag = g.tag == null || g.selected ? '' : g.tag;
+  // Entfernen nur für ein angelegtes Label, das kein Projekt (in keinem Status) trägt.
+  const k = g.tag == null ? null : g.tag.toLocaleLowerCase('de');
+  const removable = k != null && ctx.state.labels.some((t) => t.toLocaleLowerCase('de') === k)
+    && !ctx.state.projects.some((p) => p.tags.some((t) => t.toLocaleLowerCase('de') === k));
   return `<section class="grp" data-group="${esc(key)}">
     <div class="grp-h">
       <h2>${title}</h2>
       <span class="muted">${active.length} aktiv · ${queue.length} in der Leseliste</span>
       <span class="grow"></span>
+      ${removable ? `<button type="button" class="small linklike q-del-label" data-act="del-label" data-tag="${esc(g.tag)}" title="Leeres Label entfernen">Label entfernen</button>` : ''}
       <button type="button" class="small" data-act="new-project"${addTag ? ` data-tag="${esc(addTag)}"` : ''} title="Neues Projekt${addTag ? ` mit #${esc(addTag)}` : ''} — landet unten in der Leseliste">+ Projekt</button>
     </div>
     ${active.length || closed.length
@@ -462,7 +469,7 @@ export function renderTimeline(state, ui) {
     <div class="segmented small" role="group" aria-label="Filter">
       ${FILTERS.map((f) => `<button type="button" data-act="filter" data-id="${f.id}" aria-pressed="${f.id === filter.id}">${f.label}</button>`).join('')}
     </div>
-  </div>${tagBar(byStatus, ui.tags)}`;
+  </div>${tagBar(byStatus, ui.tags, state.labels)}`;
 
   if (!dated.length) {
     return `${head}<p class="muted empty-small">${all.length ? 'Für die Zeitleiste braucht ein Projekt Beginn und Ziel.' : 'Keine Projekte in dieser Auswahl.'}</p>${undatedList(undated)}`;

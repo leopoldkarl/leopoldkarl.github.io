@@ -102,6 +102,26 @@
 </dialog>
 
 <!-- ------------------------------------------------------------------ -->
+<dialog id="label-dialog" aria-labelledby="ld-title">
+  <form method="dialog" id="label-form">
+    <div class="dlg-head"><h2 id="ld-title">Neues Label</h2></div>
+    <div class="dlg-body">
+      <div class="field">
+        <label for="ld-name">Name</label>
+        <input id="ld-name" type="text" autocomplete="off" maxlength="40" placeholder="z. B. Vortrag" />
+      </div>
+      <p class="hint">Das Label erscheint als eigener Abschnitt, auch solange noch kein Projekt es trägt.</p>
+      <p id="ld-msg" class="err" role="alert"></p>
+    </div>
+    <div class="dlg-foot">
+      <span class="grow"></span>
+      <button type="button" id="ld-cancel">Abbrechen</button>
+      <button type="submit" id="ld-save" class="primary">Anlegen</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ------------------------------------------------------------------ -->
 <dialog id="milestone-dialog" aria-labelledby="md-title">
   <form method="dialog" id="milestone-form">
     <div class="dlg-head"><h2 id="md-title">Meilenstein</h2></div>

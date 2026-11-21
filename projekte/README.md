@@ -90,6 +90,17 @@ abgeschlossenen), darunter die **Leseliste**: alle Projekte mit Status
   „Pausiert“ gesetzt, wenn schon etwas erledigt ist, sonst „Geplant“.
 - Im Dialog: Status „Aktiv“ ohne Beginn → Beginn heute.
 
+### Angelegte Labels
+
+Labels gibt es normalerweise nur als Eigenschaft von Projekten. Über
+„+ Label“ in der Tag-Leiste lässt sich ein Label zusätzlich **anlegen**
+(`state.labels`, mit abgeglichen): es erscheint dann als eigener Abschnitt
+und mit Häufigkeit 0 in der Tag-Leiste, auch solange kein Projekt es trägt,
+und bleibt bestehen, wenn sein letztes Projekt es verliert. Ein angelegtes
+Label, das kein Projekt (in keinem Status) trägt, lässt sich im
+Abschnittskopf über „Label entfernen“ löschen (Strg+Z). Vergleich ohne
+Groß-/Kleinschreibung; höchstens 100 angelegte Labels.
+
 ## Abschluss
 
 Der Status wird nie von selbst umgestellt. Erreicht ein laufendes Projekt
@@ -161,7 +172,7 @@ Primärschlüssel.
 
 ## Tests
 
-Nicht Teil des Repos. Stand 17.11.2026 (Umbau Leseliste, Testumgebung neu aufgesetzt): 7 Modelltests (Rang-Migration, Verschieben samt Neunummerierung, Starten mit Verschiebung, Gruppen je Label, Prognose) und 31 Browserprüfungen (Abschnitte, Leseliste, Ziehen mit Maus und Touch, ↑/↓ samt Fokus, Strg+Z, Neuladen, neues Projekt unten, Starten/Fortsetzen, zurück in die Leseliste, Label-Filter, Filter Alle/Abgeschlossen, 375 px dunkel). Davor: 14 Modelltests (Datumseingabe, Normalisierung, Tags, Abschluss,
+Nicht Teil des Repos. Stand 21.11.2026: 8 Modelltests (zusätzlich angelegte Labels) (Rang-Migration, Verschieben samt Neunummerierung, Starten mit Verschiebung, Gruppen je Label, Prognose) und 31 Browserprüfungen (Abschnitte, Leseliste, Ziehen mit Maus und Touch, ↑/↓ samt Fokus, Strg+Z, Neuladen, neues Projekt unten, Starten/Fortsetzen, zurück in die Leseliste, Label-Filter, Filter Alle/Abgeschlossen, 375 px dunkel; seit 21.11. zusätzlich angelegte Labels: Abschnitt, Duplikat, Neuladen, Vorbelegung, Bestand ohne Projekt, Entfernen + Strg+Z — insgesamt 42). Davor: 14 Modelltests (Datumseingabe, Normalisierung, Tags, Abschluss,
 Gewichtung, Soll-Kurve samt Umkehrung, Abstand, Ampel, Ist-Verlauf,
 Prognose samt Fenster, Sortierung), 21 Worker-Prüfungen (Namensraum getrennt vom
 Kalender, 409, unbekannte Namensräume und Pfadvarianten → 404, und der

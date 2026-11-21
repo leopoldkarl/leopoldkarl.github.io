@@ -3,7 +3,7 @@
 import {
   STATUS_LABEL, COLORS, WEIGHTS, newProject, newMilestone, newTask, parseDateInput,
   formatDate, todayIso, normalizeState, milestoneComplete,
-  parseTagInput, allTags, cleanTag, CLOSED, offerClose, summarize,
+  parseTagInput, allTags, cleanTag, normalizeLabels, CLOSED, offerClose, summarize,
   activate, moveInList, bottomRank, topRank, isActive, isQueued, projectProgress,
 } from './model.js';
 import { Store, findProject, findMilestone, findTask, touch } from './store.js';
@@ -188,7 +188,16 @@ function onMainClick(e) {
       toast(`„${p.title}“ steht jetzt oben in der Leseliste. Strg+Z macht es rückgängig.`);
       break;
     }
-    case 'drag': break;   // Klick ohne Ziehen: nichts (Ziehen/Pfeiltasten siehe unten)
+    case 'drag': break;
+    case 'new-label': openLabelDialog(); break;
+    case 'del-label': {
+      const t = btn.dataset.tag;
+      const k = t.toLocaleLowerCase('de');
+      store.commit((s) => { s.labels = s.labels.filter((x) => x.toLocaleLowerCase('de') !== k); }, 'Label entfernt');
+      if (ui.tags.some((x) => x.toLocaleLowerCase('de') === k)) { ui.tags = []; saveUi(); render(); }
+      toast(`Label #${t} entfernt. Strg+Z macht es rückgängig.`);
+      break;
+    }   // Klick ohne Ziehen: nichts (Ziehen/Pfeiltasten siehe unten)
     case 'edit-project': openProjectDialog(pid); break;
     case 'new-milestone': openMilestoneDialog(pid, null); break;
     case 'edit-ms': openMilestoneDialog(pid, mid); break;
@@ -457,7 +466,7 @@ function openProjectDialog(pid, { tag } = {}) {
 /** Vorhandene Tags zum Anklicken unter dem Eingabefeld; bereits gesetzte ausgeblendet. */
 function renderTagSuggestions() {
   const have = new Set(parseTagInput($('#pd-tags').value).map((t) => t.toLocaleLowerCase('de')));
-  const rest = allTags(store.state.projects).filter(({ tag }) => !have.has(tag.toLocaleLowerCase('de')));
+  const rest = allTags(store.state.projects, store.state.labels).filter(({ tag }) => !have.has(tag.toLocaleLowerCase('de')));
   const box = $('#pd-tag-suggest');
   box.hidden = !rest.length;
   box.innerHTML = rest.length
@@ -470,6 +479,32 @@ function addSuggestedTag(tag) {
   $('#pd-tags').value = [...cur, tag].join(', ');
   renderTagSuggestions();
   $('#pd-tags').focus();
+}
+
+/* ---- Label-Dialog ---- */
+
+function openLabelDialog() {
+  $('#ld-name').value = '';
+  $('#ld-msg').textContent = '';
+  $('#label-dialog').showModal();
+  $('#ld-name').focus();
+}
+
+function saveLabelDialog() {
+  const t = cleanTag($('#ld-name').value);
+  if (!t) { $('#ld-msg').textContent = 'Name fehlt.'; return false; }
+  const k = t.toLocaleLowerCase('de');
+  const exists = allTags(store.state.projects, store.state.labels).find((x) => x.tag.toLocaleLowerCase('de') === k);
+  if (exists && store.state.labels.some((x) => x.toLocaleLowerCase('de') === k)) {
+    $('#ld-msg').textContent = `#${exists.tag} gibt es schon.`;
+    return false;
+  }
+  // Auch ein Label, das schon an Projekten hängt, wird festgehalten: dann
+  // bleibt es bestehen, wenn sein letztes Projekt es verliert.
+  const name = exists ? exists.tag : t;
+  store.commit((s) => { s.labels = normalizeLabels([...s.labels, name]); }, 'Label angelegt');
+  toast(`Label #${name} angelegt.`);
+  return true;
 }
 
 function saveProjectDialog() {
@@ -862,6 +897,11 @@ function init() {
     if (saveMilestoneDialog()) $('#milestone-dialog').close();
   });
   $('#md-cancel').addEventListener('click', () => $('#milestone-dialog').close());
+  $('#label-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (saveLabelDialog()) $('#label-dialog').close();
+  });
+  $('#ld-cancel').addEventListener('click', () => $('#label-dialog').close());
   $('#md-delete').addEventListener('click', deleteMilestoneFromDialog);
 
   $('#btn-sync-badge').addEventListener('click', openSyncDialog);
